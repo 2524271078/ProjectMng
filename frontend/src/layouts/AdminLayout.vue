@@ -11,6 +11,7 @@
       <el-menu router :default-active="$route.path" class="side-menu">
         <el-menu-item index="/dashboard">工作台</el-menu-item>
         <el-menu-item index="/customers">客户中心</el-menu-item>
+        <el-menu-item index="/devices">设备中心</el-menu-item>
       </el-menu>
     </aside>
     <main class="main-panel">
