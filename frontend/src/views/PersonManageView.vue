@@ -30,8 +30,8 @@
             <el-option label="厂商联系人" value="vendor_contact" />
           </el-select>
         </el-form-item>
-        <el-form-item label="组织 ID">
-          <el-input-number v-model="form.organization" :min="1" placeholder="可不填" />
+        <el-form-item label="所属组织">
+          <OrganizationTreeSelect v-model="form.organization" placeholder="请选择所属公司，可不选" />
         </el-form-item>
         <el-form-item label="职位">
           <el-input v-model="form.position" />
@@ -54,6 +54,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import { createResource, listResource } from '../api/resources'
 
 const people = ref([])
