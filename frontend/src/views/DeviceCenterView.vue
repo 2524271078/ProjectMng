@@ -1,24 +1,34 @@
 <template>
   <div>
-    <div class="section-head"><div><span class="eyebrow-dark">Device Center</span><h2>设备资产</h2></div><el-button type="primary" @click="dialogVisible = true">新增设备</el-button></div>
-    <el-table :data="devices" stripe @row-click="openDetail">
-      <el-table-column prop="name" label="设备名称" min-width="180" />
-      <el-table-column prop="serial_number" label="序列号" min-width="160" />
-      <el-table-column prop="software_version" label="软件版本" />
-      <el-table-column prop="rule_library_version" label="规则库版本" />
+    <div class="section-head">
+      <div><span class="eyebrow-dark">Project Center</span><h2>项目中心</h2></div>
+      <el-button type="primary" @click="openCreateDialog">新增项目</el-button>
+    </div>
+    <el-table :data="projects" stripe @row-click="openDetail">
+      <el-table-column prop="project_no" label="项目编号" min-width="150" />
+      <el-table-column prop="name" label="项目名称" min-width="220" />
+      <el-table-column prop="project_stage" label="阶段" />
+      <el-table-column prop="amount" label="金额" />
       <el-table-column prop="status" label="状态" />
     </el-table>
-    <el-dialog v-model="dialogVisible" title="新增设备" width="560px">
-      <el-form :model="form" label-width="120px"><el-form-item label="设备名称"><el-input v-model="form.name" /></el-form-item><el-form-item label="序列号"><el-input v-model="form.serial_number" /></el-form-item><el-form-item label="设备型号 ID"><el-input-number v-model="form.device_model" :min="1" /></el-form-item><el-form-item label="客户组织 ID"><el-input-number v-model="form.customer_org" :min="1" /></el-form-item><el-form-item label="销售人员 ID"><el-input-number v-model="form.sales_person" :min="1" /></el-form-item></el-form>
-      <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" @click="createDevice">保存</el-button></template>
+
+    <el-dialog v-model="dialogVisible" title="新增项目" width="620px">
+      <el-form :model="form" label-width="110px">
+        <el-form-item label="项目编号"><el-input v-model="form.project_no" /></el-form-item>
+        <el-form-item label="项目名称"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="客户"><OrganizationTreeSelect v-model="form.customer_org" placeholder="请选择客户" /></el-form-item>
+        <el-form-item label="销售人员"><el-select v-model="form.sales_person" clearable filterable><el-option v-for="person in salesPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item>
+        <el-form-item label="项目阶段"><el-select v-model="form.project_stage"><el-option label="立项" value="new" /><el-option label="签约" value="signed" /><el-option label="交付" value="delivery" /><el-option label="运维" value="ops" /></el-select></el-form-item>
+        <el-form-item label="项目金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="createProject">保存</el-button></template>
     </el-dialog>
-    <el-drawer v-model="drawerVisible" size="52%" title="设备详情">
+
+    <el-drawer v-model="drawerVisible" size="58%" title="项目详情">
       <el-tabs v-if="overview" model-value="base">
-        <el-tab-pane label="基础信息" name="base"><el-descriptions :column="2" border><el-descriptions-item label="名称">{{ overview.device.name }}</el-descriptions-item><el-descriptions-item label="序列号">{{ overview.device.serial_number }}</el-descriptions-item><el-descriptions-item label="硬件编码">{{ overview.device.hardware_code || '-' }}</el-descriptions-item><el-descriptions-item label="状态">{{ overview.device.status }}</el-descriptions-item></el-descriptions></el-tab-pane>
-        <el-tab-pane label="授权信息" name="license"><pre class="json-box">{{ overview.device.license_info }}</pre></el-tab-pane>
-        <el-tab-pane label="合同信息" name="contracts"><el-table :data="overview.contracts"><el-table-column prop="contract_no" label="合同编号" /><el-table-column prop="contract_name" label="合同名称" /><el-table-column prop="amount" label="金额" /></el-table></el-tab-pane>
-        <el-tab-pane label="客户信息" name="customer"><el-descriptions v-if="overview.customer" border><el-descriptions-item label="客户">{{ overview.customer.name }}</el-descriptions-item><el-descriptions-item label="销售">{{ overview.sales_person?.name || '-' }}</el-descriptions-item><el-descriptions-item label="运维">{{ overview.ops_person?.name || '-' }}</el-descriptions-item></el-descriptions></el-tab-pane>
-        <el-tab-pane label="图片附件" name="attachments"><el-upload drag action="#" :auto-upload="false"><el-icon><UploadFilled /></el-icon><div>拖拽图片到此处，后续接入附件上传 API</div></el-upload><el-table :data="overview.attachments"><el-table-column prop="name" label="附件名" /></el-table></el-tab-pane>
+        <el-tab-pane label="基础信息" name="base"><el-descriptions :column="2" border><el-descriptions-item label="项目编号">{{ overview.project.project_no }}</el-descriptions-item><el-descriptions-item label="项目名称">{{ overview.project.name }}</el-descriptions-item><el-descriptions-item label="客户">{{ overview.customer?.name || '-' }}</el-descriptions-item><el-descriptions-item label="销售">{{ overview.sales_person?.name || '-' }}</el-descriptions-item><el-descriptions-item label="阶段">{{ overview.project.project_stage }}</el-descriptions-item><el-descriptions-item label="金额">{{ overview.project.amount }}</el-descriptions-item></el-descriptions></el-tab-pane>
+        <el-tab-pane label="项目设备" name="devices"><div class="action-row"><el-select v-model="deviceBinding.device" placeholder="选择设备" filterable><el-option v-for="device in devices" :key="device.id" :label="`${device.name} / ${device.serial_number}`" :value="device.id" /></el-select><el-input v-model="deviceBinding.deploy_location" placeholder="部署位置" /><el-button type="primary" @click="bindDevice">绑定设备</el-button></div><el-table :data="overview.devices"><el-table-column prop="name" label="设备" /><el-table-column prop="serial_number" label="序列号" /><el-table-column prop="quantity" label="数量" /><el-table-column prop="deploy_location" label="部署位置" /></el-table></el-tab-pane>
+        <el-tab-pane label="合同和附件" name="attachments"><el-upload drag action="#" :auto-upload="false"><el-icon><UploadFilled /></el-icon><div>可上传合同、验收单、设备截图，后续接入附件上传 API</div></el-upload><el-table :data="overview.attachments"><el-table-column prop="name" label="附件名" /></el-table></el-tab-pane>
       </el-tabs>
     </el-drawer>
   </div>
@@ -27,15 +37,23 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
-import { createResource, fetchDeviceOverview, listResource } from '../api/resources'
+import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
+import { createResource, fetchProjectOverview, listResource } from '../api/resources'
 
+const projects = ref([])
 const devices = ref([])
+const salesPeople = ref([])
 const overview = ref(null)
 const dialogVisible = ref(false)
 const drawerVisible = ref(false)
-const form = reactive({ name: '', serial_number: '', device_model: 1, customer_org: undefined, sales_person: undefined })
-async function loadDevices() { const { data } = await listResource('devices'); devices.value = data.results || data }
-async function createDevice() { await createResource('devices', form); dialogVisible.value = false; await loadDevices() }
-async function openDetail(row) { const { data } = await fetchDeviceOverview(row.id); overview.value = data; drawerVisible.value = true }
-onMounted(loadDevices)
+const activeProjectId = ref(null)
+const form = reactive({ project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 })
+const deviceBinding = reactive({ device: null, deploy_location: '' })
+async function loadProjects() { const { data } = await listResource('projects'); projects.value = data.results || data }
+async function loadOptions() { devices.value = (await listResource('devices')).data; salesPeople.value = ((await listResource('people')).data).filter((p) => p.person_type === 'sales') }
+function openCreateDialog() { Object.assign(form, { project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 }); dialogVisible.value = true }
+async function createProject() { await createResource('projects', form); dialogVisible.value = false; await loadProjects() }
+async function openDetail(row) { activeProjectId.value = row.id; const { data } = await fetchProjectOverview(row.id); overview.value = data; drawerVisible.value = true }
+async function bindDevice() { await createResource('project-devices', { project: activeProjectId.value, device: deviceBinding.device, quantity: 1, deploy_location: deviceBinding.deploy_location }); Object.assign(deviceBinding, { device: null, deploy_location: '' }); await openDetail({ id: activeProjectId.value }) }
+onMounted(async () => { await Promise.all([loadProjects(), loadOptions()]) })
 </script>

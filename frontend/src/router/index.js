@@ -19,7 +19,7 @@ const routes = [
     redirect: '/dashboard',
     children: [{ path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
       { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心' } },
-      { path: 'devices', component: DeviceCenterView, meta: { title: '设备中心' } },
+      { path: 'devices', component: DeviceCenterView, meta: { title: '项目中心' } },
       { path: 'sales', component: SalesCenterView, meta: { title: '销售中心' } },
       { path: 'contracts', component: ContractCenterView, meta: { title: '合同中心' } },
       { path: 'products', component: ProductModelView, meta: { title: '产品型号管理' } },

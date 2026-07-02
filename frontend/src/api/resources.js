@@ -41,3 +41,8 @@ export function fetchSalesCustomerRelations(id) {
 export function saveSalesCustomerRelations(id, customerIds) {
   return apiClient.post(`/sales/${id}/customer-relations/`, { customer_ids: customerIds })
 }
+
+
+export function fetchProjectOverview(id) {
+  return apiClient.get(`/projects/${id}/overview/`)
+}
