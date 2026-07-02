@@ -54,7 +54,17 @@ class SalesCustomerRelation(BaseModel):
         ]
 
 
+class ProductLine(BaseModel):
+    name = models.CharField(max_length=200, db_index=True)
+    code = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default="")
+
+    def __str__(self):
+        return self.name
+
+
 class Product(BaseModel):
+    product_line = models.ForeignKey(ProductLine, null=True, blank=True, related_name="products", on_delete=models.SET_NULL)
     name = models.CharField(max_length=200, db_index=True)
     product_code = models.CharField(max_length=100, unique=True)
     category = models.CharField(max_length=100, blank=True, default="")
@@ -65,8 +75,29 @@ class Product(BaseModel):
         return self.name
 
 
+class ProductVersion(BaseModel):
+    product = models.ForeignKey(Product, related_name="versions", on_delete=models.CASCADE)
+    version_name = models.CharField(max_length=100, db_index=True)
+    version_code = models.CharField(max_length=100)
+    release_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True, default="")
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "version_code"],
+                condition=models.Q(is_deleted=False),
+                name="uniq_active_product_version",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} {self.version_name}"
+
+
 class DeviceModel(BaseModel):
     product = models.ForeignKey(Product, related_name="device_models", on_delete=models.PROTECT)
+    product_version = models.ForeignKey(ProductVersion, null=True, blank=True, related_name="device_models", on_delete=models.SET_NULL)
     model_name = models.CharField(max_length=200, db_index=True)
     model_code = models.CharField(max_length=100, unique=True)
     manufacturer = models.ForeignKey(Organization, null=True, blank=True, related_name="device_models", on_delete=models.SET_NULL)
@@ -97,6 +128,41 @@ class Device(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class Project(BaseModel):
+    project_no = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=200, db_index=True)
+    customer_org = models.ForeignKey(Organization, null=True, blank=True, related_name="projects", on_delete=models.SET_NULL)
+    sales_person = models.ForeignKey(Person, null=True, blank=True, related_name="sales_projects", on_delete=models.SET_NULL)
+    ops_person = models.ForeignKey(Person, null=True, blank=True, related_name="ops_projects", on_delete=models.SET_NULL)
+    project_stage = models.CharField(max_length=64, blank=True, default="new", db_index=True)
+    sign_date = models.DateField(null=True, blank=True)
+    delivery_date = models.DateField(null=True, blank=True)
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    class Meta(BaseModel.Meta):
+        indexes = [models.Index(fields=["customer_org", "sales_person", "project_stage", "status"])]
+
+    def __str__(self):
+        return self.name
+
+
+class ProjectDevice(BaseModel):
+    project = models.ForeignKey(Project, related_name="project_devices", on_delete=models.CASCADE)
+    device = models.ForeignKey(Device, related_name="project_devices", on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(default=1)
+    deploy_location = models.CharField(max_length=200, blank=True, default="")
+    usage = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "device"],
+                condition=models.Q(is_deleted=False),
+                name="uniq_active_project_device",
+            )
+        ]
 
 
 class Contract(BaseModel):

@@ -156,3 +156,69 @@ class SoftDeleteApiTests(APITestCase):
         list_response = self.client.get("/api/organizations/")
         names = [item["name"] for item in list_response.data]
         self.assertNotIn("待删除客户", names)
+
+
+class ProductProjectModelTests(TestCase):
+    def test_product_line_version_model_and_project_device_flow(self):
+        from decimal import Decimal
+        from projects.models import Project, ProjectDevice, ProductLine, ProductVersion
+
+        customer = Organization.objects.create(name="项目客户", org_type="customer")
+        internal = Organization.objects.create(name="内部公司", org_type="internal_company")
+        sales = Person.objects.create(name="项目销售", organization=internal, person_type="sales")
+        ops = Person.objects.create(name="项目运维", organization=internal, person_type="ops")
+        vendor = Organization.objects.create(name="产品厂商", org_type="vendor")
+
+        line = ProductLine.objects.create(name="边界安全产线", code="EDGE")
+        product = Product.objects.create(name="下一代防火墙", product_code="NGFW", product_line=line, manufacturer=vendor)
+        version = ProductVersion.objects.create(product=product, version_name="V5.0", version_code="5.0")
+        model = DeviceModel.objects.create(product=product, product_version=version, model_name="SG-3000", model_code="SG3000", manufacturer=vendor)
+        device = Device.objects.create(name="项目防火墙", serial_number="P-SN-001", device_model=model)
+        project = Project.objects.create(
+            project_no="PRJ-2026-001",
+            name="国网安全建设项目",
+            customer_org=customer,
+            sales_person=sales,
+            ops_person=ops,
+            project_stage="delivery",
+            amount=Decimal("120000.00"),
+        )
+        binding = ProjectDevice.objects.create(project=project, device=device, quantity=2, deploy_location="主机房")
+        Attachment.objects.create(name="合同扫描件", object_type="project", object_id=project.id)
+
+        self.assertEqual(product.product_line, line)
+        self.assertEqual(model.product_version, version)
+        self.assertEqual(binding.project.customer_org, customer)
+        self.assertEqual(project.project_devices.count(), 1)
+        self.assertEqual(Attachment.objects.filter(object_type="project", object_id=project.id).count(), 1)
+
+
+class ProjectApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username="project-api", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_project_crud_and_overview_api(self):
+        from projects.models import ProductLine, ProductVersion
+
+        customer = Organization.objects.create(name="API 客户", org_type="customer")
+        sales = Person.objects.create(name="API 销售", person_type="sales")
+        line = ProductLine.objects.create(name="数据安全产线", code="DATA")
+        product = Product.objects.create(name="数据库审计", product_code="DBA", product_line=line)
+        version = ProductVersion.objects.create(product=product, version_name="V3.2", version_code="3.2")
+        model = DeviceModel.objects.create(product=product, product_version=version, model_name="DA-2000", model_code="DA2000")
+        device = Device.objects.create(name="审计设备", serial_number="API-SN-001", device_model=model)
+
+        response = self.client.post("/api/projects/", {"project_no": "API-PRJ-001", "name": "API 项目", "customer_org": customer.id, "sales_person": sales.id}, format="json")
+        self.assertEqual(response.status_code, 201)
+        project_id = response.data["id"]
+
+        bind_response = self.client.post("/api/project-devices/", {"project": project_id, "device": device.id, "quantity": 1}, format="json")
+        self.assertEqual(bind_response.status_code, 201)
+
+        overview = self.client.get(f"/api/projects/{project_id}/overview/")
+        self.assertEqual(overview.status_code, 200)
+        self.assertEqual(overview.data["project"]["name"], "API 项目")
+        self.assertEqual(overview.data["customer"]["name"], "API 客户")
+        self.assertEqual(overview.data["devices"][0]["serial_number"], "API-SN-001")

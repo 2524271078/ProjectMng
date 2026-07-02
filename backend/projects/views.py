@@ -2,8 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, SalesCustomerRelation
-from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, SalesCustomerRelationSerializer
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectDevice, SalesCustomerRelation
+from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
@@ -40,19 +40,39 @@ class SalesCustomerRelationViewSet(SoftDeleteModelViewSet):
     serializer_class = SalesCustomerRelationSerializer
 
 
+class ProductLineViewSet(SoftDeleteModelViewSet):
+    queryset = ProductLine.objects.all().order_by("id")
+    serializer_class = ProductLineSerializer
+
+
 class ProductViewSet(SoftDeleteModelViewSet):
-    queryset = Product.objects.select_related("manufacturer").all()
+    queryset = Product.objects.select_related("product_line", "manufacturer").all().order_by("id")
     serializer_class = ProductSerializer
 
 
+class ProductVersionViewSet(SoftDeleteModelViewSet):
+    queryset = ProductVersion.objects.select_related("product").all().order_by("id")
+    serializer_class = ProductVersionSerializer
+
+
 class DeviceModelViewSet(SoftDeleteModelViewSet):
-    queryset = DeviceModel.objects.select_related("product", "manufacturer").all()
+    queryset = DeviceModel.objects.select_related("product", "product_version", "manufacturer").all().order_by("id")
     serializer_class = DeviceModelSerializer
 
 
 class DeviceViewSet(SoftDeleteModelViewSet):
     queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").all()
     serializer_class = DeviceSerializer
+
+
+class ProjectViewSet(SoftDeleteModelViewSet):
+    queryset = Project.objects.select_related("customer_org", "sales_person", "ops_person").all().order_by("id")
+    serializer_class = ProjectSerializer
+
+
+class ProjectDeviceViewSet(SoftDeleteModelViewSet):
+    queryset = ProjectDevice.objects.select_related("project", "device").all().order_by("id")
+    serializer_class = ProjectDeviceSerializer
 
 
 class ContractViewSet(SoftDeleteModelViewSet):
@@ -156,6 +176,20 @@ def device_overview(request, pk):
         "ops_person": person_summary(device.ops_person),
         "contracts": [contract_summary(contract) for contract in contracts],
         "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="device", object_id=device.id), many=True).data,
+    })
+
+
+@api_view(["GET"])
+def project_overview(request, pk):
+    project = Project.objects.select_related("customer_org", "sales_person", "ops_person").get(pk=pk)
+    bindings = project.project_devices.select_related("device", "device__device_model").all()
+    return Response({
+        "project": ProjectSerializer(project).data,
+        "customer": organization_summary(project.customer_org) if project.customer_org else None,
+        "sales_person": person_summary(project.sales_person),
+        "ops_person": person_summary(project.ops_person),
+        "devices": [{**device_summary(binding.device), "quantity": binding.quantity, "deploy_location": binding.deploy_location, "usage": binding.usage} for binding in bindings],
+        "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="project", object_id=project.id), many=True).data,
     })
 
 

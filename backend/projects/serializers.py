@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, SalesCustomerRelation
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectDevice, SalesCustomerRelation
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -21,9 +21,21 @@ class SalesCustomerRelationSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class ProductLineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductLine
+        fields = "__all__"
+
+
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
+        fields = "__all__"
+
+
+class ProductVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductVersion
         fields = "__all__"
 
 
@@ -36,6 +48,18 @@ class DeviceModelSerializer(serializers.ModelSerializer):
 class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
+        fields = "__all__"
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = "__all__"
+
+
+class ProjectDeviceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectDevice
         fields = "__all__"
 
 
