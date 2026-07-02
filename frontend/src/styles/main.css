@@ -35,3 +35,11 @@ body { margin: 0; min-width: 320px; }
   .admin-shell { grid-template-columns: 1fr; }
   .sidebar { position: static; }
 }
+
+.split-page { display: grid; grid-template-columns: 300px 1fr; gap: 18px; }
+.tree-panel, .detail-panel { border: 1px solid #e3ebf0; border-radius: 18px; padding: 18px; background: #fbfdfe; }
+.panel-title { font-weight: 800; margin-bottom: 14px; }
+.section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.section-head h2 { margin: 8px 0 0; }
+.eyebrow-dark { color: #1e8a83; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+@media (max-width: 900px) { .split-page { grid-template-columns: 1fr; } }

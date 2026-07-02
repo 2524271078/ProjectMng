@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import AdminLayout from '../layouts/AdminLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import CustomerCenterView from '../views/CustomerCenterView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -10,7 +11,8 @@ const routes = [
     path: '/',
     component: AdminLayout,
     redirect: '/dashboard',
-    children: [{ path: 'dashboard', component: DashboardView, meta: { title: '工作台' } }],
+    children: [{ path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
+      { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心' } }],
   },
 ]
 
