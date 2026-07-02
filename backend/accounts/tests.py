@@ -62,6 +62,17 @@ class BusinessApiTests(APITestCase):
         self.assertEqual(response.data[0]["devices"][0]["serial_number"], "SN-A")
         self.assertEqual(response.data[0]["contracts"][0]["contract_no"], "C-A")
 
+
+
+    def test_set_sales_customers_creates_relations_visible_in_customer_overview(self):
+        customer = Organization.objects.create(name="客户 B", org_type="customer")
+        response = self.client.post(f"/api/sales/{self.sales.id}/customer-relations/", {"customer_ids": [customer.id]}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["customer_ids"], [customer.id])
+        overview = self.client.get(f"/api/customers/{customer.id}/overview/")
+        self.assertEqual(overview.data["sales"][0]["name"], "销售 A")
+
     def test_customer_device_and_contract_overviews(self):
         customer = self.client.get(f"/api/customers/{self.customer.id}/overview/")
         device = self.client.get(f"/api/devices/{self.device.id}/overview/")

@@ -8,6 +8,9 @@
     clearable
     filterable
     :placeholder="placeholder"
+    :multiple="multiple"
+    collapse-tags
+    collapse-tags-tooltip
     @update:model-value="$emit('update:modelValue', $event)"
   />
 </template>
@@ -20,6 +23,7 @@ import { buildOrganizationTree } from '../utils/orgTree'
 const props = defineProps({
   modelValue: { type: [Number, null], default: null },
   placeholder: { type: String, default: '请选择组织' },
+  multiple: { type: Boolean, default: false },
 })
 
 defineEmits(['update:modelValue'])

@@ -35,6 +35,9 @@
           </el-select>
         </el-form-item>
         <el-form-item label="所属组织"><OrganizationTreeSelect v-model="form.organization" placeholder="请选择所属公司，可不选" /></el-form-item>
+        <el-form-item v-if="form.person_type === 'sales'" label="负责客户">
+          <OrganizationTreeSelect v-model="customerIds" multiple placeholder="请选择该销售负责的客户公司" />
+        </el-form-item>
         <el-form-item label="职位"><el-input v-model="form.position" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="form.phone" /></el-form-item>
         <el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item>
@@ -52,12 +55,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, deleteResource, listResource, updateResource } from '../api/resources'
+import { createResource, deleteResource, fetchSalesCustomerRelations, listResource, saveSalesCustomerRelations, updateResource } from '../api/resources'
 
 const people = ref([])
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
+const customerIds = ref([])
 const form = reactive({ name: '', person_type: 'sales', organization: null, position: '', phone: '', email: '', wechat: '' })
 
 async function loadPeople() {
@@ -72,10 +76,11 @@ function resetForm() {
 function openCreateDialog() {
   editingId.value = null
   resetForm()
+  customerIds.value = []
   dialogVisible.value = true
 }
 
-function openEditDialog(row) {
+async function openEditDialog(row) {
   editingId.value = row.id
   Object.assign(form, {
     name: row.name || '',
@@ -86,6 +91,12 @@ function openEditDialog(row) {
     email: row.email || '',
     wechat: row.wechat || '',
   })
+  if (row.person_type === 'sales') {
+    const { data } = await fetchSalesCustomerRelations(row.id)
+    customerIds.value = data.customer_ids || []
+  } else {
+    customerIds.value = []
+  }
   dialogVisible.value = true
 }
 
@@ -108,15 +119,21 @@ async function savePerson() {
   }
   saving.value = true
   try {
+    let personId = editingId.value
     if (editingId.value) {
       await updateResource('people', editingId.value, buildPayload())
     } else {
-      await createResource('people', buildPayload())
+      const { data } = await createResource('people', buildPayload())
+      personId = data.id
+    }
+    if (form.person_type === 'sales') {
+      await saveSalesCustomerRelations(personId, customerIds.value)
     }
     ElMessage.success(editingId.value ? '人员已更新' : '人员已新增')
     dialogVisible.value = false
     resetForm()
     editingId.value = null
+    customerIds.value = []
     await loadPeople()
   } catch (error) {
     ElMessage.error(formatApiError(error))

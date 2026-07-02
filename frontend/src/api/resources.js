@@ -32,3 +32,12 @@ export function updateResource(resource, id, payload) {
 export function deleteResource(resource, id) {
   return apiClient.delete(`/${resource}/${id}/`)
 }
+
+
+export function fetchSalesCustomerRelations(id) {
+  return apiClient.get(`/sales/${id}/customer-relations/`)
+}
+
+export function saveSalesCustomerRelations(id, customerIds) {
+  return apiClient.post(`/sales/${id}/customer-relations/`, { customer_ids: customerIds })
+}

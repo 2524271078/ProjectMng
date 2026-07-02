@@ -113,6 +113,25 @@ def sales_customers(request, pk):
     return Response(payload)
 
 
+@api_view(["GET", "POST"])
+def sales_customer_relations(request, pk):
+    sales = Person.objects.get(pk=pk)
+    if request.method == "GET":
+        relations = SalesCustomerRelation.objects.filter(sales_person=sales).select_related("customer_org")
+        return Response({"customer_ids": [relation.customer_org_id for relation in relations], "customers": [organization_summary(relation.customer_org) for relation in relations]})
+
+    customer_ids = request.data.get("customer_ids", [])
+    SalesCustomerRelation.objects.filter(sales_person=sales).update(is_deleted=True)
+    for customer_id in customer_ids:
+        relation, _ = SalesCustomerRelation.all_objects.update_or_create(
+            sales_person=sales,
+            customer_org_id=customer_id,
+            relation_type="owner",
+            defaults={"is_deleted": False, "status": "active"},
+        )
+    return Response({"sales_id": sales.id, "customer_ids": customer_ids})
+
+
 @api_view(["GET"])
 def customer_overview(request, pk):
     customer = Organization.objects.get(pk=pk)

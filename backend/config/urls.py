@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import MenuViewSet, PermissionViewSet, RoleViewSet, UserRoleViewSet, UserViewSet, current_user_view, login_view
-from projects.views import AttachmentViewSet, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceViewSet, OrganizationViewSet, PersonViewSet, ProductViewSet, SalesCustomerRelationViewSet, contract_overview, customer_overview, device_overview, sales_customers
+from projects.views import AttachmentViewSet, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceViewSet, OrganizationViewSet, PersonViewSet, ProductViewSet, SalesCustomerRelationViewSet, contract_overview, customer_overview, device_overview, sales_customer_relations, sales_customers
 
 router = DefaultRouter()
 router.register("users", UserViewSet)
@@ -41,6 +41,7 @@ urlpatterns = [
     path("api/auth/login/", login_view),
     path("api/auth/me/", current_user_view),
     path("api/sales/<int:pk>/customers/", sales_customers),
+    path("api/sales/<int:pk>/customer-relations/", sales_customer_relations),
     path("api/customers/<int:pk>/overview/", customer_overview),
     path("api/devices/<int:pk>/overview/", device_overview),
     path("api/contracts/<int:pk>/overview/", contract_overview),
