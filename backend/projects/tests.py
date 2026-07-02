@@ -204,13 +204,14 @@ class ProjectApiTests(APITestCase):
 
         customer = Organization.objects.create(name="API 客户", org_type="customer")
         sales = Person.objects.create(name="API 销售", person_type="sales")
+        contact = Person.objects.create(name="API 客户联系人", organization=customer, person_type="customer_contact", position="项目经理")
         line = ProductLine.objects.create(name="数据安全产线", code="DATA")
         product = Product.objects.create(name="数据库审计", product_code="DBA", product_line=line)
         version = ProductVersion.objects.create(product=product, version_name="V3.2", version_code="3.2")
         model = DeviceModel.objects.create(product=product, product_version=version, model_name="DA-2000", model_code="DA2000")
         device = Device.objects.create(name="审计设备", serial_number="API-SN-001", device_model=model)
 
-        response = self.client.post("/api/projects/", {"project_no": "API-PRJ-001", "name": "API 项目", "customer_org": customer.id, "sales_person": sales.id, "winning_company": "中标公司 A", "contact_company": "对接公司 B"}, format="json")
+        response = self.client.post("/api/projects/", {"project_no": "API-PRJ-001", "name": "API 项目", "customer_org": customer.id, "customer_contact": contact.id, "sales_person": sales.id, "winning_company": "中标公司 A", "contact_company": "对接公司 B"}, format="json")
         self.assertEqual(response.status_code, 201)
         project_id = response.data["id"]
 
@@ -223,6 +224,8 @@ class ProjectApiTests(APITestCase):
         self.assertEqual(overview.data["project"]["winning_company"], "中标公司 A")
         self.assertEqual(overview.data["project"]["contact_company"], "对接公司 B")
         self.assertEqual(overview.data["customer"]["name"], "API 客户")
+        self.assertEqual(overview.data["customer_contact"]["name"], "API 客户联系人")
+        self.assertEqual(overview.data["customer_contact"]["position"], "项目经理")
         self.assertEqual(overview.data["devices"][0]["serial_number"], "API-SN-001")
 
 

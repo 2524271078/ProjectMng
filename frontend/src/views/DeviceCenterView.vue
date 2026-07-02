@@ -18,7 +18,12 @@
       <el-form :model="form" label-width="110px">
         <el-form-item label="项目编号"><el-input v-model="form.project_no" /></el-form-item>
         <el-form-item label="项目名称"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="客户"><OrganizationTreeSelect v-model="form.customer_org" placeholder="请选择客户" /></el-form-item>
+        <el-form-item label="客户公司"><OrganizationTreeSelect v-model="form.customer_org" placeholder="请选择客户公司" /></el-form-item>
+        <el-form-item label="客户联系人" required>
+          <el-select v-model="form.customer_contact" placeholder="请选择客户联系人" filterable clearable :disabled="!customerContacts.length">
+            <el-option v-for="person in customerContacts" :key="person.id" :label="person.position ? `${person.name} / ${person.position}` : person.name" :value="person.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="实际中标公司"><el-input v-model="form.winning_company" /></el-form-item>
         <el-form-item label="对接公司"><el-input v-model="form.contact_company" /></el-form-item>
         <el-form-item label="销售人员"><el-select v-model="form.sales_person" clearable filterable><el-option v-for="person in salesPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item>
@@ -34,7 +39,9 @@
           <el-descriptions :column="2" border>
             <el-descriptions-item label="项目编号">{{ overview.project.project_no }}</el-descriptions-item>
             <el-descriptions-item label="项目名称">{{ overview.project.name }}</el-descriptions-item>
-            <el-descriptions-item label="客户">{{ overview.customer?.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="客户公司">{{ overview.customer?.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="客户联系人">{{ overview.customer_contact?.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="联系人职位">{{ overview.customer_contact?.position || '-' }}</el-descriptions-item>
             <el-descriptions-item label="实际中标公司">{{ overview.project.winning_company || '-' }}</el-descriptions-item>
             <el-descriptions-item label="对接公司">{{ overview.project.contact_company || '-' }}</el-descriptions-item>
             <el-descriptions-item label="销售">{{ overview.sales_person?.name || '-' }}</el-descriptions-item>
@@ -120,11 +127,11 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
+import { createResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
 import { createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
@@ -136,11 +143,12 @@ const deviceModels = ref([])
 const uploadedScreenshots = ref([])
 const salesPeople = ref([])
 const opsPeople = ref([])
+const customerContacts = ref([])
 const overview = ref(null)
 const dialogVisible = ref(false)
 const drawerVisible = ref(false)
 const activeProjectId = ref(null)
-const form = reactive({ project_no: '', name: '', customer_org: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
+const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
 
 function defaultDeviceBinding() {
@@ -153,6 +161,13 @@ function toggleDeviceMode() {
   uploadedScreenshots.value = []
 }
 
+async function loadCustomerContacts(customerOrgId) {
+  customerContacts.value = []
+  form.customer_contact = null
+  if (!customerOrgId) return
+  const { data } = await fetchCustomerOverview(customerOrgId)
+  customerContacts.value = data.contacts || []
+}
 
 async function loadProjects() {
   const { data } = await listResource('projects')
@@ -168,12 +183,17 @@ async function loadOptions() {
 }
 
 function openCreateDialog() {
-  Object.assign(form, { project_no: '', name: '', customer_org: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
+  Object.assign(form, { project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
+  customerContacts.value = []
   dialogVisible.value = true
 }
 
 async function createProject() {
   try {
+    if (form.customer_org && !form.customer_contact) {
+      ElMessage.warning('请选择客户公司下的联系人')
+      return
+    }
     await createResource('projects', form)
     ElMessage.success('项目已新增')
     dialogVisible.value = false
@@ -315,6 +335,11 @@ async function bindDevice() {
     ElMessage.error(formatApiError(error, '绑定设备失败'))
   }
 }
+
+watch(() => form.customer_org, async (customerOrgId) => {
+  if (!dialogVisible.value) return
+  await loadCustomerContacts(customerOrgId)
+})
 
 onMounted(async () => { await Promise.all([loadProjects(), loadOptions()]) })
 </script>

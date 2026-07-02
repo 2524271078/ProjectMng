@@ -117,7 +117,7 @@ def organization_summary(org):
 def person_summary(person):
     if not person:
         return None
-    return {"id": person.id, "name": person.name, "person_type": person.person_type, "phone": person.phone, "email": person.email}
+    return {"id": person.id, "name": person.name, "person_type": person.person_type, "position": person.position, "phone": person.phone, "email": person.email}
 
 
 def device_summary(device):
@@ -209,11 +209,12 @@ def device_overview(request, pk):
 
 @api_view(["GET"])
 def project_overview(request, pk):
-    project = Project.objects.select_related("customer_org", "sales_person", "ops_person").get(pk=pk)
+    project = Project.objects.select_related("customer_org", "customer_contact", "sales_person", "ops_person").get(pk=pk)
     bindings = project.project_devices.select_related("device", "device__device_model").all()
     return Response({
         "project": ProjectSerializer(project).data,
         "customer": organization_summary(project.customer_org) if project.customer_org else None,
+        "customer_contact": person_summary(project.customer_contact),
         "sales_person": person_summary(project.sales_person),
         "ops_person": person_summary(project.ops_person),
         "devices": [{**device_summary(binding.device), "quantity": binding.quantity, "deploy_location": binding.deploy_location, "device_project_type": binding.device_project_type, "usage": binding.usage} for binding in bindings],

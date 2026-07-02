@@ -141,6 +141,7 @@ class Project(BaseModel):
     project_no = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=200, db_index=True)
     customer_org = models.ForeignKey(Organization, null=True, blank=True, related_name="projects", on_delete=models.SET_NULL)
+    customer_contact = models.ForeignKey(Person, null=True, blank=True, related_name="customer_projects", on_delete=models.SET_NULL)
     winning_company = models.CharField(max_length=200, blank=True, default="")
     contact_company = models.CharField(max_length=200, blank=True, default="")
     sales_person = models.ForeignKey(Person, null=True, blank=True, related_name="sales_projects", on_delete=models.SET_NULL)

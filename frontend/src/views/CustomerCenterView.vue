@@ -35,7 +35,12 @@
           </el-descriptions>
         </el-tab-pane>
         <el-tab-pane label="联系人" name="contacts">
-          <el-table :data="overview.contacts"><el-table-column prop="name" label="姓名" /><el-table-column prop="phone" label="电话" /><el-table-column prop="email" label="邮箱" /></el-table>
+          <el-table :data="overview.contacts">
+            <el-table-column prop="name" label="姓名" />
+            <el-table-column prop="position" label="职位" />
+            <el-table-column prop="phone" label="电话" />
+            <el-table-column prop="email" label="邮箱" />
+          </el-table>
         </el-tab-pane>
         <el-tab-pane label="负责销售" name="sales">
           <el-table :data="overview.sales"><el-table-column prop="name" label="销售" /><el-table-column prop="phone" label="电话" /></el-table>
