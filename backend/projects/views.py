@@ -7,7 +7,7 @@ from projects.serializers import AttachmentSerializer, AuditLogSerializer, Contr
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
-    queryset = Organization.objects.all()
+    queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
 
 

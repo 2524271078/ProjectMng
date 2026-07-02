@@ -119,3 +119,21 @@ class PersonApiValidationTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["name"], "临时联系人")
         self.assertIsNone(response.data["organization"])
+
+
+class StateGridImportCommandTests(TestCase):
+    def test_command_resets_and_imports_state_grid_organization_tree(self):
+        from django.core.management import call_command
+        from projects.models import Organization
+
+        Organization.objects.create(name="旧组织", org_type="customer")
+
+        call_command("reset_state_grid_orgs", yes=True, verbosity=0)
+
+        self.assertFalse(Organization.objects.filter(name="旧组织").exists())
+        root = Organization.objects.get(name="国网电力公司")
+        self.assertTrue(root.children.filter(name="国网天津电力").exists())
+        branches = Organization.objects.get(name="国网六大分部")
+        self.assertEqual(branches.children.count(), 6)
+        affiliates = Organization.objects.get(name="国网三产公司")
+        self.assertTrue(affiliates.children.filter(name="国网英大").exists())
