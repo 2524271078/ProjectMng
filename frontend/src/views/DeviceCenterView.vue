@@ -40,16 +40,17 @@
 
         <el-tab-pane label="项目设备" name="devices">
           <el-card shadow="never" class="mb-16">
-            <template #header>选择设备并补充项目设备信息</template>
+            <template #header>
+              <div class="section-head compact"><span>新增项目设备</span><el-button link type="primary" @click="toggleDeviceMode">{{ deviceBinding.bind_mode === 'new' ? '选择已有设备' : '改为新增设备' }}</el-button></div>
+            </template>
             <el-form :model="deviceBinding" label-width="130px">
               <el-row :gutter="14">
-                <el-col :span="24"><el-form-item label="设备来源"><el-radio-group v-model="deviceBinding.bind_mode"><el-radio-button label="existing">选择已有设备</el-radio-button><el-radio-button label="new">新建设备</el-radio-button></el-radio-group></el-form-item></el-col>
                 <el-col v-if="deviceBinding.bind_mode === 'existing'" :span="24">
                   <el-alert v-if="!devices.length" title="暂无已有设备。请切换到“新建设备”，选择产品型号后创建设备实例。" type="warning" show-icon :closable="false" class="mb-16" />
                   <el-form-item label="选择已有设备"><el-select v-model="deviceBinding.device" placeholder="选择已创建的设备实例" filterable @change="fillDeviceFields"><el-option v-for="device in devices" :key="device.id" :label="formatDeviceOptionLabel(device, deviceModels)" :value="device.id" /></el-select></el-form-item>
                 </el-col>
                 <template v-else>
-                  <el-col :span="24"><el-alert title="新建设备会先根据产品型号创建设备实例，再绑定到当前项目。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
+                  <el-col :span="24"><el-alert title="默认流程：选择产品型号，填写这台设备唯一序列号等信息，保存后自动创建真实设备并绑定当前项目。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
                   <el-col :span="12"><el-form-item label="产品型号"><el-select v-model="deviceBinding.device_model" placeholder="选择产品中心维护的具体型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="设备名称"><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="序列号"><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
@@ -70,7 +71,7 @@
                 <el-col :span="24"><el-form-item label="上传截图"><el-upload :auto-upload="false" :on-change="uploadDeviceScreenshot" :show-file-list="false"><el-button>选择并上传截图</el-button></el-upload><div v-if="uploadedScreenshots.length" class="upload-preview"><a v-for="item in uploadedScreenshots" :key="item.id" :href="item.file_url" target="_blank">{{ item.name }}</a></div></el-form-item></el-col>
                 <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceBinding.remark" type="textarea" /></el-form-item></el-col>
               </el-row>
-              <el-button type="primary" @click="bindDevice">保存并绑定设备</el-button>
+              <el-button type="primary" @click="bindDevice">{{ deviceBinding.bind_mode === 'new' ? '保存项目设备' : '绑定已有设备' }}</el-button>
             </el-form>
           </el-card>
 
@@ -121,6 +122,7 @@ import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import { createResource, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
+import { createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
 
 const projects = ref([])
 const devices = ref([])
@@ -136,28 +138,15 @@ const form = reactive({ project_no: '', name: '', customer_org: null, sales_pers
 const deviceBinding = reactive(defaultDeviceBinding())
 
 function defaultDeviceBinding() {
-  return {
-    bind_mode: 'existing',
-    device: null,
-    device_model: null,
-    device_name: '',
-    serial_number: '',
-    deploy_location: '',
-    device_project_type: '',
-    management_address: '',
-    hardware_code: '',
-    software_version: '',
-    version_update_method: '',
-    license_info_text: '',
-    is_standard_product: true,
-    is_under_warranty: false,
-    supports_remote: false,
-    ops_person: null,
-    screenshot_url: '',
-    rack_install_date: '',
-    remark: '',
-  }
+  return createDefaultProjectDeviceForm()
 }
+
+function toggleDeviceMode() {
+  const nextMode = deviceBinding.bind_mode === 'new' ? 'existing' : 'new'
+  Object.assign(deviceBinding, defaultDeviceBinding(), { bind_mode: nextMode })
+  uploadedScreenshots.value = []
+}
+
 
 async function loadProjects() {
   const { data } = await listResource('projects')
