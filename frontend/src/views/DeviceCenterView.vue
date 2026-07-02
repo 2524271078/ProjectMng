@@ -39,7 +39,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, fetchProjectOverview, listResource } from '../api/resources'
+import { createResource, fetchProjectOverview, listResource, updateResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 
 const projects = ref([])
@@ -50,12 +50,33 @@ const dialogVisible = ref(false)
 const drawerVisible = ref(false)
 const activeProjectId = ref(null)
 const form = reactive({ project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 })
-const deviceBinding = reactive({ device: null, deploy_location: '' })
+const deviceBinding = reactive({ device: null, deploy_location: '', hardware_code: '', software_version: '', license_info_text: '', is_under_warranty: false, screenshot_url: '' })
 async function loadProjects() { const { data } = await listResource('projects'); projects.value = unwrapList(data) }
 async function loadOptions() { devices.value = unwrapList((await listResource('devices')).data); salesPeople.value = unwrapList((await listResource('people')).data).filter((p) => p.person_type === 'sales') }
 function openCreateDialog() { Object.assign(form, { project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 }); dialogVisible.value = true }
 async function createProject() { try { await createResource('projects', form); ElMessage.success('项目已新增'); dialogVisible.value = false; await loadProjects() } catch (error) { ElMessage.error(formatApiError(error, '新增项目失败')) } }
 async function openDetail(row) { activeProjectId.value = row.id; const { data } = await fetchProjectOverview(row.id); overview.value = data; drawerVisible.value = true }
+
+function parseLicenseInfo() {
+  const text = deviceBinding.license_info_text?.trim()
+  if (!text) return {}
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { description: text }
+  }
+}
+
+function fillDeviceFields(deviceId) {
+  const device = devices.value.find((item) => item.id === deviceId)
+  if (!device) return
+  deviceBinding.hardware_code = device.hardware_code || ''
+  deviceBinding.software_version = device.software_version || ''
+  deviceBinding.license_info_text = device.license_info ? JSON.stringify(device.license_info) : ''
+  deviceBinding.is_under_warranty = Boolean(device.is_under_warranty)
+  deviceBinding.screenshot_url = device.screenshot_url || ''
+}
+
 async function bindDevice() { try { await createResource('project-devices', { project: activeProjectId.value, device: deviceBinding.device, quantity: 1, deploy_location: deviceBinding.deploy_location }); Object.assign(deviceBinding, { device: null, deploy_location: '' }); await openDetail({ id: activeProjectId.value }) } catch (error) { ElMessage.error(formatApiError(error, '绑定设备失败')) } }
 onMounted(async () => { await Promise.all([loadProjects(), loadOptions()]) })
 </script>

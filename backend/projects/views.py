@@ -111,7 +111,18 @@ def person_summary(person):
 
 
 def device_summary(device):
-    return {"id": device.id, "name": device.name, "serial_number": device.serial_number, "status": device.status}
+    return {
+        "id": device.id,
+        "name": device.name,
+        "serial_number": device.serial_number,
+        "hardware_code": device.hardware_code,
+        "software_version": device.software_version,
+        "rule_library_version": device.rule_library_version,
+        "license_info": device.license_info,
+        "is_under_warranty": device.is_under_warranty,
+        "screenshot_url": device.screenshot_url,
+        "status": device.status,
+    }
 
 
 def contract_summary(contract):

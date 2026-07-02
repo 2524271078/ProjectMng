@@ -222,3 +222,40 @@ class ProjectApiTests(APITestCase):
         self.assertEqual(overview.data["project"]["name"], "API 项目")
         self.assertEqual(overview.data["customer"]["name"], "API 客户")
         self.assertEqual(overview.data["devices"][0]["serial_number"], "API-SN-001")
+
+
+class ProjectDeviceDetailApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username="project-device-detail", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_project_overview_returns_device_detail_fields(self):
+        from projects.models import ProductLine, ProductVersion, Project, ProjectDevice
+
+        line = ProductLine.objects.create(name="测试产线", code="TEST-LINE")
+        product = Product.objects.create(name="测试产品", product_code="TEST-PRODUCT", product_line=line)
+        version = ProductVersion.objects.create(product=product, version_name="V1.0", version_code="1.0")
+        model = DeviceModel.objects.create(product=product, product_version=version, model_name="TEST-1000", model_code="TEST1000")
+        device = Device.objects.create(
+            name="测试设备",
+            serial_number="DETAIL-SN-001",
+            device_model=model,
+            hardware_code="HW-001",
+            software_version="OS-1.0",
+            license_info={"type": "标准授权"},
+            is_under_warranty=True,
+            screenshot_url="https://example.com/device.png",
+        )
+        project = Project.objects.create(project_no="DETAIL-PRJ-001", name="设备详情项目")
+        ProjectDevice.objects.create(project=project, device=device)
+
+        response = self.client.get(f"/api/projects/{project.id}/overview/")
+
+        self.assertEqual(response.status_code, 200)
+        detail = response.data["devices"][0]
+        self.assertEqual(detail["hardware_code"], "HW-001")
+        self.assertEqual(detail["software_version"], "OS-1.0")
+        self.assertEqual(detail["license_info"], {"type": "标准授权"})
+        self.assertTrue(detail["is_under_warranty"])
+        self.assertEqual(detail["screenshot_url"], "https://example.com/device.png")

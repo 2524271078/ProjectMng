@@ -115,6 +115,8 @@ class Device(BaseModel):
     software_version = models.CharField(max_length=100, blank=True, default="")
     rule_library_version = models.CharField(max_length=100, blank=True, default="")
     license_info = models.JSONField(default=dict, blank=True)
+    is_under_warranty = models.BooleanField(default=False, db_index=True)
+    screenshot_url = models.URLField(blank=True, default="")
     license_expire_date = models.DateField(null=True, blank=True)
     online_date = models.DateField(null=True, blank=True)
     offline_date = models.DateField(null=True, blank=True)
