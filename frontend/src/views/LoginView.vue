@@ -1,0 +1,41 @@
+<template>
+  <main class="login-page">
+    <section class="login-hero">
+      <span class="eyebrow">Project Management</span>
+      <h1>把分散表格变成可追踪的项目设备链路</h1>
+      <p>统一维护组织、人员、设备、合同和采购参与方，第一阶段优先跑通主流程。</p>
+    </section>
+    <el-card class="login-card" shadow="never">
+      <h2>登录系统</h2>
+      <el-form :model="form" @submit.prevent="submit">
+        <el-form-item label="用户名"><el-input v-model="form.username" /></el-form-item>
+        <el-form-item label="密码"><el-input v-model="form.password" type="password" show-password /></el-form-item>
+        <el-button type="primary" :loading="loading" class="login-button" @click="submit">登录</el-button>
+      </el-form>
+    </el-card>
+  </main>
+</template>
+
+<script setup>
+import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { useAuthStore } from '../stores/auth'
+
+const router = useRouter()
+const auth = useAuthStore()
+const loading = ref(false)
+const form = reactive({ username: '', password: '' })
+
+async function submit() {
+  loading.value = true
+  try {
+    await auth.login(form.username, form.password)
+    router.push('/dashboard')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '登录失败')
+  } finally {
+    loading.value = false
+  }
+}
+</script>
