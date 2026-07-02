@@ -49,3 +49,5 @@ body { margin: 0; min-width: 320px; }
 .tag-gap { margin: 3px 6px 3px 0; }
 
 .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.mb-16 { margin-bottom: 16px; }

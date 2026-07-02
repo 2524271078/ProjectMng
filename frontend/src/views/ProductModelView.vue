@@ -16,6 +16,7 @@
           <el-button type="primary" @click="openDialog('model')">新增型号</el-button>
         </div>
       </div>
+      <el-alert v-if="!lines.length" title="请先新增产线，再在产线下新增产品、版本和型号。" type="info" show-icon :closable="false" class="mb-16" />
       <el-table :data="filteredModels" stripe>
         <el-table-column prop="model_name" label="型号名称" />
         <el-table-column prop="model_code" label="型号编码" />
@@ -27,27 +28,27 @@
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px">
       <el-form :model="form" label-width="100px">
         <template v-if="dialogType === 'line'">
-          <el-form-item label="产线名称"><el-input v-model="form.name" /></el-form-item>
-          <el-form-item label="产线编码"><el-input v-model="form.code" /></el-form-item>
+          <el-form-item label="产线名称" required><el-input v-model="form.name" /></el-form-item>
+          <el-form-item label="产线编码" required><el-input v-model="form.code" /></el-form-item>
         </template>
         <template v-if="dialogType === 'product'">
-          <el-form-item label="所属产线"><el-select v-model="form.product_line"><el-option v-for="line in lines" :key="line.id" :label="line.name" :value="line.id" /></el-select></el-form-item>
-          <el-form-item label="产品名称"><el-input v-model="form.name" /></el-form-item>
-          <el-form-item label="产品编码"><el-input v-model="form.product_code" /></el-form-item>
+          <el-form-item label="所属产线" required><el-select v-model="form.product_line" filterable><el-option v-for="line in lines" :key="line.id" :label="line.name" :value="line.id" /></el-select></el-form-item>
+          <el-form-item label="产品名称" required><el-input v-model="form.name" /></el-form-item>
+          <el-form-item label="产品编码" required><el-input v-model="form.product_code" /></el-form-item>
         </template>
         <template v-if="dialogType === 'version'">
-          <el-form-item label="所属产品"><el-select v-model="form.product"><el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" /></el-select></el-form-item>
-          <el-form-item label="版本名称"><el-input v-model="form.version_name" /></el-form-item>
-          <el-form-item label="版本编码"><el-input v-model="form.version_code" /></el-form-item>
+          <el-form-item label="所属产品" required><el-select v-model="form.product" filterable><el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" /></el-select></el-form-item>
+          <el-form-item label="版本名称" required><el-input v-model="form.version_name" /></el-form-item>
+          <el-form-item label="版本编码" required><el-input v-model="form.version_code" /></el-form-item>
         </template>
         <template v-if="dialogType === 'model'">
-          <el-form-item label="所属产品"><el-select v-model="form.product"><el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" /></el-select></el-form-item>
-          <el-form-item label="产品版本"><el-select v-model="form.product_version" clearable><el-option v-for="version in versions" :key="version.id" :label="version.version_name" :value="version.id" /></el-select></el-form-item>
-          <el-form-item label="型号名称"><el-input v-model="form.model_name" /></el-form-item>
-          <el-form-item label="型号编码"><el-input v-model="form.model_code" /></el-form-item>
+          <el-form-item label="所属产品" required><el-select v-model="form.product" filterable @change="form.product_version = null"><el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" /></el-select></el-form-item>
+          <el-form-item label="产品版本"><el-select v-model="form.product_version" clearable filterable><el-option v-for="version in modelVersionOptions" :key="version.id" :label="version.version_name" :value="version.id" /></el-select></el-form-item>
+          <el-form-item label="型号名称" required><el-input v-model="form.model_name" /></el-form-item>
+          <el-form-item label="型号编码" required><el-input v-model="form.model_code" /></el-form-item>
         </template>
       </el-form>
-      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="saveCatalogItem">保存</el-button></template>
+      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="saving" @click="saveCatalogItem">保存</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -56,6 +57,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createResource, listResource } from '../api/resources'
+import { formatApiError, unwrapList } from '../utils/apiData'
+import { validateCatalogForm } from '../utils/productCatalog'
 
 const lines = ref([])
 const products = ref([])
@@ -63,6 +66,7 @@ const versions = ref([])
 const models = ref([])
 const selectedNode = ref(null)
 const dialogVisible = ref(false)
+const saving = ref(false)
 const dialogType = ref('line')
 const form = reactive({})
 const dialogTitle = computed(() => ({ line: '新增产线', product: '新增产品', version: '新增版本', model: '新增型号' }[dialogType.value]))
@@ -77,9 +81,45 @@ const filteredModels = computed(() => {
   }
   return models.value
 })
-async function loadAll() { lines.value=(await listResource('product-lines')).data; products.value=(await listResource('products')).data; versions.value=(await listResource('product-versions')).data; models.value=(await listResource('device-models')).data }
+const modelVersionOptions = computed(() => versions.value.filter((version) => version.product === form.product))
+async function loadAll() {
+  lines.value = unwrapList((await listResource('product-lines')).data)
+  products.value = unwrapList((await listResource('products')).data)
+  versions.value = unwrapList((await listResource('product-versions')).data)
+  models.value = unwrapList((await listResource('device-models')).data)
+}
 function selectNode(node) { selectedNode.value = node }
-function openDialog(type) { dialogType.value = type; Object.keys(form).forEach((key) => delete form[key]); if (type === 'product' && selectedNode.value?.type === 'line') form.product_line = selectedNode.value.id; if (type === 'version' && selectedNode.value?.type === 'product') form.product = selectedNode.value.id; if (type === 'model') { if (selectedNode.value?.type === 'product') form.product = selectedNode.value.id; if (selectedNode.value?.type === 'version') { form.product_version = selectedNode.value.id; form.product = versions.value.find((v) => v.id === selectedNode.value.id)?.product } } dialogVisible.value = true }
-async function saveCatalogItem() { const resource = { line: 'product-lines', product: 'products', version: 'product-versions', model: 'device-models' }[dialogType.value]; await createResource(resource, form); ElMessage.success('已保存'); dialogVisible.value = false; await loadAll() }
+function openDialog(type) {
+  if (type === 'product' && !lines.value.length) return ElMessage.warning('请先新增产线')
+  if ((type === 'version' || type === 'model') && !products.value.length) return ElMessage.warning('请先新增产品')
+  dialogType.value = type
+  Object.keys(form).forEach((key) => delete form[key])
+  if (type === 'product' && selectedNode.value?.type === 'line') form.product_line = selectedNode.value.id
+  if (type === 'version' && selectedNode.value?.type === 'product') form.product = selectedNode.value.id
+  if (type === 'model') {
+    if (selectedNode.value?.type === 'product') form.product = selectedNode.value.id
+    if (selectedNode.value?.type === 'version') {
+      form.product_version = selectedNode.value.id
+      form.product = versions.value.find((version) => version.id === selectedNode.value.id)?.product
+    }
+  }
+  dialogVisible.value = true
+}
+async function saveCatalogItem() {
+  const message = validateCatalogForm(dialogType.value, form)
+  if (message) return ElMessage.warning(message)
+  const resource = { line: 'product-lines', product: 'products', version: 'product-versions', model: 'device-models' }[dialogType.value]
+  saving.value = true
+  try {
+    await createResource(resource, form)
+    ElMessage.success('已保存')
+    dialogVisible.value = false
+    await loadAll()
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '保存失败'))
+  } finally {
+    saving.value = false
+  }
+}
 onMounted(loadAll)
 </script>
