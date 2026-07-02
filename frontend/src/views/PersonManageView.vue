@@ -56,6 +56,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import { createResource, deleteResource, fetchSalesCustomerRelations, listResource, saveSalesCustomerRelations, updateResource } from '../api/resources'
+import { buildPersonPayload } from '../utils/personPayload'
 
 const people = ref([])
 const dialogVisible = ref(false)
@@ -101,9 +102,7 @@ async function openEditDialog(row) {
 }
 
 function buildPayload() {
-  const payload = { ...form }
-  if (!payload.organization) delete payload.organization
-  return payload
+  return buildPersonPayload(form, Boolean(editingId.value))
 }
 
 function formatApiError(error) {
