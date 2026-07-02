@@ -44,9 +44,13 @@
             <el-form :model="deviceBinding" label-width="130px">
               <el-row :gutter="14">
                 <el-col :span="24"><el-form-item label="设备来源"><el-radio-group v-model="deviceBinding.bind_mode"><el-radio-button label="existing">选择已有设备</el-radio-button><el-radio-button label="new">新建设备</el-radio-button></el-radio-group></el-form-item></el-col>
-                <el-col v-if="deviceBinding.bind_mode === 'existing'" :span="12"><el-form-item label="选择设备"><el-select v-model="deviceBinding.device" placeholder="选择设备" filterable @change="fillDeviceFields"><el-option v-for="device in devices" :key="device.id" :label="`${device.name} / ${device.serial_number}`" :value="device.id" /></el-select></el-form-item></el-col>
+                <el-col v-if="deviceBinding.bind_mode === 'existing'" :span="24">
+                  <el-alert v-if="!devices.length" title="暂无已有设备。请切换到“新建设备”，选择产品型号后创建设备实例。" type="warning" show-icon :closable="false" class="mb-16" />
+                  <el-form-item label="选择已有设备"><el-select v-model="deviceBinding.device" placeholder="选择已创建的设备实例" filterable @change="fillDeviceFields"><el-option v-for="device in devices" :key="device.id" :label="formatDeviceOptionLabel(device, deviceModels)" :value="device.id" /></el-select></el-form-item>
+                </el-col>
                 <template v-else>
-                  <el-col :span="12"><el-form-item label="产品型号"><el-select v-model="deviceBinding.device_model" placeholder="选择产品型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
+                  <el-col :span="24"><el-alert title="新建设备会先根据产品型号创建设备实例，再绑定到当前项目。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
+                  <el-col :span="12"><el-form-item label="产品型号"><el-select v-model="deviceBinding.device_model" placeholder="选择产品中心维护的具体型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="设备名称"><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="序列号"><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
                 </template>
@@ -116,6 +120,7 @@ import { ElMessage } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import { createResource, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
+import { formatDeviceOptionLabel } from '../utils/deviceOptions'
 
 const projects = ref([])
 const devices = ref([])
