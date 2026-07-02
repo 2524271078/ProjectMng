@@ -112,6 +112,10 @@ class Device(BaseModel):
     serial_number = models.CharField(max_length=100, unique=True)
     device_model = models.ForeignKey(DeviceModel, related_name="devices", on_delete=models.PROTECT)
     hardware_code = models.CharField(max_length=100, blank=True, default="")
+    management_address = models.CharField(max_length=255, blank=True, default="")
+    version_update_method = models.CharField(max_length=100, blank=True, default="")
+    is_standard_product = models.BooleanField(default=True, db_index=True)
+    supports_remote = models.BooleanField(default=False, db_index=True)
     software_version = models.CharField(max_length=100, blank=True, default="")
     rule_library_version = models.CharField(max_length=100, blank=True, default="")
     license_info = models.JSONField(default=dict, blank=True)
@@ -156,6 +160,7 @@ class ProjectDevice(BaseModel):
     device = models.ForeignKey(Device, related_name="project_devices", on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField(default=1)
     deploy_location = models.CharField(max_length=200, blank=True, default="")
+    device_project_type = models.CharField(max_length=100, blank=True, default="")
     usage = models.CharField(max_length=200, blank=True, default="")
 
     class Meta(BaseModel.Meta):

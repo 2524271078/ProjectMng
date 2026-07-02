@@ -116,12 +116,18 @@ def device_summary(device):
         "name": device.name,
         "serial_number": device.serial_number,
         "hardware_code": device.hardware_code,
+        "management_address": device.management_address,
+        "version_update_method": device.version_update_method,
+        "is_standard_product": device.is_standard_product,
+        "supports_remote": device.supports_remote,
         "software_version": device.software_version,
         "rule_library_version": device.rule_library_version,
         "license_info": device.license_info,
         "is_under_warranty": device.is_under_warranty,
         "screenshot_url": device.screenshot_url,
         "rack_install_date": device.rack_install_date.isoformat() if device.rack_install_date else None,
+        "ops_person": person_summary(device.ops_person),
+        "remark": device.remark,
         "status": device.status,
     }
 
@@ -200,7 +206,7 @@ def project_overview(request, pk):
         "customer": organization_summary(project.customer_org) if project.customer_org else None,
         "sales_person": person_summary(project.sales_person),
         "ops_person": person_summary(project.ops_person),
-        "devices": [{**device_summary(binding.device), "quantity": binding.quantity, "deploy_location": binding.deploy_location, "usage": binding.usage} for binding in bindings],
+        "devices": [{**device_summary(binding.device), "quantity": binding.quantity, "deploy_location": binding.deploy_location, "device_project_type": binding.device_project_type, "usage": binding.usage} for binding in bindings],
         "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="project", object_id=project.id), many=True).data,
     })
 

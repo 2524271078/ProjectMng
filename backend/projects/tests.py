@@ -247,9 +247,17 @@ class ProjectDeviceDetailApiTests(APITestCase):
             is_under_warranty=True,
             screenshot_url="https://example.com/device.png",
             rack_install_date="2026-07-01",
+            management_address="https://10.0.0.1",
+            version_update_method="远程升级",
+            is_standard_product=True,
+            supports_remote=True,
+            remark="设备备注",
         )
         project = Project.objects.create(project_no="DETAIL-PRJ-001", name="设备详情项目")
-        ProjectDevice.objects.create(project=project, device=device)
+        ops = Person.objects.create(name="现场运维", person_type="ops")
+        device.ops_person = ops
+        device.save(update_fields=["ops_person"])
+        ProjectDevice.objects.create(project=project, device=device, device_project_type="正式设备")
 
         response = self.client.get(f"/api/projects/{project.id}/overview/")
 
@@ -261,3 +269,10 @@ class ProjectDeviceDetailApiTests(APITestCase):
         self.assertTrue(detail["is_under_warranty"])
         self.assertEqual(detail["screenshot_url"], "https://example.com/device.png")
         self.assertEqual(detail["rack_install_date"], "2026-07-01")
+        self.assertEqual(detail["management_address"], "https://10.0.0.1")
+        self.assertEqual(detail["version_update_method"], "远程升级")
+        self.assertTrue(detail["is_standard_product"])
+        self.assertTrue(detail["supports_remote"])
+        self.assertEqual(detail["device_project_type"], "正式设备")
+        self.assertEqual(detail["ops_person"]["name"], "现场运维")
+        self.assertEqual(detail["remark"], "设备备注")
