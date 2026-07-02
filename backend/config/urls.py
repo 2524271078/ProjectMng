@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import MenuViewSet, PermissionViewSet, RoleViewSet, UserRoleViewSet, UserViewSet, current_user_view, login_view
-from projects.views import AttachmentViewSet, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
+from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
 
 router = DefaultRouter()
 router.register("users", UserViewSet)
@@ -50,5 +50,6 @@ urlpatterns = [
     path("api/devices/<int:pk>/overview/", device_overview),
     path("api/projects/<int:pk>/overview/", project_overview),
     path("api/contracts/<int:pk>/overview/", contract_overview),
+    path("api/attachments/upload/", attachment_upload),
     path("api/", include(router.urls)),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

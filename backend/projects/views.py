@@ -1,4 +1,5 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 
@@ -93,6 +94,15 @@ class ContractPartyViewSet(SoftDeleteModelViewSet):
 class AttachmentViewSet(viewsets.ModelViewSet):
     queryset = Attachment.objects.all()
     serializer_class = AttachmentSerializer
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+def attachment_upload(request):
+    serializer = AttachmentSerializer(data=request.data, context={"request": request})
+    serializer.is_valid(raise_exception=True)
+    serializer.save(uploaded_by=request.user if request.user.is_authenticated else None)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
@@ -193,7 +203,7 @@ def device_overview(request, pk):
         "sales_person": person_summary(device.sales_person),
         "ops_person": person_summary(device.ops_person),
         "contracts": [contract_summary(contract) for contract in contracts],
-        "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="device", object_id=device.id), many=True).data,
+        "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="device", object_id=device.id), many=True, context={"request": request}).data,
     })
 
 
@@ -207,7 +217,7 @@ def project_overview(request, pk):
         "sales_person": person_summary(project.sales_person),
         "ops_person": person_summary(project.ops_person),
         "devices": [{**device_summary(binding.device), "quantity": binding.quantity, "deploy_location": binding.deploy_location, "device_project_type": binding.device_project_type, "usage": binding.usage} for binding in bindings],
-        "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="project", object_id=project.id), many=True).data,
+        "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="project", object_id=project.id), many=True, context={"request": request}).data,
     })
 
 

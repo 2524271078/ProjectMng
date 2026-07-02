@@ -46,3 +46,8 @@ export function saveSalesCustomerRelations(id, customerIds) {
 export function fetchProjectOverview(id) {
   return apiClient.get(`/projects/${id}/overview/`)
 }
+
+
+export function uploadAttachment(payload) {
+  return apiClient.post('/attachments/upload/', payload, { headers: { 'Content-Type': 'multipart/form-data' } })
+}

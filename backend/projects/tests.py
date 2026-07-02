@@ -276,3 +276,27 @@ class ProjectDeviceDetailApiTests(APITestCase):
         self.assertEqual(detail["device_project_type"], "正式设备")
         self.assertEqual(detail["ops_person"]["name"], "现场运维")
         self.assertEqual(detail["remark"], "设备备注")
+
+
+class AttachmentUploadApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username="attachment-api", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_upload_device_attachment_returns_preview_url(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from projects.models import ProductLine, ProductVersion
+
+        line = ProductLine.objects.create(name="附件产线", code="ATTACH-LINE")
+        product = Product.objects.create(name="附件产品", product_code="ATTACH-PRODUCT", product_line=line)
+        version = ProductVersion.objects.create(product=product, version_name="V1", version_code="1")
+        model = DeviceModel.objects.create(product=product, product_version=version, model_name="ATTACH-1000", model_code="ATTACH1000")
+        device = Device.objects.create(name="附件设备", serial_number="ATTACH-SN-001", device_model=model)
+
+        upload = SimpleUploadedFile("device.png", b"fake-image", content_type="image/png")
+        response = self.client.post("/api/attachments/upload/", {"name": "设备截图", "object_type": "device", "object_id": device.id, "file": upload}, format="multipart")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["object_type"], "device")
+        self.assertIn("file_url", response.data)

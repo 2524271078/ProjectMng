@@ -82,9 +82,18 @@ class ContractPartySerializer(serializers.ModelSerializer):
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Attachment
         fields = "__all__"
+
+    def get_file_url(self, obj):
+        if not obj.file:
+            return ""
+        request = self.context.get("request")
+        url = obj.file.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

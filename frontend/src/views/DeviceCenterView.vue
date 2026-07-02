@@ -43,7 +43,13 @@
             <template #header>选择设备并补充项目设备信息</template>
             <el-form :model="deviceBinding" label-width="130px">
               <el-row :gutter="14">
-                <el-col :span="12"><el-form-item label="选择设备"><el-select v-model="deviceBinding.device" placeholder="选择设备" filterable @change="fillDeviceFields"><el-option v-for="device in devices" :key="device.id" :label="`${device.name} / ${device.serial_number}`" :value="device.id" /></el-select></el-form-item></el-col>
+                <el-col :span="24"><el-form-item label="设备来源"><el-radio-group v-model="deviceBinding.bind_mode"><el-radio-button label="existing">选择已有设备</el-radio-button><el-radio-button label="new">新建设备</el-radio-button></el-radio-group></el-form-item></el-col>
+                <el-col v-if="deviceBinding.bind_mode === 'existing'" :span="12"><el-form-item label="选择设备"><el-select v-model="deviceBinding.device" placeholder="选择设备" filterable @change="fillDeviceFields"><el-option v-for="device in devices" :key="device.id" :label="`${device.name} / ${device.serial_number}`" :value="device.id" /></el-select></el-form-item></el-col>
+                <template v-else>
+                  <el-col :span="12"><el-form-item label="产品型号"><el-select v-model="deviceBinding.device_model" placeholder="选择产品型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
+                  <el-col :span="12"><el-form-item label="设备名称"><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
+                  <el-col :span="12"><el-form-item label="序列号"><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
+                </template>
                 <el-col :span="12"><el-form-item label="设备项目类型"><el-input v-model="deviceBinding.device_project_type" placeholder="如：正式设备/试点设备/备机" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="部署位置"><el-input v-model="deviceBinding.deploy_location" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="管理地址"><el-input v-model="deviceBinding.management_address" placeholder="IP / URL / 管理平台地址" /></el-form-item></el-col>
@@ -57,6 +63,7 @@
                 <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceBinding.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
                 <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceBinding.license_info_text" type="textarea" placeholder="可填 JSON，也可直接写授权说明" /></el-form-item></el-col>
                 <el-col :span="24"><el-form-item label="设备截图链接"><el-input v-model="deviceBinding.screenshot_url" placeholder="https://..." /></el-form-item></el-col>
+                <el-col :span="24"><el-form-item label="上传截图"><el-upload :auto-upload="false" :on-change="uploadDeviceScreenshot" :show-file-list="false"><el-button>选择并上传截图</el-button></el-upload><div v-if="uploadedScreenshots.length" class="upload-preview"><a v-for="item in uploadedScreenshots" :key="item.id" :href="item.file_url" target="_blank">{{ item.name }}</a></div></el-form-item></el-col>
                 <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceBinding.remark" type="textarea" /></el-form-item></el-col>
               </el-row>
               <el-button type="primary" @click="bindDevice">保存并绑定设备</el-button>
@@ -77,7 +84,7 @@
             <el-table-column label="保内"><template #default="scope">{{ scope.row.is_under_warranty ? '保内' : '保外' }}</template></el-table-column>
             <el-table-column label="现场运维"><template #default="scope">{{ scope.row.ops_person?.name || '-' }}</template></el-table-column>
             <el-table-column prop="deploy_location" label="部署位置" />
-            <el-table-column prop="screenshot_url" label="截图链接" min-width="180" />
+            <el-table-column prop="screenshot_url" label="截图链接" min-width="180"><template #default="scope"><a v-if="scope.row.screenshot_url" :href="scope.row.screenshot_url" target="_blank">预览</a><span v-else>-</span></template></el-table-column>
           </el-table>
         </el-tab-pane>
 
@@ -95,11 +102,13 @@ import { onMounted, reactive, ref } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, fetchProjectOverview, listResource, updateResource } from '../api/resources'
+import { createResource, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 
 const projects = ref([])
 const devices = ref([])
+const deviceModels = ref([])
+const uploadedScreenshots = ref([])
 const salesPeople = ref([])
 const opsPeople = ref([])
 const overview = ref(null)
@@ -111,7 +120,11 @@ const deviceBinding = reactive(defaultDeviceBinding())
 
 function defaultDeviceBinding() {
   return {
+    bind_mode: 'existing',
     device: null,
+    device_model: null,
+    device_name: '',
+    serial_number: '',
     deploy_location: '',
     device_project_type: '',
     management_address: '',
@@ -136,6 +149,7 @@ async function loadProjects() {
 
 async function loadOptions() {
   devices.value = unwrapList((await listResource('devices')).data)
+  deviceModels.value = unwrapList((await listResource('device-models')).data)
   const people = unwrapList((await listResource('people')).data)
   salesPeople.value = people.filter((person) => person.person_type === 'sales')
   opsPeople.value = people.filter((person) => person.person_type === 'ops' || person.person_type === 'internal')
@@ -162,6 +176,41 @@ async function openDetail(row) {
   const { data } = await fetchProjectOverview(row.id)
   overview.value = data
   drawerVisible.value = true
+}
+
+
+async function ensureDevice() {
+  if (deviceBinding.bind_mode === 'existing') {
+    if (!deviceBinding.device) throw new Error('请选择设备')
+    return deviceBinding.device
+  }
+  if (!deviceBinding.device_model) throw new Error('请选择产品型号')
+  if (!deviceBinding.device_name?.trim()) throw new Error('请填写设备名称')
+  if (!deviceBinding.serial_number?.trim()) throw new Error('请填写设备序列号')
+  const { data } = await createResource('devices', {
+    name: deviceBinding.device_name,
+    serial_number: deviceBinding.serial_number,
+    device_model: deviceBinding.device_model,
+  })
+  deviceBinding.device = data.id
+  return data.id
+}
+
+async function uploadDeviceScreenshot(file) {
+  try {
+    const deviceId = await ensureDevice()
+    const payload = new FormData()
+    payload.append('name', file.name)
+    payload.append('object_type', 'device')
+    payload.append('object_id', deviceId)
+    payload.append('file', file.raw)
+    const { data } = await uploadAttachment(payload)
+    uploadedScreenshots.value.push(data)
+    deviceBinding.screenshot_url = data.file_url
+    ElMessage.success('截图已上传')
+  } catch (error) {
+    ElMessage.error(error.message || formatApiError(error, '上传截图失败'))
+  }
 }
 
 function parseLicenseInfo() {
@@ -195,8 +244,8 @@ function fillDeviceFields(deviceId) {
 
 async function bindDevice() {
   try {
-    if (!deviceBinding.device) return ElMessage.warning('请选择设备')
-    await updateResource('devices', deviceBinding.device, {
+    const deviceId = await ensureDevice()
+    await updateResource('devices', deviceId, {
       management_address: deviceBinding.management_address,
       hardware_code: deviceBinding.hardware_code,
       software_version: deviceBinding.software_version,
@@ -212,12 +261,13 @@ async function bindDevice() {
     })
     await createResource('project-devices', {
       project: activeProjectId.value,
-      device: deviceBinding.device,
+      device: deviceId,
       quantity: 1,
       deploy_location: deviceBinding.deploy_location,
       device_project_type: deviceBinding.device_project_type,
     })
     Object.assign(deviceBinding, defaultDeviceBinding())
+    uploadedScreenshots.value = []
     await loadOptions()
     await openDetail({ id: activeProjectId.value })
   } catch (error) {
