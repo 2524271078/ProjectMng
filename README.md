@@ -17,11 +17,45 @@ frontend/  前端 Vue3 SPA
 docs/      设计、计划、接口和业务流程文档
 ```
 
+## 后端启动
+
+```powershell
+cd backend
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver 0.0.0.0:8000
+```
+
+提交后端代码前执行：
+
+```powershell
+cd backend
+python manage.py test
+```
+
+## 前端启动
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+提交前端代码前执行：
+
+```powershell
+cd frontend
+npm run build
+```
+
 ## 第一阶段流程
 
 新增组织 -> 新增人员 -> 新增销售 -> 绑定销售客户 -> 新增产品型号 -> 新增设备 -> 绑定客户 -> 新增合同 -> 绑定设备 -> 查看销售名下客户和设备。
 
-## 开发命令
+## 文档
 
-后端命令会在后端工程完成后补充。前端命令会在前端工程完成后补充。
-
+- `docs/api.md`：后端接口说明
+- `docs/workflow.md`：第一阶段业务流程说明
+- `docs/superpowers/specs/2026-07-02-project-management-system-design.md`：设计文档
+- `docs/superpowers/plans/2026-07-02-project-management-system.md`：实施计划
