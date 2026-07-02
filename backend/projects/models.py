@@ -118,6 +118,7 @@ class Device(BaseModel):
     is_under_warranty = models.BooleanField(default=False, db_index=True)
     screenshot_url = models.URLField(blank=True, default="")
     license_expire_date = models.DateField(null=True, blank=True)
+    rack_install_date = models.DateField(null=True, blank=True)
     online_date = models.DateField(null=True, blank=True)
     offline_date = models.DateField(null=True, blank=True)
     customer_org = models.ForeignKey(Organization, null=True, blank=True, related_name="devices", on_delete=models.SET_NULL)

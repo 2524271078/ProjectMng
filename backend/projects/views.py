@@ -121,6 +121,7 @@ def device_summary(device):
         "license_info": device.license_info,
         "is_under_warranty": device.is_under_warranty,
         "screenshot_url": device.screenshot_url,
+        "rack_install_date": device.rack_install_date.isoformat() if device.rack_install_date else None,
         "status": device.status,
     }
 

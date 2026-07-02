@@ -246,6 +246,7 @@ class ProjectDeviceDetailApiTests(APITestCase):
             license_info={"type": "标准授权"},
             is_under_warranty=True,
             screenshot_url="https://example.com/device.png",
+            rack_install_date="2026-07-01",
         )
         project = Project.objects.create(project_no="DETAIL-PRJ-001", name="设备详情项目")
         ProjectDevice.objects.create(project=project, device=device)
@@ -259,3 +260,4 @@ class ProjectDeviceDetailApiTests(APITestCase):
         self.assertEqual(detail["license_info"], {"type": "标准授权"})
         self.assertTrue(detail["is_under_warranty"])
         self.assertEqual(detail["screenshot_url"], "https://example.com/device.png")
+        self.assertEqual(detail["rack_install_date"], "2026-07-01")

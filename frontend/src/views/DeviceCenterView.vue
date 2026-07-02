@@ -50,7 +50,7 @@ const dialogVisible = ref(false)
 const drawerVisible = ref(false)
 const activeProjectId = ref(null)
 const form = reactive({ project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 })
-const deviceBinding = reactive({ device: null, deploy_location: '', hardware_code: '', software_version: '', license_info_text: '', is_under_warranty: false, screenshot_url: '' })
+const deviceBinding = reactive({ device: null, deploy_location: '', hardware_code: '', software_version: '', license_info_text: '', is_under_warranty: false, screenshot_url: '', rack_install_date: '' })
 async function loadProjects() { const { data } = await listResource('projects'); projects.value = unwrapList(data) }
 async function loadOptions() { devices.value = unwrapList((await listResource('devices')).data); salesPeople.value = unwrapList((await listResource('people')).data).filter((p) => p.person_type === 'sales') }
 function openCreateDialog() { Object.assign(form, { project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 }); dialogVisible.value = true }
@@ -75,6 +75,7 @@ function fillDeviceFields(deviceId) {
   deviceBinding.license_info_text = device.license_info ? JSON.stringify(device.license_info) : ''
   deviceBinding.is_under_warranty = Boolean(device.is_under_warranty)
   deviceBinding.screenshot_url = device.screenshot_url || ''
+  deviceBinding.rack_install_date = device.rack_install_date || ''
 }
 
 async function bindDevice() { try { await createResource('project-devices', { project: activeProjectId.value, device: deviceBinding.device, quantity: 1, deploy_location: deviceBinding.deploy_location }); Object.assign(deviceBinding, { device: null, deploy_location: '' }); await openDetail({ id: activeProjectId.value }) } catch (error) { ElMessage.error(formatApiError(error, '绑定设备失败')) } }
