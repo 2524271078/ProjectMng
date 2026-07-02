@@ -300,3 +300,18 @@ class AttachmentUploadApiTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["object_type"], "device")
         self.assertIn("file_url", response.data)
+
+
+    def test_upload_project_contract_attachment_is_visible_in_project_overview(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from projects.models import Project
+
+        project = Project.objects.create(project_no="ATTACH-PRJ-001", name="附件项目")
+        upload = SimpleUploadedFile("contract.pdf", b"fake-pdf", content_type="application/pdf")
+        response = self.client.post("/api/attachments/upload/", {"name": "合同附件", "object_type": "project", "object_id": project.id, "file": upload}, format="multipart")
+        self.assertEqual(response.status_code, 201)
+
+        overview = self.client.get(f"/api/projects/{project.id}/overview/")
+        self.assertEqual(overview.status_code, 200)
+        self.assertEqual(overview.data["attachments"][0]["name"], "合同附件")
+        self.assertIn("file_url", overview.data["attachments"][0])

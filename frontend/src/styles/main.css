@@ -53,3 +53,5 @@ body { margin: 0; min-width: 320px; }
 .mb-16 { margin-bottom: 16px; }
 
 .upload-preview { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+
+.mt-16 { margin-top: 16px; }

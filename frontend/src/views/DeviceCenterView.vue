@@ -89,8 +89,20 @@
         </el-tab-pane>
 
         <el-tab-pane label="合同和附件" name="attachments">
-          <el-upload drag action="#" :auto-upload="false"><el-icon><UploadFilled /></el-icon><div>可上传合同、验收单、设备截图，后续接入附件上传 API</div></el-upload>
-          <el-table :data="overview.attachments"><el-table-column prop="name" label="附件名" /></el-table>
+          <el-upload drag action="#" :auto-upload="false" :on-change="uploadProjectAttachment" :show-file-list="false">
+            <el-icon><UploadFilled /></el-icon>
+            <div>上传合同、验收单、项目资料等附件</div>
+          </el-upload>
+          <el-table :data="overview.attachments" class="mt-16">
+            <el-table-column prop="name" label="附件名" />
+            <el-table-column prop="uploaded_at" label="上传时间" />
+            <el-table-column label="操作" width="160">
+              <template #default="scope">
+                <el-button v-if="scope.row.file_url" link type="primary" @click.stop="previewAttachment(scope.row)">预览</el-button>
+                <el-button v-if="scope.row.file_url" link type="primary" @click.stop="downloadAttachment(scope.row)">下载</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </el-tab-pane>
       </el-tabs>
     </el-drawer>
@@ -194,6 +206,35 @@ async function ensureDevice() {
   })
   deviceBinding.device = data.id
   return data.id
+}
+
+
+async function uploadProjectAttachment(file) {
+  try {
+    if (!activeProjectId.value) return ElMessage.warning('请先打开项目详情')
+    const payload = new FormData()
+    payload.append('name', file.name)
+    payload.append('object_type', 'project')
+    payload.append('object_id', activeProjectId.value)
+    payload.append('file', file.raw)
+    await uploadAttachment(payload)
+    ElMessage.success('附件已上传')
+    await openDetail({ id: activeProjectId.value })
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '上传附件失败'))
+  }
+}
+
+function previewAttachment(row) {
+  window.open(row.file_url, '_blank', 'noopener,noreferrer')
+}
+
+function downloadAttachment(row) {
+  const link = document.createElement('a')
+  link.href = row.file_url
+  link.download = row.name || '附件'
+  link.target = '_blank'
+  link.click()
 }
 
 async function uploadDeviceScreenshot(file) {
