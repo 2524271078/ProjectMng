@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import MenuViewSet, PermissionViewSet, RoleViewSet, UserRoleViewSet, UserViewSet, current_user_view, login_view
@@ -25,7 +26,17 @@ router.register("contract-parties", ContractPartyViewSet)
 router.register("attachments", AttachmentViewSet)
 router.register("audit-logs", AuditLogViewSet)
 
+
+def root_view(request):
+    return JsonResponse({
+        "service": "项目设备管理系统 API",
+        "api_base": "/api/",
+        "admin": "/admin/",
+        "frontend_dev": "http://127.0.0.1:5173/",
+    })
+
 urlpatterns = [
+    path("", root_view),
     path("admin/", admin.site.urls),
     path("api/auth/login/", login_view),
     path("api/auth/me/", current_user_view),
