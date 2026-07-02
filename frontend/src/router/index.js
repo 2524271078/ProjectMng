@@ -5,6 +5,8 @@ import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import CustomerCenterView from '../views/CustomerCenterView.vue'
 import DeviceCenterView from '../views/DeviceCenterView.vue'
+import SalesCenterView from '../views/SalesCenterView.vue'
+import ContractCenterView from '../views/ContractCenterView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -14,7 +16,9 @@ const routes = [
     redirect: '/dashboard',
     children: [{ path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
       { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心' } },
-      { path: 'devices', component: DeviceCenterView, meta: { title: '设备中心' } }],
+      { path: 'devices', component: DeviceCenterView, meta: { title: '设备中心' } },
+      { path: 'sales', component: SalesCenterView, meta: { title: '销售中心' } },
+      { path: 'contracts', component: ContractCenterView, meta: { title: '合同中心' } }],
   },
 ]
 
