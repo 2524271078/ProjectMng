@@ -19,7 +19,11 @@
           <span class="eyebrow-dark">Customer Center</span>
           <h2>{{ selected?.name || '选择左侧客户' }}</h2>
         </div>
-        <el-button type="primary" @click="openCreateDialog">新增组织</el-button>
+        <div class="action-row">
+          <el-button @click="openEditDialog" :disabled="!selected">编辑组织</el-button>
+          <el-button type="danger" plain @click="removeOrganization" :disabled="!selected">删除组织</el-button>
+          <el-button type="primary" @click="openCreateDialog">新增组织</el-button>
+        </div>
       </div>
 
       <el-tabs v-if="overview" model-value="base">
@@ -46,7 +50,7 @@
       <el-empty v-else description="请选择客户查看详情" />
     </section>
 
-    <el-dialog v-model="dialogVisible" title="新增组织" width="520px">
+    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑组织' : '新增组织'" width="520px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="上级组织">
           <OrganizationTreeSelect v-model="form.parent" placeholder="不选则作为根组织" />
@@ -75,9 +79,9 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, fetchCustomerOverview, listResource } from '../api/resources'
+import { createResource, deleteResource, fetchCustomerOverview, listResource, updateResource } from '../api/resources'
 import { buildOrganizationTree } from '../utils/orgTree'
 
 const organizations = ref([])
@@ -85,6 +89,7 @@ const selected = ref(null)
 const overview = ref(null)
 const dialogVisible = ref(false)
 const saving = ref(false)
+const editingId = ref(null)
 const form = reactive({ parent: null, name: '', org_type: 'customer', short_name: '', region: '', address: '' })
 const treeProps = { label: 'name', children: 'children' }
 const treeData = computed(() => buildOrganizationTree(organizations.value))
@@ -101,7 +106,23 @@ async function selectCustomer(node) {
 }
 
 function openCreateDialog() {
+  editingId.value = null
+  resetForm()
   form.parent = selected.value?.id || null
+  dialogVisible.value = true
+}
+
+function openEditDialog() {
+  if (!selected.value) return
+  editingId.value = selected.value.id
+  Object.assign(form, {
+    parent: selected.value.parent || null,
+    name: selected.value.name || '',
+    org_type: selected.value.org_type || 'customer',
+    short_name: selected.value.short_name || '',
+    region: selected.value.region || '',
+    address: selected.value.address || '',
+  })
   dialogVisible.value = true
 }
 
@@ -122,16 +143,31 @@ async function createOrganization() {
   }
   saving.value = true
   try {
-    await createResource('organizations', buildPayload())
-    ElMessage.success('组织已新增')
+    if (editingId.value) {
+      await updateResource('organizations', editingId.value, buildPayload())
+    } else {
+      await createResource('organizations', buildPayload())
+    }
+    ElMessage.success(editingId.value ? '组织已更新' : '组织已新增')
     dialogVisible.value = false
     resetForm()
+    editingId.value = null
     await loadOrganizations()
   } catch (error) {
     ElMessage.error('保存组织失败，请检查必填项')
   } finally {
     saving.value = false
   }
+}
+
+async function removeOrganization() {
+  if (!selected.value) return
+  await ElMessageBox.confirm(`确认删除组织“${selected.value.name}”？`, '删除确认', { type: 'warning' })
+  await deleteResource('organizations', selected.value.id)
+  ElMessage.success('组织已删除')
+  selected.value = null
+  overview.value = null
+  await loadOrganizations()
 }
 
 onMounted(loadOrganizations)

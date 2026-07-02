@@ -137,3 +137,22 @@ class StateGridImportCommandTests(TestCase):
         self.assertEqual(branches.children.count(), 6)
         affiliates = Organization.objects.get(name="国网三产公司")
         self.assertTrue(affiliates.children.filter(name="国网英大").exists())
+
+
+class SoftDeleteApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username="soft-delete", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_organization_delete_marks_row_deleted_and_hides_from_list(self):
+        org = Organization.objects.create(name="待删除客户", org_type="customer")
+
+        response = self.client.delete(f"/api/organizations/{org.id}/")
+
+        self.assertEqual(response.status_code, 204)
+        org.refresh_from_db()
+        self.assertTrue(org.is_deleted)
+        list_response = self.client.get("/api/organizations/")
+        names = [item["name"] for item in list_response.data]
+        self.assertNotIn("待删除客户", names)

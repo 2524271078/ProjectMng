@@ -1,52 +1,71 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 
 from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, SalesCustomerRelation
 from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, SalesCustomerRelationSerializer
 
 
-class OrganizationViewSet(viewsets.ModelViewSet):
+class SoftDeleteModelViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        model = queryset.model
+        if any(field.name == "is_deleted" for field in model._meta.fields):
+            queryset = queryset.filter(is_deleted=False)
+        return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if hasattr(instance, "is_deleted"):
+            instance.is_deleted = True
+            if hasattr(instance, "updated_by") and request.user.is_authenticated:
+                instance.updated_by = request.user
+            instance.save(update_fields=["is_deleted", "updated_at", "updated_by"] if hasattr(instance, "updated_by") else ["is_deleted"])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return super().destroy(request, *args, **kwargs)
+
+
+class OrganizationViewSet(SoftDeleteModelViewSet):
     queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
 
 
-class PersonViewSet(viewsets.ModelViewSet):
+class PersonViewSet(SoftDeleteModelViewSet):
     queryset = Person.objects.select_related("organization", "user").all()
     serializer_class = PersonSerializer
 
 
-class SalesCustomerRelationViewSet(viewsets.ModelViewSet):
+class SalesCustomerRelationViewSet(SoftDeleteModelViewSet):
     queryset = SalesCustomerRelation.objects.select_related("sales_person", "customer_org").all()
     serializer_class = SalesCustomerRelationSerializer
 
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(SoftDeleteModelViewSet):
     queryset = Product.objects.select_related("manufacturer").all()
     serializer_class = ProductSerializer
 
 
-class DeviceModelViewSet(viewsets.ModelViewSet):
+class DeviceModelViewSet(SoftDeleteModelViewSet):
     queryset = DeviceModel.objects.select_related("product", "manufacturer").all()
     serializer_class = DeviceModelSerializer
 
 
-class DeviceViewSet(viewsets.ModelViewSet):
+class DeviceViewSet(SoftDeleteModelViewSet):
     queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").all()
     serializer_class = DeviceSerializer
 
 
-class ContractViewSet(viewsets.ModelViewSet):
+class ContractViewSet(SoftDeleteModelViewSet):
     queryset = Contract.objects.select_related("final_customer", "direct_buyer", "sales_person").all()
     serializer_class = ContractSerializer
 
 
-class ContractDeviceViewSet(viewsets.ModelViewSet):
+class ContractDeviceViewSet(SoftDeleteModelViewSet):
     queryset = ContractDevice.objects.select_related("contract", "device").all()
     serializer_class = ContractDeviceSerializer
 
 
-class ContractPartyViewSet(viewsets.ModelViewSet):
+class ContractPartyViewSet(SoftDeleteModelViewSet):
     queryset = ContractParty.objects.select_related("contract", "organization").all()
     serializer_class = ContractPartySerializer
 

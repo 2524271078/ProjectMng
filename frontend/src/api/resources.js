@@ -23,3 +23,12 @@ export function fetchContractOverview(id) {
 export function fetchSalesCustomers(id) {
   return apiClient.get(`/sales/${id}/customers/`)
 }
+
+
+export function updateResource(resource, id, payload) {
+  return apiClient.patch(`/${resource}/${id}/`, payload)
+}
+
+export function deleteResource(resource, id) {
+  return apiClient.delete(`/${resource}/${id}/`)
+}
