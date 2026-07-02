@@ -8,8 +8,9 @@
     <el-table :data="projects" stripe @row-click="openDetail">
       <el-table-column prop="project_no" label="项目编号" min-width="150" />
       <el-table-column prop="name" label="项目名称" min-width="220" />
-      <el-table-column prop="project_stage" label="阶段" />
-      <el-table-column prop="amount" label="金额" />
+      <el-table-column label="阶段"><template #default="scope">{{ projectStageLabel(scope.row.project_stage) }}</template></el-table-column>
+      <el-table-column prop="winning_company" label="实际中标公司" min-width="160" />
+      <el-table-column prop="contact_company" label="对接公司" min-width="160" />
       <el-table-column prop="status" label="状态" />
     </el-table>
 
@@ -18,6 +19,8 @@
         <el-form-item label="项目编号"><el-input v-model="form.project_no" /></el-form-item>
         <el-form-item label="项目名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="客户"><OrganizationTreeSelect v-model="form.customer_org" placeholder="请选择客户" /></el-form-item>
+        <el-form-item label="实际中标公司"><el-input v-model="form.winning_company" /></el-form-item>
+        <el-form-item label="对接公司"><el-input v-model="form.contact_company" /></el-form-item>
         <el-form-item label="销售人员"><el-select v-model="form.sales_person" clearable filterable><el-option v-for="person in salesPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item>
         <el-form-item label="项目阶段"><el-select v-model="form.project_stage"><el-option label="立项" value="new" /><el-option label="签约" value="signed" /><el-option label="交付" value="delivery" /><el-option label="运维" value="ops" /></el-select></el-form-item>
         <el-form-item label="项目金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item>
@@ -32,8 +35,10 @@
             <el-descriptions-item label="项目编号">{{ overview.project.project_no }}</el-descriptions-item>
             <el-descriptions-item label="项目名称">{{ overview.project.name }}</el-descriptions-item>
             <el-descriptions-item label="客户">{{ overview.customer?.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="实际中标公司">{{ overview.project.winning_company || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="对接公司">{{ overview.project.contact_company || '-' }}</el-descriptions-item>
             <el-descriptions-item label="销售">{{ overview.sales_person?.name || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="阶段">{{ overview.project.project_stage }}</el-descriptions-item>
+            <el-descriptions-item label="阶段">{{ projectStageLabel(overview.project.project_stage) }}</el-descriptions-item>
             <el-descriptions-item label="金额">{{ overview.project.amount }}</el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
@@ -51,9 +56,9 @@
                 </el-col>
                 <template v-else>
                   <el-col :span="24"><el-alert title="默认流程：选择产品型号，填写这台设备唯一序列号等信息，保存后自动创建真实设备并绑定当前项目。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
-                  <el-col :span="12"><el-form-item label="产品型号"><el-select v-model="deviceBinding.device_model" placeholder="选择产品中心维护的具体型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
-                  <el-col :span="12"><el-form-item label="设备名称"><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
-                  <el-col :span="12"><el-form-item label="序列号"><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
+                  <el-col :span="12"><el-form-item label="产品型号" required><el-select v-model="deviceBinding.device_model" placeholder="选择产品中心维护的具体型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
+                  <el-col :span="12"><el-form-item label="设备名称" required><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
+                  <el-col :span="12"><el-form-item label="序列号" required><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
                 </template>
                 <el-col :span="12"><el-form-item label="设备项目类型"><el-input v-model="deviceBinding.device_project_type" placeholder="如：正式设备/试点设备/备机" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="部署位置"><el-input v-model="deviceBinding.deploy_location" /></el-form-item></el-col>
@@ -123,6 +128,7 @@ import { createResource, fetchProjectOverview, listResource, updateResource, upl
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
 import { createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
+import { projectStageLabel } from '../utils/displayMaps'
 
 const projects = ref([])
 const devices = ref([])
@@ -134,7 +140,7 @@ const overview = ref(null)
 const dialogVisible = ref(false)
 const drawerVisible = ref(false)
 const activeProjectId = ref(null)
-const form = reactive({ project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 })
+const form = reactive({ project_no: '', name: '', customer_org: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
 
 function defaultDeviceBinding() {
@@ -162,7 +168,7 @@ async function loadOptions() {
 }
 
 function openCreateDialog() {
-  Object.assign(form, { project_no: '', name: '', customer_org: null, sales_person: null, project_stage: 'new', amount: 0 })
+  Object.assign(form, { project_no: '', name: '', customer_org: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
   dialogVisible.value = true
 }
 

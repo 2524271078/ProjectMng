@@ -210,7 +210,7 @@ class ProjectApiTests(APITestCase):
         model = DeviceModel.objects.create(product=product, product_version=version, model_name="DA-2000", model_code="DA2000")
         device = Device.objects.create(name="审计设备", serial_number="API-SN-001", device_model=model)
 
-        response = self.client.post("/api/projects/", {"project_no": "API-PRJ-001", "name": "API 项目", "customer_org": customer.id, "sales_person": sales.id}, format="json")
+        response = self.client.post("/api/projects/", {"project_no": "API-PRJ-001", "name": "API 项目", "customer_org": customer.id, "sales_person": sales.id, "winning_company": "中标公司 A", "contact_company": "对接公司 B"}, format="json")
         self.assertEqual(response.status_code, 201)
         project_id = response.data["id"]
 
@@ -220,6 +220,8 @@ class ProjectApiTests(APITestCase):
         overview = self.client.get(f"/api/projects/{project_id}/overview/")
         self.assertEqual(overview.status_code, 200)
         self.assertEqual(overview.data["project"]["name"], "API 项目")
+        self.assertEqual(overview.data["project"]["winning_company"], "中标公司 A")
+        self.assertEqual(overview.data["project"]["contact_company"], "对接公司 B")
         self.assertEqual(overview.data["customer"]["name"], "API 客户")
         self.assertEqual(overview.data["devices"][0]["serial_number"], "API-SN-001")
 
