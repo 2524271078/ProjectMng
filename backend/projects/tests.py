@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.test import TestCase
+from rest_framework.test import APITestCase
 
 from projects.models import (
     Attachment,
@@ -104,3 +105,17 @@ class DomainModelTests(TestCase):
 
         self.assertEqual(attachment.object_type, "device")
         self.assertEqual(log.after_data["name"], "设备")
+
+
+class PersonApiValidationTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username="person-api", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_person_can_be_created_without_organization(self):
+        response = self.client.post("/api/people/", {"name": "临时联系人", "person_type": "customer_contact"}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["name"], "临时联系人")
+        self.assertIsNone(response.data["organization"])
