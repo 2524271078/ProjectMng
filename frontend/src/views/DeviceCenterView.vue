@@ -88,20 +88,18 @@
           </el-card>
 
           <el-table :data="overview.devices" stripe>
-            <el-table-column prop="name" label="设备" min-width="140" />
-            <el-table-column prop="serial_number" label="序列号" min-width="140" />
-            <el-table-column prop="device_project_type" label="设备项目类型" />
-            <el-table-column prop="management_address" label="管理地址" min-width="160" />
-            <el-table-column prop="hardware_code" label="硬件码" />
-            <el-table-column prop="software_version" label="系统版本" />
-            <el-table-column prop="version_update_method" label="版本更新方式" />
-            <el-table-column prop="rack_install_date" label="上架时间" />
-            <el-table-column label="标品"><template #default="scope">{{ scope.row.is_standard_product ? '是' : '否' }}</template></el-table-column>
-            <el-table-column label="远程"><template #default="scope">{{ scope.row.supports_remote ? '支持' : '不支持' }}</template></el-table-column>
-            <el-table-column label="保内"><template #default="scope">{{ scope.row.is_under_warranty ? '保内' : '保外' }}</template></el-table-column>
-            <el-table-column label="现场运维"><template #default="scope">{{ scope.row.ops_person?.name || '-' }}</template></el-table-column>
-            <el-table-column prop="deploy_location" label="部署位置" />
-            <el-table-column prop="screenshot_url" label="截图链接" min-width="180"><template #default="scope"><a v-if="scope.row.screenshot_url" :href="scope.row.screenshot_url" target="_blank">预览</a><span v-else>-</span></template></el-table-column>
+            <el-table-column prop="name" label="设备" min-width="160" />
+            <el-table-column prop="serial_number" label="序列号" min-width="160" />
+            <el-table-column prop="device_project_type" label="项目类型" min-width="120" />
+            <el-table-column prop="management_address" label="管理地址" min-width="180" />
+            <el-table-column label="现场运维" min-width="120">
+              <template #default="scope">{{ scope.row.ops_person?.name || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="110" fixed="right">
+              <template #default="scope">
+                <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
 
@@ -123,6 +121,30 @@
         </el-tab-pane>
       </el-tabs>
     </el-drawer>
+
+    <el-dialog v-model="deviceDetailVisible" title="设备详情" width="860px">
+      <el-descriptions v-if="selectedDevice" :column="2" border>
+        <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="序列号">{{ selectedDevice.serial_number || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="管理地址">{{ selectedDevice.management_address || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="设备系统版本">{{ selectedDevice.software_version || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
+        <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
+        <el-descriptions-item label="是否保内">{{ selectedDevice.is_under_warranty ? '保内' : '保外' }}</el-descriptions-item>
+        <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="截图链接">
+          <a v-if="selectedDevice.screenshot_url" :href="selectedDevice.screenshot_url" target="_blank" rel="noopener noreferrer">预览</a>
+          <span v-else>-</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="授权信息" :span="2">{{ typeof selectedDevice.license_info === 'string' ? selectedDevice.license_info : JSON.stringify(selectedDevice.license_info || {}) }}</el-descriptions-item>
+        <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </div>
 </template>
 
@@ -147,7 +169,9 @@ const customerContacts = ref([])
 const overview = ref(null)
 const dialogVisible = ref(false)
 const drawerVisible = ref(false)
+const deviceDetailVisible = ref(false)
 const activeProjectId = ref(null)
+const selectedDevice = ref(null)
 const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
 
@@ -255,6 +279,11 @@ function downloadAttachment(row) {
   link.download = row.name || '附件'
   link.target = '_blank'
   link.click()
+}
+
+function openDeviceDetail(device) {
+  selectedDevice.value = device
+  deviceDetailVisible.value = true
 }
 
 async function uploadDeviceScreenshot(file) {
