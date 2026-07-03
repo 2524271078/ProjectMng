@@ -275,6 +275,67 @@ class SearchApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["model_code"] for item in response.data], ["EDGE-TARGET"])
 
+    def test_device_model_scope_filters_work_without_search(self):
+        line_a = ProductLine.objects.create(name="边界安全产品线", code="EDGE-LINE-A")
+        line_b = ProductLine.objects.create(name="数据安全产品线", code="DATA-LINE-B")
+        product_a = Product.objects.create(name="边界防护平台 A", product_code="EDGE-SCOPE-A", product_line=line_a, manufacturer=self.vendor)
+        product_b = Product.objects.create(name="数据库审计平台 B", product_code="DATA-SCOPE-B", product_line=line_b, manufacturer=self.vendor)
+        version_a = ProductVersion.objects.create(product=product_a, version_name="V1", version_code="SCOPE-V1")
+        version_b = ProductVersion.objects.create(product=product_b, version_name="V2", version_code="SCOPE-V2")
+        DeviceModel.objects.create(product=product_a, product_version=version_a, model_name="范围过滤型号 A", model_code="SCOPE-A", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=product_b, product_version=version_b, model_name="范围过滤型号 B", model_code="SCOPE-B", manufacturer=self.vendor)
+
+        by_line = self.client.get(f"/api/device-models/?product_line={line_a.id}")
+        by_product = self.client.get(f"/api/device-models/?product={product_a.id}")
+        by_version = self.client.get(f"/api/device-models/?product_version={version_a.id}")
+
+        self.assertEqual(by_line.status_code, 200)
+        self.assertEqual([item["model_code"] for item in by_line.data], ["SCOPE-A"])
+        self.assertEqual([item["model_code"] for item in by_product.data], ["SCOPE-A"])
+        self.assertEqual([item["model_code"] for item in by_version.data], ["SCOPE-A"])
+
+    def test_device_model_scope_prefers_product_version_over_product_and_product_line(self):
+        line_primary = ProductLine.objects.create(name="优先级产品线", code="PRIORITY-LINE-1")
+        line_secondary = ProductLine.objects.create(name="次级产品线", code="PRIORITY-LINE-2")
+        product_primary = Product.objects.create(name="优先级产品", product_code="PRIORITY-PRODUCT-1", product_line=line_primary, manufacturer=self.vendor)
+        product_secondary = Product.objects.create(name="次级产品", product_code="PRIORITY-PRODUCT-2", product_line=line_secondary, manufacturer=self.vendor)
+        version_primary = ProductVersion.objects.create(product=product_primary, version_name="主版本", version_code="PRIORITY-V1")
+        version_secondary = ProductVersion.objects.create(product=product_secondary, version_name="副版本", version_code="PRIORITY-V2")
+        DeviceModel.objects.create(product=product_primary, product_version=version_primary, model_name="优先级型号 A", model_code="PRIORITY-A", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=product_secondary, product_version=version_secondary, model_name="优先级型号 B", model_code="PRIORITY-B", manufacturer=self.vendor)
+
+        response = self.client.get(
+            f"/api/device-models/?product_line={line_primary.id}&product={product_primary.id}&product_version={version_secondary.id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["model_code"] for item in response.data], ["PRIORITY-B"])
+
+    def test_device_model_scope_ignores_invalid_value_without_500(self):
+        line = ProductLine.objects.create(name="非法值产品线", code="INVALID-LINE")
+        product = Product.objects.create(name="非法值产品", product_code="INVALID-PRODUCT", product_line=line, manufacturer=self.vendor)
+        version = ProductVersion.objects.create(product=product, version_name="非法值版本", version_code="INVALID-V1")
+        DeviceModel.objects.create(product=product, product_version=version, model_name="非法值型号 A", model_code="INVALID-A", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=product, model_name="非法值型号 B", model_code="INVALID-B", manufacturer=self.vendor)
+
+        response = self.client.get("/api/device-models/?product_version=abc")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual([item["model_code"] for item in response.data], ["INVALID-A", "INVALID-B"])
+
+    def test_device_model_scope_skips_invalid_more_specific_value_and_uses_next_valid_scope(self):
+        line_a = ProductLine.objects.create(name="回退产品线 A", code="FALLBACK-LINE-A")
+        line_b = ProductLine.objects.create(name="回退产品线 B", code="FALLBACK-LINE-B")
+        product_a = Product.objects.create(name="回退产品 A", product_code="FALLBACK-PRODUCT-A", product_line=line_a, manufacturer=self.vendor)
+        product_b = Product.objects.create(name="回退产品 B", product_code="FALLBACK-PRODUCT-B", product_line=line_b, manufacturer=self.vendor)
+        DeviceModel.objects.create(product=product_a, model_name="回退型号 A", model_code="FALLBACK-A", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=product_b, model_name="回退型号 B", model_code="FALLBACK-B", manufacturer=self.vendor)
+
+        response = self.client.get(f"/api/device-models/?product_version=abc&product={product_a.id}&product_line={line_b.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["model_code"] for item in response.data], ["FALLBACK-A"])
+
 
 class ProductProjectModelTests(TestCase):
     def test_product_line_version_model_and_project_device_flow(self):

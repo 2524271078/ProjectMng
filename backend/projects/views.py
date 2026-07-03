@@ -38,20 +38,34 @@ def apply_search(queryset, search_value, search_fields):
     return queryset.filter(conditions)
 
 
+def parse_query_int(raw_value):
+    value = (raw_value or "").strip()
+    if not value:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def resolve_device_model_scope(query_params):
+    # Device model scope uses the most specific valid node only; it is not a combined constraint.
+    scope_candidates = [
+        ("product_version_id", parse_query_int(query_params.get("product_version"))),
+        ("product_id", parse_query_int(query_params.get("product"))),
+        ("product__product_line_id", parse_query_int(query_params.get("product_line"))),
+    ]
+    for lookup, value in scope_candidates:
+        if value is not None:
+            return lookup, value
+    return None, None
+
+
 def apply_device_model_scope(queryset, query_params):
-    product_version = query_params.get("product_version", "").strip()
-    if product_version:
-        return queryset.filter(product_version_id=product_version)
-
-    product = query_params.get("product", "").strip()
-    if product:
-        return queryset.filter(product_id=product)
-
-    product_line = query_params.get("product_line", "").strip()
-    if product_line:
-        return queryset.filter(product__product_line_id=product_line)
-
-    return queryset
+    lookup, value = resolve_device_model_scope(query_params)
+    if lookup is None:
+        return queryset
+    return queryset.filter(**{lookup: value})
 
 
 class OrganizationViewSet(SoftDeleteModelViewSet):
