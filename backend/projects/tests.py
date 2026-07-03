@@ -749,3 +749,77 @@ class DeviceDirectoryApiTests(APITestCase):
         self.assertEqual(response.data["customer_contact"]["id"], contact.id)
         self.assertEqual(response.data["customer_contact"]["name"], "设备详情联系人")
         self.assertEqual(response.data["sales_person"]["id"], sales.id)
+
+
+
+class DeviceDirectorySearchApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="device-directory-search", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_device_list_search_matches_device_customer_contact_and_sales(self):
+        customer = Organization.objects.create(name="搜索客户", org_type="customer")
+        contact = Person.objects.create(name="搜索联系人", organization=customer, person_type="customer_contact")
+        sales = Person.objects.create(name="搜索销售", person_type="sales")
+        product = Product.objects.create(name="搜索产品", product_code="DEVICE-SEARCH-P")
+        model = DeviceModel.objects.create(product=product, model_name="SEARCH-1000", model_code="SEARCH-1000")
+        device = Device.objects.create(
+            name="搜索设备",
+            serial_number="SEARCH-SN-001",
+            device_model=model,
+            customer_org=customer,
+            sales_person=sales,
+        )
+        project = Project.objects.create(
+            project_no="DEVICE-SEARCH-PRJ-001",
+            name="搜索项目",
+            customer_org=customer,
+            customer_contact=contact,
+            sales_person=sales,
+        )
+        ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_type="new_install",
+            service_start_date="2026-07-01",
+            service_end_date="2027-06-30",
+        )
+
+        other_customer = Organization.objects.create(name="无关客户", org_type="customer")
+        other_contact = Person.objects.create(name="无关联系人", organization=other_customer, person_type="customer_contact")
+        other_sales = Person.objects.create(name="无关销售", person_type="sales")
+        other_product = Product.objects.create(name="无关产品", product_code="DEVICE-SEARCH-OTHER-P")
+        other_model = DeviceModel.objects.create(product=other_product, model_name="OTHER-1000", model_code="OTHER-1000")
+        other_device = Device.objects.create(
+            name="无关设备",
+            serial_number="OTHER-SN-001",
+            device_model=other_model,
+            customer_org=other_customer,
+            sales_person=other_sales,
+        )
+        other_project = Project.objects.create(
+            project_no="DEVICE-SEARCH-PRJ-002",
+            name="无关项目",
+            customer_org=other_customer,
+            customer_contact=other_contact,
+            sales_person=other_sales,
+        )
+        ProjectDevice.objects.create(
+            project=other_project,
+            device=other_device,
+            service_type="renewal",
+            service_start_date="2026-08-01",
+            service_end_date="2027-07-31",
+        )
+
+        by_device = self.client.get("/api/devices/?search=搜索设备")
+        by_serial = self.client.get("/api/devices/?search=SEARCH-SN-001")
+        by_customer = self.client.get("/api/devices/?search=搜索客户")
+        by_contact = self.client.get("/api/devices/?search=搜索联系人")
+        by_sales = self.client.get("/api/devices/?search=搜索销售")
+
+        for response in [by_device, by_serial, by_customer, by_contact, by_sales]:
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual([item["id"] for item in response.data], [device.id])

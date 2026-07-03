@@ -134,6 +134,22 @@ class DeviceViewSet(SoftDeleteModelViewSet):
     ).all()
     serializer_class = DeviceSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search_value = self.request.query_params.get("search", "").strip()
+        queryset = apply_search(
+            queryset,
+            search_value,
+            [
+                "name",
+                "serial_number",
+                "customer_org__name",
+                "sales_person__name",
+                "project_devices__project__customer_contact__name",
+            ],
+        )
+        return queryset.distinct()
+
 
 class ProjectViewSet(SoftDeleteModelViewSet):
     queryset = Project.objects.select_related("customer_org", "sales_person", "ops_person").all().order_by("id")
