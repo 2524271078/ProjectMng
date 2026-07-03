@@ -61,7 +61,7 @@
         <el-tab-pane label="项目设备" name="devices">
           <el-card shadow="never" class="mb-16">
             <template #header>
-              <div class="section-head compact"><span>新增项目设备</span><el-button link type="primary" @click="toggleDeviceMode">{{ deviceBinding.bind_mode === 'new' ? '选择已有设备' : '改为新建设备' }}</el-button></div>
+              <div class="section-head compact"><span>{{ editingProjectDeviceId ? '编辑项目设备' : '新增项目设备' }}</span><div><el-button v-if="editingProjectDeviceId" link @click="resetDeviceBinding">取消编辑</el-button><el-button link type="primary" @click="toggleDeviceMode">{{ deviceBinding.bind_mode === 'new' ? '选择已有设备' : '改为新建设备' }}</el-button></div></div>
             </template>
             <el-form :model="deviceBinding" label-width="130px">
               <el-row :gutter="14">
@@ -93,7 +93,7 @@
                 <el-col :span="24"><el-form-item label="上传截图"><el-upload :auto-upload="false" :on-change="uploadDeviceScreenshot" :show-file-list="false"><el-button>选择并上传截图</el-button></el-upload><div v-if="uploadedScreenshots.length" class="upload-preview"><a v-for="item in uploadedScreenshots" :key="item.id" :href="item.file_url" target="_blank">{{ item.name }}</a></div></el-form-item></el-col>
                 <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceBinding.remark" type="textarea" /></el-form-item></el-col>
               </el-row>
-              <el-button type="primary" @click="bindDevice">{{ deviceBinding.bind_mode === 'new' ? '保存项目设备' : '绑定已有设备' }}</el-button>
+              <el-button type="primary" @click="bindDevice">{{ editingProjectDeviceId ? '保存修改' : (deviceBinding.bind_mode === 'new' ? '保存项目设备' : '绑定已有设备') }}</el-button>
             </el-form>
           </el-card>
 
@@ -113,8 +113,10 @@
             <el-table-column label="现场运维" min-width="120">
               <template #default="scope">{{ scope.row.ops_person?.name || '-' }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="110" fixed="right">
+            <el-table-column label="操作" width="170" fixed="right">
               <template #default="scope">
+                <el-button link type="primary" @click.stop="editProjectDevice(scope.row)">编辑</el-button>
+                <el-button link type="danger" @click.stop="removeProjectDevice(scope.row)">删除</el-button>
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
               </template>
             </el-table-column>
@@ -211,6 +213,7 @@ const drawerVisible = ref(false)
 const editingProjectId = ref(null)
 const deviceDetailVisible = ref(false)
 const activeProjectId = ref(null)
+const editingProjectDeviceId = ref(null)
 const selectedDevice = ref(null)
 const selectedContractId = ref(null)
 const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
@@ -233,8 +236,15 @@ function defaultDeviceBinding() {
   return createDefaultProjectDeviceForm()
 }
 
+function resetDeviceBinding() {
+  editingProjectDeviceId.value = null
+  Object.assign(deviceBinding, defaultDeviceBinding())
+  uploadedScreenshots.value = []
+}
+
 function toggleDeviceMode() {
   const nextMode = deviceBinding.bind_mode === 'new' ? 'existing' : 'new'
+  editingProjectDeviceId.value = null
   Object.assign(deviceBinding, defaultDeviceBinding(), { bind_mode: nextMode, service_type: nextMode === 'existing' ? 'renewal' : 'new_install' })
   uploadedScreenshots.value = []
 }
@@ -463,6 +473,44 @@ function fillDeviceFields(deviceId) {
   })
 }
 
+function editProjectDevice(row) {
+  editingProjectDeviceId.value = row.id
+  Object.assign(deviceBinding, defaultDeviceBinding(), {
+    bind_mode: 'existing',
+    device: row.device_id || null,
+    deploy_location: row.deploy_location || '',
+    device_project_type: row.device_project_type || '',
+    management_address: row.management_address || '',
+    hardware_code: row.hardware_code || '',
+    software_version: row.software_version || '',
+    version_update_method: row.version_update_method || '',
+    license_info_text: row.license_info ? JSON.stringify(row.license_info) : '',
+    is_standard_product: row.is_standard_product ?? true,
+    supports_remote: Boolean(row.supports_remote),
+    service_type: row.service_type || 'renewal',
+    service_start_date: row.service_start_date || '',
+    service_end_date: row.service_end_date || '',
+    ops_person: row.ops_person?.id || row.ops_person || null,
+    screenshot_url: row.screenshot_url || '',
+    rack_install_date: row.rack_install_date || '',
+    remark: row.remark || '',
+  })
+  uploadedScreenshots.value = []
+}
+
+async function removeProjectDevice(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除项目设备“${row.name}”？`, '删除确认', { type: 'warning' })
+    await deleteResource('project-devices', row.id)
+    ElMessage.success('项目设备已删除')
+    if (editingProjectDeviceId.value === row.id) resetDeviceBinding()
+    await openDetail({ id: activeProjectId.value })
+  } catch (error) {
+    if (error === 'cancel') return
+    ElMessage.error(formatApiError(error, '删除项目设备失败'))
+  }
+}
+
 async function bindDevice() {
   try {
     if (!deviceBinding.service_start_date) throw new Error('请选择服务开始日期')
@@ -482,7 +530,7 @@ async function bindDevice() {
       rack_install_date: deviceBinding.rack_install_date || null,
       remark: deviceBinding.remark,
     })
-    const existingBinding = findCurrentProjectBinding(deviceId)
+    const existingBinding = editingProjectDeviceId.value ? { id: editingProjectDeviceId.value } : findCurrentProjectBinding(deviceId)
     if (existingBinding) {
       await updateResource('project-devices', existingBinding.id, buildProjectDeviceBindingPayload(deviceBinding))
     } else {
@@ -492,8 +540,7 @@ async function bindDevice() {
         ...buildProjectDeviceBindingPayload(deviceBinding),
       })
     }
-    Object.assign(deviceBinding, defaultDeviceBinding())
-    uploadedScreenshots.value = []
+    resetDeviceBinding()
     await loadOptions()
     await openDetail({ id: activeProjectId.value })
   } catch (error) {

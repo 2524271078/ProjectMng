@@ -190,6 +190,7 @@ def project_device_summary(binding):
     return {
         **device_summary(binding.device),
         "id": binding.id,
+        "device_id": binding.device_id,
         "project": binding.project_id,
         "quantity": binding.quantity,
         "deploy_location": binding.deploy_location,

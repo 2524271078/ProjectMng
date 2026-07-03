@@ -273,6 +273,7 @@ class ProjectDeviceDetailApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         detail = response.data["devices"][0]
+        self.assertEqual(detail["device_id"], device.id)
         self.assertEqual(detail["hardware_code"], "HW-001")
         self.assertEqual(detail["software_version"], "OS-1.0")
         self.assertEqual(detail["license_info"], {"type": "标准授权"})
