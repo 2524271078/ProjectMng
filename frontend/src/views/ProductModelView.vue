@@ -19,7 +19,8 @@
         </div>
       </div>
       <el-alert v-if="!lines.length" title="请先新增产线，再在产线下新增产品、版本和型号。" type="info" show-icon :closable="false" class="mb-16" />
-      <el-table :data="filteredModels" stripe>
+      <div class="page-table-scroll">
+        <el-table :data="filteredModels" stripe>
         <el-table-column prop="model_name" label="型号名称" min-width="180" />
         <el-table-column prop="model_code" label="型号编码" min-width="160" />
         <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
@@ -30,7 +31,8 @@
             <el-button link type="danger" @click.stop="removeModel(scope.row)">删除</el-button>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
     </section>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px">

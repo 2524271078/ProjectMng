@@ -1,11 +1,12 @@
 <template>
-  <div>
+  <div class="page-scroll-layout">
     <div class="section-head">
       <div><span class="eyebrow-dark">Project Center</span><h2>项目中心</h2></div>
       <el-button type="primary" @click="openCreateDialog">新增项目</el-button>
     </div>
 
-    <el-table :data="projects" stripe @row-click="openDetail">
+    <div class="page-table-scroll">
+      <el-table :data="projects" stripe @row-click="openDetail">
       <el-table-column prop="name" label="项目名称" min-width="220" />
       <el-table-column label="客户公司" min-width="220">
         <template #default="scope">{{ scope.row.customer_org_detail?.name || '-' }}</template>
@@ -22,7 +23,8 @@
           <el-button link type="danger" @click.stop="removeProject(scope.row)">删除</el-button>
         </template>
       </el-table-column>
-    </el-table>
+      </el-table>
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="editingProjectId ? '编辑项目' : '新增项目'" width="620px">
       <el-form :model="form" label-width="110px">
@@ -44,7 +46,7 @@
     </el-dialog>
 
     <el-drawer v-model="drawerVisible" size="70%" title="项目详情">
-      <el-tabs v-if="overview" model-value="base">
+      <el-tabs v-if="overview" model-value="base" class="drawer-tabs-scroll">
         <el-tab-pane label="基础信息" name="base">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="项目编号">{{ overview.project.project_no }}</el-descriptions-item>

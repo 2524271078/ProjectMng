@@ -26,7 +26,7 @@
         </div>
       </div>
 
-      <el-tabs v-if="overview" model-value="base">
+      <el-tabs v-if="overview" model-value="base" class="page-tabs-scroll">
         <el-tab-pane label="客户详情" name="base">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="名称">{{ overview.customer.name }}</el-descriptions-item>
@@ -110,7 +110,7 @@
     </el-dialog>
 
     <el-drawer v-model="projectDrawerVisible" size="68%" title="项目详情">
-      <el-tabs v-if="projectOverview" model-value="base">
+      <el-tabs v-if="projectOverview" model-value="base" class="drawer-tabs-scroll">
         <el-tab-pane label="基础信息" name="base">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="项目编号">{{ projectOverview.project.project_no }}</el-descriptions-item>

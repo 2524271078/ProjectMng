@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="page-scroll-layout">
     <div class="section-head">
       <div>
         <span class="eyebrow-dark">People</span>
@@ -8,7 +8,8 @@
       <el-button type="primary" @click="openCreateDialog">新增人员</el-button>
     </div>
 
-    <el-table :data="people" stripe>
+    <div class="page-table-scroll">
+      <el-table :data="people" stripe>
       <el-table-column prop="name" label="姓名" />
       <el-table-column prop="person_type" label="人员类型" />
       <el-table-column prop="position" label="职位" />
@@ -20,7 +21,8 @@
           <el-button link type="danger" @click="removePerson(scope.row)">删除</el-button>
         </template>
       </el-table-column>
-    </el-table>
+      </el-table>
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑人员' : '新增人员'" width="520px">
       <el-form :model="form" label-width="100px">

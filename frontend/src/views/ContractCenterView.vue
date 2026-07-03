@@ -1,4 +1,55 @@
-<template><div><div class="section-head"><div><span class="eyebrow-dark">Contract Center</span><h2>合同链路</h2></div><el-button type="primary" @click="dialogVisible=true">新增合同</el-button></div><el-table :data="contracts" stripe @row-click="openDetail"><el-table-column prop="contract_no" label="合同编号" /><el-table-column prop="contract_name" label="合同名称" min-width="220" /><el-table-column prop="amount" label="金额" /><el-table-column prop="status" label="状态" /></el-table><el-dialog v-model="dialogVisible" title="新增合同" width="560px"><el-form :model="form" label-width="110px"><el-form-item label="合同编号"><el-input v-model="form.contract_no" /></el-form-item><el-form-item label="合同名称"><el-input v-model="form.contract_name" /></el-form-item><el-form-item label="最终客户 ID"><el-input-number v-model="form.final_customer" :min="1" /></el-form-item><el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item></el-form><template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="createContract">保存</el-button></template></el-dialog><el-drawer v-model="drawerVisible" size="56%" title="合同详情"><el-tabs v-if="overview" model-value="parties"><el-tab-pane label="合同详情" name="base"><el-descriptions border><el-descriptions-item label="编号">{{ overview.contract.contract_no }}</el-descriptions-item><el-descriptions-item label="名称">{{ overview.contract.contract_name }}</el-descriptions-item><el-descriptions-item label="金额">{{ overview.contract.amount }}</el-descriptions-item></el-descriptions></el-tab-pane><el-tab-pane label="参与方链路" name="parties"><el-timeline><el-timeline-item v-for="p in overview.parties" :key="p.id" :timestamp="p.role">{{ p.order_index }}. {{ p.organization.name }}</el-timeline-item></el-timeline></el-tab-pane><el-tab-pane label="绑定设备" name="devices"><el-table :data="overview.devices"><el-table-column prop="name" label="设备" /><el-table-column prop="serial_number" label="序列号" /><el-table-column prop="quantity" label="数量" /><el-table-column prop="price" label="价格" /></el-table></el-tab-pane></el-tabs></el-drawer></div></template>
+<template>
+  <div class="page-scroll-layout">
+    <div class="section-head">
+      <div><span class="eyebrow-dark">Contract Center</span><h2>合同链路</h2></div>
+      <el-button type="primary" @click="dialogVisible = true">新增合同</el-button>
+    </div>
+
+    <div class="page-table-scroll">
+      <el-table :data="contracts" stripe @row-click="openDetail">
+        <el-table-column prop="contract_no" label="合同编号" />
+        <el-table-column prop="contract_name" label="合同名称" min-width="220" />
+        <el-table-column prop="amount" label="金额" />
+        <el-table-column prop="status" label="状态" />
+      </el-table>
+    </div>
+
+    <el-dialog v-model="dialogVisible" title="新增合同" width="560px">
+      <el-form :model="form" label-width="110px">
+        <el-form-item label="合同编号"><el-input v-model="form.contract_no" /></el-form-item>
+        <el-form-item label="合同名称"><el-input v-model="form.contract_name" /></el-form-item>
+        <el-form-item label="最终客户 ID"><el-input-number v-model="form.final_customer" :min="1" /></el-form-item>
+        <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" @click="createContract">保存</el-button></template>
+    </el-dialog>
+
+    <el-drawer v-model="drawerVisible" size="56%" title="合同详情">
+      <el-tabs v-if="overview" model-value="parties" class="drawer-tabs-scroll">
+        <el-tab-pane label="合同详情" name="base">
+          <el-descriptions border>
+            <el-descriptions-item label="编号">{{ overview.contract.contract_no }}</el-descriptions-item>
+            <el-descriptions-item label="名称">{{ overview.contract.contract_name }}</el-descriptions-item>
+            <el-descriptions-item label="金额">{{ overview.contract.amount }}</el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+        <el-tab-pane label="参与方链路" name="parties">
+          <el-timeline>
+            <el-timeline-item v-for="p in overview.parties" :key="p.id" :timestamp="p.role">{{ p.order_index }}. {{ p.organization.name }}</el-timeline-item>
+          </el-timeline>
+        </el-tab-pane>
+        <el-tab-pane label="绑定设备" name="devices">
+          <el-table :data="overview.devices">
+            <el-table-column prop="name" label="设备" />
+            <el-table-column prop="serial_number" label="序列号" />
+            <el-table-column prop="quantity" label="数量" />
+            <el-table-column prop="price" label="价格" />
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-drawer>
+  </div>
+</template>
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { createResource, fetchContractOverview, listResource } from '../api/resources'
