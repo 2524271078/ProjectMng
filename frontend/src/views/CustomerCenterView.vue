@@ -3,6 +3,11 @@
     <aside class="tree-panel">
       <div class="panel-title">组织树</div>
       <el-button type="primary" plain @click="loadOrganizations">刷新组织</el-button>
+      <el-input v-model="searchKeyword" class="mt-16" placeholder="搜索客户名称 / 区域 / 类型" clearable @keyup.enter="handleSearch" />
+      <div class="action-row mt-16">
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </div>
       <el-tree
         :data="treeData"
         node-key="id"
@@ -218,6 +223,7 @@ const projectOverview = ref(null)
 const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
 const dialogVisible = ref(false)
+const searchKeyword = ref('')
 const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({ parent: null, name: '', org_type: 'customer', short_name: '', region: '', address: '' })
@@ -225,8 +231,26 @@ const treeProps = { label: 'name', children: 'children' }
 const treeData = computed(() => buildOrganizationTree(organizations.value))
 
 async function loadOrganizations() {
-  const { data } = await listResource('organizations')
-  organizations.value = data.results || data
+  try {
+    const params = searchKeyword.value.trim() ? { search: searchKeyword.value.trim() } : undefined
+    const { data } = await listResource('organizations', params)
+    organizations.value = data.results || data
+    if (selected.value && !organizations.value.some((item) => item.id === selected.value.id)) {
+      selected.value = null
+      overview.value = null
+    }
+  } catch {
+    ElMessage.error('加载客户列表失败')
+  }
+}
+
+function handleSearch() {
+  loadOrganizations()
+}
+
+function resetSearch() {
+  searchKeyword.value = ''
+  loadOrganizations()
 }
 
 async function selectCustomer(node) {

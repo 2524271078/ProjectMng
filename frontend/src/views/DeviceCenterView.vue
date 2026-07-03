@@ -2,7 +2,12 @@
   <div class="page-scroll-layout">
     <div class="section-head">
       <div><span class="eyebrow-dark">Project Center</span><h2>项目中心</h2></div>
-      <el-button type="primary" @click="openCreateDialog">新增项目</el-button>
+      <div class="action-row">
+        <el-input v-model="projectSearchKeyword" placeholder="搜索项目 / 客户公司 / 销售 / 阶段" clearable @keyup.enter="handleProjectSearch" />
+        <el-button type="primary" @click="handleProjectSearch">搜索</el-button>
+        <el-button @click="resetProjectSearch">重置</el-button>
+        <el-button type="primary" @click="openCreateDialog">新增项目</el-button>
+      </div>
     </div>
 
     <div class="page-table-scroll">
@@ -276,6 +281,7 @@ const activeProjectId = ref(null)
 const editingProjectDeviceId = ref(null)
 const selectedDevice = ref(null)
 const selectedContractId = ref(null)
+const projectSearchKeyword = ref('')
 const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
 
@@ -335,8 +341,22 @@ async function loadCustomerContacts(customerOrgId) {
 }
 
 async function loadProjects() {
-  const { data } = await listResource('projects')
-  projects.value = unwrapList(data)
+  try {
+    const params = projectSearchKeyword.value.trim() ? { search: projectSearchKeyword.value.trim() } : undefined
+    const { data } = await listResource('projects', params)
+    projects.value = unwrapList(data)
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载项目列表失败'))
+  }
+}
+
+function handleProjectSearch() {
+  loadProjects()
+}
+
+function resetProjectSearch() {
+  projectSearchKeyword.value = ''
+  loadProjects()
 }
 
 async function loadOptions() {

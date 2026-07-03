@@ -2,7 +2,12 @@
   <div class="page-scroll-layout">
     <div class="section-head">
       <div><span class="eyebrow-dark">Sales Center</span><h2>销售负责关系</h2></div>
-      <el-button @click="loadSales">刷新</el-button>
+      <div class="action-row">
+        <el-input v-model="searchKeyword" placeholder="搜索销售姓名 / 电话 / 邮箱" clearable @keyup.enter="handleSearch" />
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+        <el-button @click="loadSales">刷新</el-button>
+      </div>
     </div>
 
     <div class="page-table-scroll">
@@ -31,9 +36,13 @@
 </template>
 <script setup>
 import { onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { fetchSalesCustomers, listResource } from '../api/resources'
-const sales = ref([]); const customers = ref([]); const drawerVisible = ref(false)
-async function loadSales() { const { data } = await listResource('people', { person_type: 'sales' }); sales.value = (data.results || data).filter((p) => p.person_type === 'sales') }
+import { formatApiError } from '../utils/apiData'
+const sales = ref([]); const customers = ref([]); const drawerVisible = ref(false); const searchKeyword = ref('')
+async function loadSales() { try { const params = { person_type: 'sales' }; if (searchKeyword.value.trim()) params.search = searchKeyword.value.trim(); const { data } = await listResource('people', params); sales.value = (data.results || data).filter((p) => p.person_type === 'sales') } catch (error) { ElMessage.error(formatApiError(error, '加载销售列表失败')) } }
+function handleSearch() { loadSales() }
+function resetSearch() { searchKeyword.value = ''; loadSales() }
 async function openSales(row) { const { data } = await fetchSalesCustomers(row.id); customers.value = data; drawerVisible.value = true }
 onMounted(loadSales)
 </script>
