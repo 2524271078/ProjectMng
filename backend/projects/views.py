@@ -123,6 +123,11 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
     queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def get_queryset(self):
         queryset = super().get_queryset()
         search_value = self.request.query_params.get("search", "").strip()

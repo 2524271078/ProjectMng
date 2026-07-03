@@ -225,21 +225,16 @@ class PaginationApiTests(APITestCase):
             list(Person.objects.filter(person_type="sales").order_by("-created_at", "id").values_list("id", flat=True)[:10]),
         )
 
-    def test_organization_list_returns_pagination_envelope(self):
+    def test_organization_list_remains_unpaginated_for_tree_data(self):
         for index in range(3):
             Organization.objects.create(name=f"Customer {index}", org_type="customer")
 
         response = self.client.get("/api/organizations/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            set(response.data.keys()),
-            {"count", "page", "page_size", "total_pages", "results"},
-        )
-        self.assertEqual(response.data["page"], 1)
-        self.assertEqual(response.data["page_size"], 10)
-        self.assertEqual(response.data["count"], 4)
-        self.assertEqual(len(response.data["results"]), 4)
+        self.assertIsInstance(response.data, list)
+        self.assertEqual(len(response.data), 4)
+        self.assertEqual([item["name"] for item in response.data], ["Pagination Org", "Customer 0", "Customer 1", "Customer 2"])
 
     def test_device_list_returns_pagination_envelope(self):
         product = Product.objects.create(name="Envelope Product", product_code="ENV-P")
