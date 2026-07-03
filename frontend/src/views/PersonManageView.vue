@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page-scroll-layout">
     <div class="section-head">
       <div>
@@ -9,19 +9,31 @@
     </div>
 
     <div class="page-table-scroll">
-      <el-table :data="people" stripe>
-      <el-table-column prop="name" label="姓名" />
-      <el-table-column prop="person_type" label="人员类型" />
-      <el-table-column prop="position" label="职位" />
-      <el-table-column prop="phone" label="电话" />
-      <el-table-column prop="email" label="邮箱" />
-      <el-table-column label="操作" width="150">
-        <template #default="scope">
-          <el-button link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
-          <el-button link type="danger" @click="removePerson(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
+      <el-table v-loading="peoplePagination.loading" :data="peoplePagination.rows" stripe>
+        <el-table-column prop="name" label="姓名" />
+        <el-table-column prop="person_type" label="人员类型" />
+        <el-table-column prop="position" label="职位" />
+        <el-table-column prop="phone" label="电话" />
+        <el-table-column prop="email" label="邮箱" />
+        <el-table-column label="操作" width="150">
+          <template #default="scope">
+            <el-button link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
+            <el-button link type="danger" @click="removePerson(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
       </el-table>
+    </div>
+    <div class="table-pagination">
+      <el-pagination
+        background
+        layout="total, sizes, prev, pager, next"
+        :current-page="peoplePagination.page"
+        :page-size="peoplePagination.pageSize"
+        :page-sizes="[10, 20, 50]"
+        :total="peoplePagination.total"
+        @current-change="handlePageChange"
+        @size-change="handlePageSizeChange"
+      />
     </div>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑人员' : '新增人员'" width="520px">
@@ -59,17 +71,39 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import { createResource, deleteResource, fetchSalesCustomerRelations, listResource, saveSalesCustomerRelations, updateResource } from '../api/resources'
 import { buildPersonPayload } from '../utils/personPayload'
+import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
-const people = ref([])
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
 const customerIds = ref([])
+const peoplePagination = buildPaginationState()
 const form = reactive({ name: '', person_type: 'sales', organization: null, position: '', phone: '', email: '', wechat: '' })
 
 async function loadPeople() {
-  const { data } = await listResource('people')
-  people.value = data.results || data
+  peoplePagination.loading = true
+  try {
+    const { data } = await listResource('people', {
+      page: peoplePagination.page,
+      page_size: peoplePagination.pageSize,
+    })
+    applyPaginationResponse(peoplePagination, data)
+  } catch (error) {
+    ElMessage.error(formatApiError(error))
+  } finally {
+    peoplePagination.loading = false
+  }
+}
+
+function handlePageChange(page) {
+  peoplePagination.page = page
+  loadPeople()
+}
+
+function handlePageSizeChange(pageSize) {
+  peoplePagination.page = 1
+  peoplePagination.pageSize = pageSize
+  loadPeople()
 }
 
 function resetForm() {
@@ -144,7 +178,7 @@ async function savePerson() {
 }
 
 async function removePerson(row) {
-  await ElMessageBox.confirm(`确认删除人员“${row.name}”？`, '删除确认', { type: 'warning' })
+  await ElMessageBox.confirm(`确认删除人员“${row.name}”吗？`, '删除确认', { type: 'warning' })
   await deleteResource('people', row.id)
   ElMessage.success('人员已删除')
   await loadPeople()

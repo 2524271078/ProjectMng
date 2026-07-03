@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page-scroll-layout">
     <div class="section-head">
       <div>
@@ -56,7 +56,7 @@
     </section>
 
     <div class="page-table-scroll">
-      <el-table :data="filteredDevices" stripe>
+      <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe>
         <el-table-column prop="name" label="设备" min-width="180" />
         <el-table-column prop="serial_number" label="序列号" min-width="160" />
         <el-table-column label="当前保内状态" min-width="120">
@@ -83,6 +83,18 @@
           </template>
         </el-table-column>
       </el-table>
+    </div>
+    <div class="table-pagination">
+      <el-pagination
+        background
+        layout="total, sizes, prev, pager, next"
+        :current-page="devicePagination.page"
+        :page-size="devicePagination.pageSize"
+        :page-sizes="[10, 20, 50]"
+        :total="devicePagination.total"
+        @current-change="handlePageChange"
+        @size-change="handlePageSizeChange"
+      />
     </div>
 
     <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(860px, calc(100vw - 32px))" top="4vh">
@@ -120,14 +132,16 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { fetchDeviceOverview, listResource } from '../api/resources'
+import { fetchDeviceOverview, listAllResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
+import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const devices = ref([])
 const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
 const searchKeyword = ref('')
 const statusFilter = ref('all')
+const devicePagination = buildPaginationState()
 
 const warrantyStats = computed(() => {
   const inWarranty = devices.value.filter((item) => item.current_service_status === '保内').length
@@ -152,27 +166,63 @@ function buildSearchParams() {
   return keyword ? { search: keyword } : undefined
 }
 
+function syncDevicePagination() {
+  const total = filteredDevices.value.length
+  const totalPages = total ? Math.ceil(total / devicePagination.pageSize) : 1
+  if (devicePagination.page > totalPages) {
+    devicePagination.page = totalPages
+  }
+  const start = (devicePagination.page - 1) * devicePagination.pageSize
+  const end = start + devicePagination.pageSize
+  applyPaginationResponse(devicePagination, {
+    count: total,
+    page: devicePagination.page,
+    page_size: devicePagination.pageSize,
+    total_pages: totalPages,
+    results: filteredDevices.value.slice(start, end),
+  })
+}
+
 function setStatusFilter(nextFilter) {
   statusFilter.value = nextFilter
+  devicePagination.page = 1
+  syncDevicePagination()
 }
 
 async function loadDevices() {
+  devicePagination.loading = true
   try {
-    const { data } = await listResource('devices', buildSearchParams())
+    const { data } = await listAllResource('devices', buildSearchParams())
     devices.value = unwrapList(data)
+    syncDevicePagination()
   } catch (error) {
     ElMessage.error(formatApiError(error, '加载设备列表失败'))
+  } finally {
+    devicePagination.loading = false
   }
 }
 
 function handleSearch() {
+  devicePagination.page = 1
   loadDevices()
 }
 
 function resetSearch() {
   searchKeyword.value = ''
   statusFilter.value = 'all'
+  devicePagination.page = 1
   loadDevices()
+}
+
+function handlePageChange(page) {
+  devicePagination.page = page
+  syncDevicePagination()
+}
+
+function handlePageSizeChange(pageSize) {
+  devicePagination.page = 1
+  devicePagination.pageSize = pageSize
+  syncDevicePagination()
 }
 
 function formatLicenseInfo(value) {
@@ -265,5 +315,11 @@ onMounted(loadDevices)
   font-size: 24px;
   color: #183153;
   line-height: 1;
+}
+
+.table-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>

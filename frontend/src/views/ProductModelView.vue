@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="split-page">
     <aside class="tree-panel">
       <div class="panel-title">产线 / 产品 / 版本</div>
@@ -23,18 +23,30 @@
       </div>
       <el-alert v-if="!lines.length" title="请先新增产线，再在产线下新增产品、版本和型号。" type="info" show-icon :closable="false" class="mb-16" />
       <div class="page-table-scroll">
-        <el-table :data="models" stripe>
-        <el-table-column prop="model_name" label="型号名称" min-width="180" />
-        <el-table-column prop="model_code" label="型号编码" min-width="160" />
-        <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="100" />
-        <el-table-column label="操作" width="140" fixed="right">
-          <template #default="scope">
-            <el-button link type="primary" @click.stop="editModel(scope.row)">编辑</el-button>
-            <el-button link type="danger" @click.stop="removeModel(scope.row)">删除</el-button>
-          </template>
-        </el-table-column>
+        <el-table v-loading="modelPagination.loading" :data="modelPagination.rows" stripe>
+          <el-table-column prop="model_name" label="型号名称" min-width="180" />
+          <el-table-column prop="model_code" label="型号编码" min-width="160" />
+          <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="status" label="状态" width="100" />
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="scope">
+              <el-button link type="primary" @click.stop="editModel(scope.row)">编辑</el-button>
+              <el-button link type="danger" @click.stop="removeModel(scope.row)">删除</el-button>
+            </template>
+          </el-table-column>
         </el-table>
+      </div>
+      <div class="table-pagination">
+        <el-pagination
+          background
+          layout="total, sizes, prev, pager, next"
+          :current-page="modelPagination.page"
+          :page-size="modelPagination.pageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="modelPagination.total"
+          @current-change="handlePageChange"
+          @size-change="handlePageSizeChange"
+        />
       </div>
     </section>
 
@@ -72,11 +84,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createResource, deleteResource, listAllResource, listResource, updateResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { validateCatalogForm } from '../utils/productCatalog'
+import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const lines = ref([])
 const products = ref([])
 const versions = ref([])
-const models = ref([])
 const selectedNode = ref(null)
 const dialogVisible = ref(false)
 const saving = ref(false)
@@ -84,9 +96,11 @@ const dialogType = ref('line')
 const editingId = ref(null)
 const searchKeyword = ref('')
 const form = reactive({})
+const modelPagination = buildPaginationState()
 const dialogTitle = computed(() => ({ line: editingId.value ? '编辑产线' : '新增产线', product: editingId.value ? '编辑产品' : '新增产品', version: editingId.value ? '编辑版本' : '新增版本', model: editingId.value ? '编辑型号' : '新增型号' }[dialogType.value]))
 const productTree = computed(() => lines.value.map((line) => ({ key: `line-${line.id}`, type: 'line', id: line.id, label: line.name, children: products.value.filter((p) => p.product_line === line.id).map((product) => ({ key: `product-${product.id}`, type: 'product', id: product.id, label: product.name, children: versions.value.filter((v) => v.product === product.id).map((version) => ({ key: `version-${version.id}`, type: 'version', id: version.id, label: version.version_name })) })) })))
 const modelVersionOptions = computed(() => versions.value.filter((version) => version.product === form.product))
+
 function currentModelFilters() {
   const params = {}
   if (selectedNode.value?.type === 'line') params.product_line = selectedNode.value.id
@@ -97,10 +111,18 @@ function currentModelFilters() {
 }
 
 async function loadModels() {
+  modelPagination.loading = true
   try {
-    models.value = unwrapList((await listResource('device-models', currentModelFilters())).data)
+    const { data } = await listResource('device-models', {
+      ...currentModelFilters(),
+      page: modelPagination.page,
+      page_size: modelPagination.pageSize,
+    })
+    applyPaginationResponse(modelPagination, data)
   } catch (error) {
     ElMessage.error(formatApiError(error, '加载型号列表失败'))
+  } finally {
+    modelPagination.loading = false
   }
 }
 
@@ -116,16 +138,30 @@ async function loadAll() {
 }
 
 function handleSearch() {
+  modelPagination.page = 1
   loadModels()
 }
 
 function resetSearch() {
   searchKeyword.value = ''
+  modelPagination.page = 1
   loadModels()
 }
 
 function selectNode(node) {
   selectedNode.value = node
+  modelPagination.page = 1
+  loadModels()
+}
+
+function handlePageChange(page) {
+  modelPagination.page = page
+  loadModels()
+}
+
+function handlePageSizeChange(pageSize) {
+  modelPagination.page = 1
+  modelPagination.pageSize = pageSize
   loadModels()
 }
 
@@ -185,10 +221,11 @@ async function removeSelectedNode() {
   const typeLabel = { line: '产线', product: '产品', version: '版本' }[selectedNode.value.type]
   const resource = dialogResource(selectedNode.value.type)
   try {
-    await ElMessageBox.confirm(`确认删除当前${typeLabel}“${selectedNode.value.label}”？`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确认删除当前${typeLabel}“${selectedNode.value.label}”吗？`, '删除确认', { type: 'warning' })
     await deleteResource(resource, selectedNode.value.id)
     ElMessage.success(`${typeLabel}已删除`)
     selectedNode.value = null
+    modelPagination.page = 1
     await loadAll()
   } catch (error) {
     if (error === 'cancel') return
@@ -206,7 +243,7 @@ function editModel(row) {
 
 async function removeModel(row) {
   try {
-    await ElMessageBox.confirm(`确认删除型号“${row.model_name}”？`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确认删除型号“${row.model_name}”吗？`, '删除确认', { type: 'warning' })
     await deleteResource('device-models', row.id)
     ElMessage.success('型号已删除')
     await loadAll()
@@ -215,6 +252,7 @@ async function removeModel(row) {
     ElMessage.error(formatApiError(error, '删除型号失败'))
   }
 }
+
 async function saveCatalogItem() {
   const message = validateCatalogForm(dialogType.value, form)
   if (message) return ElMessage.warning(message)
@@ -236,5 +274,6 @@ async function saveCatalogItem() {
     saving.value = false
   }
 }
+
 onMounted(loadAll)
 </script>
