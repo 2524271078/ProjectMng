@@ -46,9 +46,36 @@ class DeviceModelSerializer(serializers.ModelSerializer):
 
 
 class DeviceSerializer(serializers.ModelSerializer):
+    current_service_status = serializers.SerializerMethodField()
+    current_service_start_date = serializers.SerializerMethodField()
+    current_service_end_date = serializers.SerializerMethodField()
+
     class Meta:
         model = Device
         fields = "__all__"
+
+    def _latest_binding(self, obj):
+        return (
+            obj.project_devices.filter(is_deleted=False)
+            .order_by("-service_end_date", "-updated_at", "-id")
+            .first()
+        )
+
+    def get_current_service_status(self, obj):
+        binding = self._latest_binding(obj)
+        if not binding or not binding.service_start_date or not binding.service_end_date:
+            return "保外"
+        from django.utils import timezone
+        today = timezone.localdate()
+        return "保内" if binding.service_start_date <= today <= binding.service_end_date else "保外"
+
+    def get_current_service_start_date(self, obj):
+        binding = self._latest_binding(obj)
+        return binding.service_start_date.isoformat() if binding and binding.service_start_date else None
+
+    def get_current_service_end_date(self, obj):
+        binding = self._latest_binding(obj)
+        return binding.service_end_date.isoformat() if binding and binding.service_end_date else None
 
 
 class ProjectSerializer(serializers.ModelSerializer):

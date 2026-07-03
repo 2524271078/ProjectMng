@@ -159,12 +159,22 @@ class Project(BaseModel):
 
 
 class ProjectDevice(BaseModel):
+    SERVICE_NEW_INSTALL = "new_install"
+    SERVICE_RENEWAL = "renewal"
+    SERVICE_TYPE_CHOICES = [
+        (SERVICE_NEW_INSTALL, "新上设备"),
+        (SERVICE_RENEWAL, "续保旧设备"),
+    ]
+
     project = models.ForeignKey(Project, related_name="project_devices", on_delete=models.CASCADE)
     device = models.ForeignKey(Device, related_name="project_devices", on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField(default=1)
     deploy_location = models.CharField(max_length=200, blank=True, default="")
     device_project_type = models.CharField(max_length=100, blank=True, default="")
     usage = models.CharField(max_length=200, blank=True, default="")
+    service_type = models.CharField(max_length=32, default=SERVICE_NEW_INSTALL, choices=SERVICE_TYPE_CHOICES, db_index=True)
+    service_start_date = models.DateField(null=True, blank=True)
+    service_end_date = models.DateField(null=True, blank=True)
 
     class Meta(BaseModel.Meta):
         constraints = [

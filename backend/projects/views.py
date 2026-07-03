@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -126,6 +127,7 @@ def person_summary(person):
 
 
 def device_summary(device):
+    latest_binding = latest_project_device_service(device)
     return {
         "id": device.id,
         "name": device.name,
@@ -138,7 +140,10 @@ def device_summary(device):
         "software_version": device.software_version,
         "rule_library_version": device.rule_library_version,
         "license_info": device.license_info,
-        "is_under_warranty": device.is_under_warranty,
+        "is_under_warranty": service_status_from_binding(latest_binding) == "保内",
+        "current_service_status": service_status_from_binding(latest_binding),
+        "current_service_start_date": latest_binding.service_start_date.isoformat() if latest_binding and latest_binding.service_start_date else None,
+        "current_service_end_date": latest_binding.service_end_date.isoformat() if latest_binding and latest_binding.service_end_date else None,
         "screenshot_url": device.screenshot_url,
         "rack_install_date": device.rack_install_date.isoformat() if device.rack_install_date else None,
         "ops_person": person_summary(device.ops_person),
@@ -149,6 +154,37 @@ def device_summary(device):
 
 def contract_summary(contract):
     return {"id": contract.id, "contract_no": contract.contract_no, "contract_name": contract.contract_name, "amount": str(contract.amount), "status": contract.status}
+
+
+def latest_project_device_service(device):
+    return (
+        device.project_devices.filter(is_deleted=False)
+        .order_by("-service_end_date", "-updated_at", "-id")
+        .first()
+    )
+
+
+def service_status_from_binding(binding):
+    if not binding or not binding.service_start_date or not binding.service_end_date:
+        return "保外"
+    today = timezone.localdate()
+    return "保内" if binding.service_start_date <= today <= binding.service_end_date else "保外"
+
+
+def project_device_summary(binding):
+    return {
+        **device_summary(binding.device),
+        "id": binding.id,
+        "project": binding.project_id,
+        "quantity": binding.quantity,
+        "deploy_location": binding.deploy_location,
+        "device_project_type": binding.device_project_type,
+        "usage": binding.usage,
+        "service_type": binding.service_type,
+        "service_start_date": binding.service_start_date.isoformat() if binding.service_start_date else None,
+        "service_end_date": binding.service_end_date.isoformat() if binding.service_end_date else None,
+        "service_status": service_status_from_binding(binding),
+    }
 
 
 def project_summary(project):
@@ -236,7 +272,7 @@ def project_overview(request, pk):
         "customer_contact": person_summary(project.customer_contact),
         "sales_person": person_summary(project.sales_person),
         "ops_person": person_summary(project.ops_person),
-        "devices": [{**device_summary(binding.device), "quantity": binding.quantity, "deploy_location": binding.deploy_location, "device_project_type": binding.device_project_type, "usage": binding.usage} for binding in bindings],
+        "devices": [project_device_summary(binding) for binding in bindings],
         "contracts": [contract_summary(binding.contract) for binding in project_contracts],
         "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="project", object_id=project.id), many=True, context={"request": request}).data,
     })

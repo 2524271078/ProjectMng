@@ -267,7 +267,7 @@ class ProjectDeviceDetailApiTests(APITestCase):
         ops = Person.objects.create(name="现场运维", person_type="ops")
         device.ops_person = ops
         device.save(update_fields=["ops_person"])
-        ProjectDevice.objects.create(project=project, device=device, device_project_type="正式设备")
+        ProjectDevice.objects.create(project=project, device=device, device_project_type="正式设备", service_type="new_install", service_start_date="2026-07-01", service_end_date="2027-06-30")
 
         response = self.client.get(f"/api/projects/{project.id}/overview/")
 
@@ -277,6 +277,8 @@ class ProjectDeviceDetailApiTests(APITestCase):
         self.assertEqual(detail["software_version"], "OS-1.0")
         self.assertEqual(detail["license_info"], {"type": "标准授权"})
         self.assertTrue(detail["is_under_warranty"])
+        self.assertEqual(detail["service_status"], "保内")
+        self.assertEqual(detail["service_end_date"], "2027-06-30")
         self.assertEqual(detail["screenshot_url"], "https://example.com/device.png")
         self.assertEqual(detail["rack_install_date"], "2026-07-01")
         self.assertEqual(detail["management_address"], "https://10.0.0.1")
@@ -390,3 +392,55 @@ class ProjectContractOverviewTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["contracts"][0]["contract_no"], "CON-001")
+
+
+class ProjectDeviceServiceCycleTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="service-cycle", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_project_device_stores_service_cycle_fields(self):
+        customer = Organization.objects.create(name="服务周期客户", org_type="customer")
+        project = Project.objects.create(project_no="SVC-PRJ-001", name="服务周期项目", customer_org=customer)
+        product = Product.objects.create(name="服务周期产品", product_code="SVC-P")
+        model = DeviceModel.objects.create(product=product, model_name="SVC-1000", model_code="SVC-1000")
+        device = Device.objects.create(name="服务周期设备", serial_number="SVC-SN-001", device_model=model, customer_org=customer)
+
+        response = self.client.post("/api/project-devices/", {
+            "project": project.id,
+            "device": device.id,
+            "service_type": "renewal",
+            "service_start_date": "2026-07-01",
+            "service_end_date": "2027-06-30",
+        }, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["service_type"], "renewal")
+        self.assertEqual(response.data["service_end_date"], "2027-06-30")
+
+
+class DeviceCurrentServiceStatusTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="device-service-status", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_device_overview_uses_latest_project_service_cycle(self):
+        customer = Organization.objects.create(name="状态客户", org_type="customer")
+        project_old = Project.objects.create(project_no="OLD-001", name="旧项目", customer_org=customer)
+        project_new = Project.objects.create(project_no="NEW-001", name="新项目", customer_org=customer)
+        product = Product.objects.create(name="状态产品", product_code="STATUS-P")
+        model = DeviceModel.objects.create(product=product, model_name="STATUS-1000", model_code="STATUS-1000")
+        device = Device.objects.create(name="状态设备", serial_number="STATUS-SN-001", device_model=model, customer_org=customer)
+
+        ProjectDevice.objects.create(project=project_old, device=device, service_type="new_install", service_start_date="2025-01-01", service_end_date="2025-12-31")
+        ProjectDevice.objects.create(project=project_new, device=device, service_type="renewal", service_start_date="2026-01-01", service_end_date="2027-12-31")
+
+        response = self.client.get(f"/api/devices/{device.id}/overview/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["device"]["current_service_status"], "保内")
+        self.assertEqual(response.data["device"]["current_service_end_date"], "2027-12-31")
