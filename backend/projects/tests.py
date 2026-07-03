@@ -163,6 +163,40 @@ class SoftDeleteApiTests(APITestCase):
         self.assertNotIn("待删除客户", names)
 
 
+
+class SearchApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="search-api", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_organization_search_matches_name_region_and_org_type(self):
+        Organization.objects.create(name="华东能源集团", org_type="customer", region="华北")
+        Organization.objects.create(name="西南客户", org_type="customer", region="华东大区")
+        Organization.objects.create(name="渠道伙伴", org_type="华东渠道", region="华南")
+        Organization.objects.create(name="华南客户", org_type="customer", region="华南")
+
+        response = self.client.get("/api/organizations/?search=华东")
+
+        self.assertEqual(response.status_code, 200)
+        names = [item["name"] for item in response.data]
+        self.assertCountEqual(names, ["华东能源集团", "西南客户", "渠道伙伴"])
+
+    def test_person_search_can_stack_with_sales_person_type_filter(self):
+        sales_org = Organization.objects.create(name="内部销售组织", org_type="internal_company")
+        customer = Organization.objects.create(name="目标客户", org_type="customer")
+        Person.objects.create(name="许超", organization=sales_org, person_type="sales")
+        Person.objects.create(name="许超", organization=customer, person_type="customer_contact")
+        Person.objects.create(name="李四", organization=sales_org, person_type="sales")
+
+        response = self.client.get("/api/people/?person_type=sales&search=许超")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["name"] for item in response.data], ["许超"])
+        self.assertTrue(all(item["person_type"] == "sales" for item in response.data))
+
+
 class ProductProjectModelTests(TestCase):
     def test_product_line_version_model_and_project_device_flow(self):
         from decimal import Decimal

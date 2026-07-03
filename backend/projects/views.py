@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -27,14 +28,37 @@ class SoftDeleteModelViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 
+def apply_search(queryset, search_value, search_fields):
+    if not search_value:
+        return queryset
+
+    conditions = Q()
+    for field in search_fields:
+        conditions |= Q(**{f"{field}__icontains": search_value})
+    return queryset.filter(conditions)
+
+
 class OrganizationViewSet(SoftDeleteModelViewSet):
     queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search_value = self.request.query_params.get("search", "").strip()
+        return apply_search(queryset, search_value, ["name", "region", "org_type"])
 
 
 class PersonViewSet(SoftDeleteModelViewSet):
     queryset = Person.objects.select_related("organization", "user").all()
     serializer_class = PersonSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        person_type = self.request.query_params.get("person_type", "").strip()
+        search_value = self.request.query_params.get("search", "").strip()
+        if person_type:
+            queryset = queryset.filter(person_type=person_type)
+        return apply_search(queryset, search_value, ["name", "phone", "email"])
 
 
 class SalesCustomerRelationViewSet(SoftDeleteModelViewSet):
