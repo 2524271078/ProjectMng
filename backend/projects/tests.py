@@ -679,6 +679,136 @@ class ProjectContractModelTests(TestCase):
             ProjectContract.objects.create(project=project, contract=contract)
 
 
+class CustomerDetailPaginationTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="customer-detail-pagination", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_customer_detail_paginated_endpoints_return_envelope_and_filter_by_customer(self):
+        customer = Organization.objects.create(name="Paged Customer", org_type="customer")
+        other_customer = Organization.objects.create(name="Other Customer", org_type="customer")
+        internal = Organization.objects.create(name="Internal Sales Org", org_type="internal_company")
+
+        primary_contact = Person.objects.create(name="Primary Contact", organization=customer, person_type="customer_contact")
+        Person.objects.create(name="Secondary Contact", organization=customer, person_type="customer_contact")
+        Person.objects.create(name="Other Contact", organization=other_customer, person_type="customer_contact")
+
+        sales = Person.objects.create(name="Owner Sales", organization=internal, person_type="sales")
+        other_sales = Person.objects.create(name="Other Sales", organization=internal, person_type="sales")
+        SalesCustomerRelation.objects.create(sales_person=sales, customer_org=customer, relation_type="owner")
+        SalesCustomerRelation.objects.create(sales_person=other_sales, customer_org=other_customer, relation_type="owner")
+
+        product = Product.objects.create(name="Customer Page Product", product_code="CUST-PAGE-P")
+        model = DeviceModel.objects.create(product=product, model_name="CUST-PAGE-1000", model_code="CUST-PAGE-1000")
+        paged_project = Project.objects.create(
+            project_no="CUST-PROJ-001",
+            name="Customer Project 1",
+            customer_org=customer,
+            customer_contact=primary_contact,
+            sales_person=sales,
+        )
+        Project.objects.create(project_no="CUST-PROJ-999", name="Other Project", customer_org=other_customer, sales_person=other_sales)
+        for index in range(12):
+            device = Device.objects.create(
+                name=f"Customer Device {index}",
+                serial_number=f"CUST-DEVICE-{index:02d}",
+                device_model=model,
+                customer_org=customer if index < 2 else None,
+                sales_person=sales,
+            )
+            ProjectDevice.objects.create(project=paged_project, device=device, service_type="renewal")
+
+        other_device = Device.objects.create(name="Other Device", serial_number="OTHER-DEVICE-01", device_model=model, customer_org=other_customer)
+        other_project = Project.objects.get(project_no="CUST-PROJ-999")
+        ProjectDevice.objects.create(project=other_project, device=other_device, service_type="renewal")
+
+        target_contract = Contract.objects.create(contract_no="CUST-CON-001", contract_name="Customer Contract", final_customer=customer, sales_person=sales)
+        Contract.objects.create(contract_no="CUST-CON-999", contract_name="Other Contract", final_customer=other_customer, sales_person=other_sales)
+        ProjectContract.objects.create(project=paged_project, contract=target_contract)
+
+        device_response = self.client.get(f"/api/organizations/{customer.id}/devices/?page=2&page_size=10")
+        project_response = self.client.get(f"/api/organizations/{customer.id}/projects/")
+        contract_response = self.client.get(f"/api/organizations/{customer.id}/contracts/")
+        contact_response = self.client.get(f"/api/organizations/{customer.id}/contacts/")
+        sales_response = self.client.get(f"/api/organizations/{customer.id}/sales/")
+
+        for response in [device_response, project_response, contract_response, contact_response, sales_response]:
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(set(response.data.keys()), {"count", "page", "page_size", "total_pages", "results"})
+
+        self.assertEqual(device_response.data["count"], 12)
+        self.assertEqual(device_response.data["page"], 2)
+        self.assertEqual(device_response.data["page_size"], 10)
+        self.assertEqual(device_response.data["total_pages"], 2)
+        self.assertEqual(len(device_response.data["results"]), 2)
+        self.assertTrue(all(item["serial_number"].startswith("CUST-DEVICE-") for item in device_response.data["results"]))
+
+        self.assertEqual(project_response.data["count"], 1)
+        self.assertEqual([item["project_no"] for item in project_response.data["results"]], ["CUST-PROJ-001"])
+
+        self.assertEqual(contract_response.data["count"], 1)
+        self.assertEqual([item["contract_no"] for item in contract_response.data["results"]], ["CUST-CON-001"])
+
+        self.assertEqual(contact_response.data["count"], 2)
+        self.assertCountEqual([item["name"] for item in contact_response.data["results"]], ["Primary Contact", "Secondary Contact"])
+
+        self.assertEqual(sales_response.data["count"], 1)
+        self.assertEqual([item["name"] for item in sales_response.data["results"]], ["Owner Sales"])
+
+
+class ProjectDetailPaginationTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="project-detail-pagination", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_project_detail_paginated_endpoints_return_envelope_and_filter_by_project(self):
+        customer = Organization.objects.create(name="Project Page Customer", org_type="customer")
+        other_customer = Organization.objects.create(name="Other Project Customer", org_type="customer")
+        project = Project.objects.create(project_no="PAGE-PRJ-002", name="Paged Project", customer_org=customer)
+        other_project = Project.objects.create(project_no="PAGE-PRJ-999", name="Other Project", customer_org=other_customer)
+        product = Product.objects.create(name="Project Page Product", product_code="PAGE-PROJECT-P")
+        model = DeviceModel.objects.create(product=product, model_name="PAGE-2000", model_code="PAGE-2000")
+
+        for index in range(11):
+            device = Device.objects.create(name=f"Project Device {index}", serial_number=f"PRJ-DEVICE-{index:02d}", device_model=model)
+            ProjectDevice.objects.create(project=project, device=device, service_type="new_install")
+        other_device = Device.objects.create(name="Other Project Device", serial_number="OTHER-PRJ-DEVICE", device_model=model)
+        ProjectDevice.objects.create(project=other_project, device=other_device, service_type="renewal")
+
+        contract = Contract.objects.create(contract_no="PRJ-CON-001", contract_name="Project Contract", final_customer=customer)
+        other_contract = Contract.objects.create(contract_no="PRJ-CON-999", contract_name="Other Project Contract", final_customer=other_customer)
+        ProjectContract.objects.create(project=project, contract=contract)
+        ProjectContract.objects.create(project=other_project, contract=other_contract)
+
+        Attachment.objects.create(name="Project Attachment", object_type="project", object_id=project.id)
+        Attachment.objects.create(name="Other Attachment", object_type="project", object_id=other_project.id)
+
+        device_response = self.client.get(f"/api/projects/{project.id}/devices/?page=2&page_size=10")
+        contract_response = self.client.get(f"/api/projects/{project.id}/contracts/")
+        attachment_response = self.client.get(f"/api/projects/{project.id}/attachments/")
+
+        for response in [device_response, contract_response, attachment_response]:
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(set(response.data.keys()), {"count", "page", "page_size", "total_pages", "results"})
+
+        self.assertEqual(device_response.data["count"], 11)
+        self.assertEqual(device_response.data["page"], 2)
+        self.assertEqual(device_response.data["page_size"], 10)
+        self.assertEqual(device_response.data["total_pages"], 2)
+        self.assertEqual(len(device_response.data["results"]), 1)
+        self.assertEqual(device_response.data["results"][0]["project"], project.id)
+
+        self.assertEqual(contract_response.data["count"], 1)
+        self.assertEqual([item["contract_no"] for item in contract_response.data["results"]], ["PRJ-CON-001"])
+
+        self.assertEqual(attachment_response.data["count"], 1)
+        self.assertEqual([item["name"] for item in attachment_response.data["results"]], ["Project Attachment"])
+
+
 class CustomerProjectOverviewTests(APITestCase):
     def setUp(self):
         from django.contrib.auth.models import User

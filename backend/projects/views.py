@@ -2,7 +2,7 @@ from math import ceil
 
 from django.db.models import Q
 from django.utils import timezone
-from rest_framework.decorators import api_view, parser_classes
+from rest_framework.decorators import action, api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status, viewsets
@@ -73,6 +73,11 @@ def ensure_pagination_ordering(queryset):
     return queryset.order_by(*ordering) if ordering else queryset.order_by(pk_name)
 
 
+def build_paginated_response(request, queryset, build_results):
+    page_items, meta = paginate_queryset(request, queryset)
+    return Response({**meta, "results": build_results(page_items)})
+
+
 def paginate_queryset(request, queryset, default_page_size=10):
     page = parse_query_int(request.query_params.get("page"))
     page_size = parse_query_int(request.query_params.get("page_size"))
@@ -132,6 +137,40 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
         queryset = super().get_queryset()
         search_value = self.request.query_params.get("search", "").strip()
         return apply_search(queryset, search_value, ["name", "region", "org_type"])
+
+    @action(detail=True, methods=["get"], url_path="devices")
+    def devices(self, request, pk=None):
+        customer = self.get_object()
+        queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").filter(
+            Q(customer_org=customer) |
+            Q(project_devices__project__customer_org=customer, project_devices__is_deleted=False),
+            is_deleted=False,
+        ).distinct()
+        return build_paginated_response(request, queryset, lambda page_items: [device_summary(item) for item in page_items])
+
+    @action(detail=True, methods=["get"], url_path="projects")
+    def projects(self, request, pk=None):
+        customer = self.get_object()
+        queryset = customer.projects.filter(is_deleted=False).select_related("customer_contact", "sales_person")
+        return build_paginated_response(request, queryset, lambda page_items: [project_summary(item) for item in page_items])
+
+    @action(detail=True, methods=["get"], url_path="contracts")
+    def contracts(self, request, pk=None):
+        customer = self.get_object()
+        queryset = customer.final_customer_contracts.filter(is_deleted=False).select_related("sales_person", "final_customer", "direct_buyer")
+        return build_paginated_response(request, queryset, lambda page_items: [contract_summary(item) for item in page_items])
+
+    @action(detail=True, methods=["get"], url_path="contacts")
+    def contacts(self, request, pk=None):
+        customer = self.get_object()
+        queryset = customer.people.filter(person_type="customer_contact", is_deleted=False)
+        return build_paginated_response(request, queryset, lambda page_items: [person_summary(item) for item in page_items])
+
+    @action(detail=True, methods=["get"], url_path="sales")
+    def sales(self, request, pk=None):
+        customer = self.get_object()
+        queryset = customer.sales_relations.filter(is_deleted=False).select_related("sales_person")
+        return build_paginated_response(request, queryset, lambda page_items: [person_summary(item.sales_person) for item in page_items])
 
 
 class PersonViewSet(SoftDeleteModelViewSet):
@@ -216,6 +255,28 @@ class ProjectViewSet(SoftDeleteModelViewSet):
         queryset = super().get_queryset()
         search_value = self.request.query_params.get("search", "").strip()
         return apply_search(queryset, search_value, ["name", "customer_org__name", "sales_person__name", "project_stage"])
+
+    @action(detail=True, methods=["get"], url_path="devices")
+    def devices(self, request, pk=None):
+        project = self.get_object()
+        queryset = project.project_devices.filter(is_deleted=False).select_related("device", "device__device_model")
+        return build_paginated_response(request, queryset, lambda page_items: [project_device_summary(item) for item in page_items])
+
+    @action(detail=True, methods=["get"], url_path="contracts")
+    def contracts(self, request, pk=None):
+        project = self.get_object()
+        queryset = project.project_contracts.filter(is_deleted=False).select_related("contract")
+        return build_paginated_response(request, queryset, lambda page_items: [contract_summary(item.contract) for item in page_items])
+
+    @action(detail=True, methods=["get"], url_path="attachments")
+    def attachments(self, request, pk=None):
+        project = self.get_object()
+        queryset = Attachment.objects.filter(object_type="project", object_id=project.id)
+        return build_paginated_response(
+            request,
+            queryset,
+            lambda page_items: AttachmentSerializer(page_items, many=True, context={"request": request}).data,
+        )
 
 
 class ProjectDeviceViewSet(SoftDeleteModelViewSet):
