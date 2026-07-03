@@ -1,3 +1,5 @@
+from math import ceil
+
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.decorators import api_view, parser_classes
@@ -16,6 +18,12 @@ class SoftDeleteModelViewSet(viewsets.ModelViewSet):
         if any(field.name == "is_deleted" for field in model._meta.fields):
             queryset = queryset.filter(is_deleted=False)
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page_items, meta = paginate_queryset(request, queryset)
+        serializer = self.get_serializer(page_items, many=True)
+        return Response({**meta, "results": serializer.data})
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -46,6 +54,25 @@ def parse_query_int(raw_value):
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def paginate_queryset(request, queryset, default_page_size=10):
+    page = parse_query_int(request.query_params.get("page")) or 1
+    page_size = parse_query_int(request.query_params.get("page_size")) or default_page_size
+    page = max(page, 1)
+    page_size = max(min(page_size, 100), 1)
+
+    count = queryset.count()
+    total_pages = max(ceil(count / page_size), 1) if count else 1
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return queryset[start:end], {
+        "count": count,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
 
 
 def resolve_device_model_scope(query_params):

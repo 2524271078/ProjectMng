@@ -24,6 +24,11 @@ from projects.models import (
 )
 
 
+def api_results(response):
+    data = response.data
+    return data["results"] if isinstance(data, dict) and "results" in data else data
+
+
 class DomainModelTests(TestCase):
     def test_project_purchase_workflow_relationships_can_be_created(self):
         internal = Organization.objects.create(name="盛邦安全", org_type="internal_company")
@@ -159,9 +164,54 @@ class SoftDeleteApiTests(APITestCase):
         org.refresh_from_db()
         self.assertTrue(org.is_deleted)
         list_response = self.client.get("/api/organizations/")
-        names = [item["name"] for item in list_response.data]
+        names = [item["name"] for item in api_results(list_response)]
         self.assertNotIn("待删除客户", names)
 
+
+
+class PaginationApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="pagination-api", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_people_list_returns_default_pagination_shape(self):
+        org = Organization.objects.create(name="分页组织", org_type="internal_company")
+        for index in range(12):
+            Person.objects.create(
+                name=f"销售人员{index:02d}",
+                organization=org,
+                person_type="sales",
+            )
+
+        response = self.client.get("/api/people/?person_type=sales")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(response.data.keys()),
+            {"count", "page", "page_size", "total_pages", "results"},
+        )
+        self.assertEqual(response.data["count"], 12)
+        self.assertEqual(response.data["page"], 1)
+        self.assertEqual(response.data["page_size"], 10)
+        self.assertEqual(response.data["total_pages"], 2)
+        self.assertEqual(len(response.data["results"]), 10)
+
+    def test_people_list_supports_search_and_safe_invalid_pagination_params(self):
+        org = Organization.objects.create(name="分页搜索组织", org_type="internal_company")
+        Person.objects.create(name="许超飞", organization=org, person_type="sales")
+        Person.objects.create(name="许超", organization=org, person_type="sales")
+        Person.objects.create(name="许超飞", organization=org, person_type="customer_contact")
+
+        response = self.client.get("/api/people/?person_type=sales&search=许超飞&page=abc&page_size=xyz")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["page"], 1)
+        self.assertEqual(response.data["page_size"], 10)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["total_pages"], 1)
+        self.assertEqual([item["name"] for item in response.data["results"]], ["许超飞"])
 
 
 class SearchApiTests(APITestCase):
@@ -182,7 +232,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/organizations/?search=华东")
 
         self.assertEqual(response.status_code, 200)
-        names = [item["name"] for item in response.data]
+        names = [item["name"] for item in api_results(response)]
         self.assertCountEqual(names, ["华东能源集团", "西南客户", "渠道伙伴"])
 
     def test_person_search_can_stack_with_sales_person_type_filter(self):
@@ -195,8 +245,8 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/people/?person_type=sales&search=许超")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["name"] for item in response.data], ["许超"])
-        self.assertTrue(all(item["person_type"] == "sales" for item in response.data))
+        self.assertEqual([item["name"] for item in api_results(response)], ["许超"])
+        self.assertTrue(all(item["person_type"] == "sales" for item in api_results(response)))
 
 
     def test_product_list_hides_orphan_and_deleted_line_products(self):
@@ -209,7 +259,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/products/")
 
         self.assertEqual(response.status_code, 200)
-        names = [item["name"] for item in response.data]
+        names = [item["name"] for item in api_results(response)]
         self.assertIn(active_product.name, names)
         self.assertNotIn("孤儿产品", names)
         self.assertNotIn("残留产品", names)
@@ -222,7 +272,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/projects/?search=国网")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["project_no"] for item in response.data], ["PRJ-SEARCH-001"])
+        self.assertEqual([item["project_no"] for item in api_results(response)], ["PRJ-SEARCH-001"])
 
     def test_project_search_matches_sales_person_name(self):
         sales = Person.objects.create(name="许超飞", organization=self.internal_org, person_type="sales")
@@ -233,7 +283,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/projects/?search=许超飞")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["project_no"] for item in response.data], ["PRJ-SEARCH-003"])
+        self.assertEqual([item["project_no"] for item in api_results(response)], ["PRJ-SEARCH-003"])
 
     def test_project_search_matches_project_stage(self):
         Project.objects.create(project_no="PRJ-SEARCH-005", name="交付阶段项目", project_stage="delivery")
@@ -242,7 +292,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/projects/?search=delivery")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["project_no"] for item in response.data], ["PRJ-SEARCH-005"])
+        self.assertEqual([item["project_no"] for item in api_results(response)], ["PRJ-SEARCH-005"])
 
     def test_device_model_search_matches_model_code(self):
         product = Product.objects.create(name="边界防护平台", product_code="EDGE-P", manufacturer=self.vendor)
@@ -252,7 +302,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/device-models/?search=SG3000")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["model_code"] for item in response.data], ["SG3000"])
+        self.assertEqual([item["model_code"] for item in api_results(response)], ["SG3000"])
 
     def test_device_model_search_matches_product_name(self):
         target_product = Product.objects.create(name="边界防护平台", product_code="EDGE-P2", manufacturer=self.vendor)
@@ -263,7 +313,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/device-models/?search=边界防护")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["model_code"] for item in response.data], ["DM-EDGE-1"])
+        self.assertEqual([item["model_code"] for item in api_results(response)], ["DM-EDGE-1"])
 
     def test_device_model_search_can_stack_with_product_version_scope(self):
         line = ProductLine.objects.create(name="边界安全产品线", code="EDGE-LINE")
@@ -289,7 +339,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get(f"/api/device-models/?product_version={target_version.id}&search=边界防护")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["model_code"] for item in response.data], ["EDGE-TARGET"])
+        self.assertEqual([item["model_code"] for item in api_results(response)], ["EDGE-TARGET"])
 
     def test_device_model_scope_filters_work_without_search(self):
         line_a = ProductLine.objects.create(name="边界安全产品线", code="EDGE-LINE-A")
@@ -306,9 +356,9 @@ class SearchApiTests(APITestCase):
         by_version = self.client.get(f"/api/device-models/?product_version={version_a.id}")
 
         self.assertEqual(by_line.status_code, 200)
-        self.assertEqual([item["model_code"] for item in by_line.data], ["SCOPE-A"])
-        self.assertEqual([item["model_code"] for item in by_product.data], ["SCOPE-A"])
-        self.assertEqual([item["model_code"] for item in by_version.data], ["SCOPE-A"])
+        self.assertEqual([item["model_code"] for item in api_results(by_line)], ["SCOPE-A"])
+        self.assertEqual([item["model_code"] for item in api_results(by_product)], ["SCOPE-A"])
+        self.assertEqual([item["model_code"] for item in api_results(by_version)], ["SCOPE-A"])
 
     def test_device_model_scope_prefers_product_version_over_product_and_product_line(self):
         line_primary = ProductLine.objects.create(name="优先级产品线", code="PRIORITY-LINE-1")
@@ -325,7 +375,7 @@ class SearchApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["model_code"] for item in response.data], ["PRIORITY-B"])
+        self.assertEqual([item["model_code"] for item in api_results(response)], ["PRIORITY-B"])
 
     def test_device_model_scope_ignores_invalid_value_without_500(self):
         line = ProductLine.objects.create(name="非法值产品线", code="INVALID-LINE")
@@ -337,7 +387,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get("/api/device-models/?product_version=abc")
 
         self.assertEqual(response.status_code, 200)
-        self.assertCountEqual([item["model_code"] for item in response.data], ["INVALID-A", "INVALID-B"])
+        self.assertCountEqual([item["model_code"] for item in api_results(response)], ["INVALID-A", "INVALID-B"])
 
     def test_device_model_scope_skips_invalid_more_specific_value_and_uses_next_valid_scope(self):
         line_a = ProductLine.objects.create(name="回退产品线 A", code="FALLBACK-LINE-A")
@@ -350,7 +400,7 @@ class SearchApiTests(APITestCase):
         response = self.client.get(f"/api/device-models/?product_version=abc&product={product_a.id}&product_line={line_b.id}")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["model_code"] for item in response.data], ["FALLBACK-A"])
+        self.assertEqual([item["model_code"] for item in api_results(response)], ["FALLBACK-A"])
 
 
 class ProductProjectModelTests(TestCase):
@@ -412,7 +462,7 @@ class ProjectApiTests(APITestCase):
 
         list_response = self.client.get("/api/projects/")
         self.assertEqual(list_response.status_code, 200)
-        project_row = next(item for item in list_response.data if item["id"] == project_id)
+        project_row = next(item for item in api_results(list_response) if item["id"] == project_id)
         self.assertEqual(project_row["customer_org_detail"]["name"], "API 客户")
         self.assertEqual(project_row["sales_person_detail"]["name"], "API 销售")
 
@@ -704,7 +754,7 @@ class DeviceDirectoryApiTests(APITestCase):
         response = self.client.get("/api/devices/")
 
         self.assertEqual(response.status_code, 200)
-        item = next(row for row in response.data if row["id"] == device.id)
+        item = next(row for row in api_results(response) if row["id"] == device.id)
         self.assertEqual(item["customer_org_detail"]["id"], customer.id)
         self.assertEqual(item["customer_org_detail"]["name"], "设备中心客户")
         self.assertEqual(item["customer_contact_detail"]["id"], contact.id)
@@ -822,7 +872,7 @@ class DeviceDirectorySearchApiTests(APITestCase):
 
         for response in [by_device, by_serial, by_customer, by_contact, by_sales]:
             self.assertEqual(response.status_code, 200)
-            self.assertEqual([item["id"] for item in response.data], [device.id])
+            self.assertEqual([item["id"] for item in api_results(response)], [device.id])
 
     def test_device_list_search_matches_project_sales_when_device_sales_is_empty(self):
         customer = Organization.objects.create(name="项目销售客户", org_type="customer")
@@ -855,4 +905,4 @@ class DeviceDirectorySearchApiTests(APITestCase):
         response = self.client.get("/api/devices/?search=许超飞")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["id"] for item in response.data], [device.id])
+        self.assertEqual([item["id"] for item in api_results(response)], [device.id])
