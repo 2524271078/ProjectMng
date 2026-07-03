@@ -102,15 +102,57 @@
       </template>
     </el-dialog>
 
-    <el-drawer v-model="projectDrawerVisible" size="60%" title="项目详情">
-      <el-descriptions v-if="projectOverview" :column="2" border>
-        <el-descriptions-item label="项目编号">{{ projectOverview.project.project_no }}</el-descriptions-item>
-        <el-descriptions-item label="项目名称">{{ projectOverview.project.name }}</el-descriptions-item>
-        <el-descriptions-item label="客户公司">{{ projectOverview.customer?.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="客户联系人">{{ projectOverview.customer_contact?.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="销售">{{ projectOverview.sales_person?.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="金额">{{ projectOverview.project.amount }}</el-descriptions-item>
-      </el-descriptions>
+    <el-drawer v-model="projectDrawerVisible" size="68%" title="项目详情">
+      <el-tabs v-if="projectOverview" model-value="base">
+        <el-tab-pane label="基础信息" name="base">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="项目编号">{{ projectOverview.project.project_no }}</el-descriptions-item>
+            <el-descriptions-item label="项目名称">{{ projectOverview.project.name }}</el-descriptions-item>
+            <el-descriptions-item label="客户公司">{{ projectOverview.customer?.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="客户联系人">{{ projectOverview.customer_contact?.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="联系人职位">{{ projectOverview.customer_contact?.position || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="实际中标公司">{{ projectOverview.project.winning_company || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="对接公司">{{ projectOverview.project.contact_company || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="销售">{{ projectOverview.sales_person?.name || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="阶段">{{ projectOverview.project.project_stage || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="金额">{{ projectOverview.project.amount }}</el-descriptions-item>
+          </el-descriptions>
+        </el-tab-pane>
+
+        <el-tab-pane label="项目设备" name="devices">
+          <el-table :data="projectOverview.devices || []" stripe>
+            <el-table-column prop="name" label="设备" min-width="160" />
+            <el-table-column prop="serial_number" label="序列号" min-width="160" />
+            <el-table-column prop="device_project_type" label="项目类型" min-width="120" />
+            <el-table-column prop="management_address" label="管理地址" min-width="180" />
+            <el-table-column label="现场运维" min-width="120">
+              <template #default="scope">{{ scope.row.ops_person?.name || '-' }}</template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="关联合同" name="contracts">
+          <el-table :data="projectOverview.contracts || []" stripe>
+            <el-table-column prop="contract_no" label="合同编号" min-width="150" />
+            <el-table-column prop="contract_name" label="合同名称" min-width="220" />
+            <el-table-column prop="amount" label="金额" min-width="120" />
+            <el-table-column prop="status" label="状态" min-width="120" />
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="项目附件" name="attachments">
+          <el-table :data="projectOverview.attachments || []" stripe>
+            <el-table-column prop="name" label="附件名" />
+            <el-table-column prop="uploaded_at" label="上传时间" />
+            <el-table-column label="操作" width="160">
+              <template #default="scope">
+                <el-button v-if="scope.row.file_url" link type="primary" @click="previewAttachment(scope.row)">预览</el-button>
+                <el-button v-if="scope.row.file_url" link type="primary" @click="downloadAttachment(scope.row)">下载</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
     </el-drawer>
   </div>
 </template>
@@ -149,6 +191,18 @@ async function openProjectDetail(row) {
   const { data } = await fetchProjectOverview(row.id)
   projectOverview.value = data
   projectDrawerVisible.value = true
+}
+
+function previewAttachment(row) {
+  window.open(row.file_url, '_blank', 'noopener,noreferrer')
+}
+
+function downloadAttachment(row) {
+  const link = document.createElement('a')
+  link.href = row.file_url
+  link.download = row.name || '附件'
+  link.target = '_blank'
+  link.click()
 }
 
 function openCreateDialog() {
