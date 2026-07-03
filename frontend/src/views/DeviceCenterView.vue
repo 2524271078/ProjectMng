@@ -6,14 +6,16 @@
     </div>
 
     <el-table :data="projects" stripe @row-click="openDetail">
-      <el-table-column prop="project_no" label="项目编号" min-width="150" />
       <el-table-column prop="name" label="项目名称" min-width="220" />
-      <el-table-column label="阶段">
+      <el-table-column label="客户公司" min-width="220">
+        <template #default="scope">{{ scope.row.customer_org_detail?.name || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="负责销售" min-width="140">
+        <template #default="scope">{{ scope.row.sales_person_detail?.name || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="阶段" min-width="100">
         <template #default="scope">{{ projectStageLabel(scope.row.project_stage) }}</template>
       </el-table-column>
-      <el-table-column prop="winning_company" label="实际中标公司" min-width="160" />
-      <el-table-column prop="contact_company" label="对接公司" min-width="160" />
-      <el-table-column prop="status" label="状态" />
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="scope">
           <el-button link type="primary" @click.stop="openEditDialog(scope.row)">编辑</el-button>
