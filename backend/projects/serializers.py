@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectDevice, SalesCustomerRelation
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -60,6 +60,12 @@ class ProjectSerializer(serializers.ModelSerializer):
 class ProjectDeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectDevice
+        fields = "__all__"
+
+
+class ProjectContractSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectContract
         fields = "__all__"
 
 

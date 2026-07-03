@@ -192,6 +192,20 @@ class Contract(BaseModel):
         return self.contract_name
 
 
+class ProjectContract(BaseModel):
+    project = models.ForeignKey(Project, related_name="project_contracts", on_delete=models.CASCADE)
+    contract = models.ForeignKey(Contract, related_name="project_contracts", on_delete=models.PROTECT)
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "contract"],
+                condition=models.Q(is_deleted=False),
+                name="uniq_active_project_contract",
+            )
+        ]
+
+
 class ContractDevice(BaseModel):
     contract = models.ForeignKey(Contract, related_name="contract_devices", on_delete=models.CASCADE)
     device = models.ForeignKey(Device, related_name="contract_devices", on_delete=models.PROTECT)

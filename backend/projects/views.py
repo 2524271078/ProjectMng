@@ -3,8 +3,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectDevice, SalesCustomerRelation
-from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation
+from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
@@ -74,6 +74,11 @@ class ProjectViewSet(SoftDeleteModelViewSet):
 class ProjectDeviceViewSet(SoftDeleteModelViewSet):
     queryset = ProjectDevice.objects.select_related("project", "device").all().order_by("id")
     serializer_class = ProjectDeviceSerializer
+
+
+class ProjectContractViewSet(SoftDeleteModelViewSet):
+    queryset = ProjectContract.objects.select_related("project", "contract").all().order_by("id")
+    serializer_class = ProjectContractSerializer
 
 
 class ContractViewSet(SoftDeleteModelViewSet):
@@ -146,6 +151,18 @@ def contract_summary(contract):
     return {"id": contract.id, "contract_no": contract.contract_no, "contract_name": contract.contract_name, "amount": str(contract.amount), "status": contract.status}
 
 
+def project_summary(project):
+    return {
+        "id": project.id,
+        "project_no": project.project_no,
+        "name": project.name,
+        "project_stage": project.project_stage,
+        "amount": str(project.amount),
+        "customer_contact": person_summary(project.customer_contact),
+        "sales_person": person_summary(project.sales_person),
+    }
+
+
 @api_view(["GET"])
 def sales_customers(request, pk):
     relations = SalesCustomerRelation.objects.filter(sales_person_id=pk).select_related("customer_org")
@@ -190,6 +207,7 @@ def customer_overview(request, pk):
         "sales": [person_summary(relation.sales_person) for relation in relations],
         "devices": [device_summary(device) for device in customer.devices.all()],
         "contracts": [contract_summary(contract) for contract in customer.final_customer_contracts.all()],
+        "projects": [project_summary(project) for project in customer.projects.select_related("customer_contact", "sales_person").all()],
     })
 
 
@@ -211,6 +229,7 @@ def device_overview(request, pk):
 def project_overview(request, pk):
     project = Project.objects.select_related("customer_org", "customer_contact", "sales_person", "ops_person").get(pk=pk)
     bindings = project.project_devices.select_related("device", "device__device_model").all()
+    project_contracts = project.project_contracts.select_related("contract").all()
     return Response({
         "project": ProjectSerializer(project).data,
         "customer": organization_summary(project.customer_org) if project.customer_org else None,
@@ -218,6 +237,7 @@ def project_overview(request, pk):
         "sales_person": person_summary(project.sales_person),
         "ops_person": person_summary(project.ops_person),
         "devices": [{**device_summary(binding.device), "quantity": binding.quantity, "deploy_location": binding.deploy_location, "device_project_type": binding.device_project_type, "usage": binding.usage} for binding in bindings],
+        "contracts": [contract_summary(binding.contract) for binding in project_contracts],
         "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="project", object_id=project.id), many=True, context={"request": request}).data,
     })
 

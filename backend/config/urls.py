@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import MenuViewSet, PermissionViewSet, RoleViewSet, UserRoleViewSet, UserViewSet, current_user_view, login_view
-from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
+from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectContractViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
 
 router = DefaultRouter()
 router.register("users", UserViewSet)
@@ -24,6 +24,7 @@ router.register("device-models", DeviceModelViewSet)
 router.register("devices", DeviceViewSet)
 router.register("projects", ProjectViewSet)
 router.register("project-devices", ProjectDeviceViewSet)
+router.register("project-contracts", ProjectContractViewSet)
 router.register("contracts", ContractViewSet)
 router.register("contract-devices", ContractDeviceViewSet)
 router.register("contract-parties", ContractPartyViewSet)

@@ -15,6 +15,11 @@ from projects.models import (
     Organization,
     Person,
     Product,
+    Project,
+    ProjectContract,
+    ProjectDevice,
+    ProductLine,
+    ProductVersion,
     SalesCustomerRelation,
 )
 
@@ -320,3 +325,68 @@ class AttachmentUploadApiTests(APITestCase):
         self.assertEqual(overview.status_code, 200)
         self.assertEqual(overview.data["attachments"][0]["name"], "合同附件")
         self.assertIn("file_url", overview.data["attachments"][0])
+
+
+class ProjectContractModelTests(TestCase):
+    def test_project_contract_active_relation_is_unique(self):
+        customer = Organization.objects.create(name="唯一性客户", org_type="customer")
+        project = Project.objects.create(project_no="UNIQ-PRJ-001", name="唯一性项目", customer_org=customer)
+        contract = Contract.objects.create(contract_no="UNIQ-CON-001", contract_name="唯一性合同", final_customer=customer)
+
+        ProjectContract.objects.create(project=project, contract=contract)
+
+        with self.assertRaises(Exception):
+            ProjectContract.objects.create(project=project, contract=contract)
+
+
+class CustomerProjectOverviewTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="customer-projects", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_customer_overview_includes_projects(self):
+        customer = Organization.objects.create(name="客户项目客户", org_type="customer")
+        contact = Person.objects.create(name="客户联系人", organization=customer, person_type="customer_contact")
+        sales = Person.objects.create(name="客户销售", person_type="sales")
+        project = Project.objects.create(
+            project_no="CUST-PRJ-001",
+            name="客户归属项目",
+            customer_org=customer,
+            customer_contact=contact,
+            sales_person=sales,
+            amount=Decimal("123.00"),
+        )
+
+        response = self.client.get(f"/api/customers/{customer.id}/overview/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["projects"][0]["id"], project.id)
+        self.assertEqual(response.data["projects"][0]["project_no"], "CUST-PRJ-001")
+        self.assertEqual(response.data["projects"][0]["customer_contact"]["id"], contact.id)
+        self.assertEqual(response.data["projects"][0]["sales_person"]["id"], sales.id)
+
+
+class ProjectContractOverviewTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="project-contracts", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_project_overview_includes_related_contracts(self):
+        customer = Organization.objects.create(name="项目合同客户", org_type="customer")
+        project = Project.objects.create(project_no="PRJ-CON-001", name="项目合同测试", customer_org=customer)
+        contract = Contract.objects.create(
+            contract_no="CON-001",
+            contract_name="项目关联合同",
+            final_customer=customer,
+            amount=Decimal("88.00"),
+        )
+        ProjectContract.objects.create(project=project, contract=contract)
+
+        response = self.client.get(f"/api/projects/{project.id}/overview/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["contracts"][0]["contract_no"], "CON-001")
