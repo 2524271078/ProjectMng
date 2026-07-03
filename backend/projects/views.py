@@ -38,6 +38,22 @@ def apply_search(queryset, search_value, search_fields):
     return queryset.filter(conditions)
 
 
+def apply_device_model_scope(queryset, query_params):
+    product_version = query_params.get("product_version", "").strip()
+    if product_version:
+        return queryset.filter(product_version_id=product_version)
+
+    product = query_params.get("product", "").strip()
+    if product:
+        return queryset.filter(product_id=product)
+
+    product_line = query_params.get("product_line", "").strip()
+    if product_line:
+        return queryset.filter(product__product_line_id=product_line)
+
+    return queryset
+
+
 class OrganizationViewSet(SoftDeleteModelViewSet):
     queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
@@ -85,6 +101,12 @@ class DeviceModelViewSet(SoftDeleteModelViewSet):
     queryset = DeviceModel.objects.select_related("product", "product_version", "manufacturer").all().order_by("id")
     serializer_class = DeviceModelSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = apply_device_model_scope(queryset, self.request.query_params)
+        search_value = self.request.query_params.get("search", "").strip()
+        return apply_search(queryset, search_value, ["model_name", "model_code", "product__name", "product_version__version_name"])
+
 
 class DeviceViewSet(SoftDeleteModelViewSet):
     queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").all()
@@ -94,6 +116,11 @@ class DeviceViewSet(SoftDeleteModelViewSet):
 class ProjectViewSet(SoftDeleteModelViewSet):
     queryset = Project.objects.select_related("customer_org", "sales_person", "ops_person").all().order_by("id")
     serializer_class = ProjectSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search_value = self.request.query_params.get("search", "").strip()
+        return apply_search(queryset, search_value, ["name", "customer_org__name", "sales_person__name", "project_stage"])
 
 
 class ProjectDeviceViewSet(SoftDeleteModelViewSet):

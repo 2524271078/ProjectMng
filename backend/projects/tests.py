@@ -170,6 +170,8 @@ class SearchApiTests(APITestCase):
 
         self.user = User.objects.create_user(username="search-api", password="pass123456")
         self.client.force_authenticate(self.user)
+        self.internal_org = Organization.objects.create(name="盛邦安全", org_type="internal_company")
+        self.vendor = Organization.objects.create(name="边界厂商", org_type="vendor")
 
     def test_organization_search_matches_name_region_and_org_type(self):
         Organization.objects.create(name="华东能源集团", org_type="customer", region="华北")
@@ -195,6 +197,83 @@ class SearchApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["name"] for item in response.data], ["许超"])
         self.assertTrue(all(item["person_type"] == "sales" for item in response.data))
+
+    def test_project_search_matches_customer_organization_name(self):
+        customer = Organization.objects.create(name="国网华北电力", org_type="customer")
+        Project.objects.create(project_no="PRJ-SEARCH-001", name="区域加固项目", customer_org=customer)
+        Project.objects.create(project_no="PRJ-SEARCH-002", name="普通项目")
+
+        response = self.client.get("/api/projects/?search=国网")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["project_no"] for item in response.data], ["PRJ-SEARCH-001"])
+
+    def test_project_search_matches_sales_person_name(self):
+        sales = Person.objects.create(name="许超飞", organization=self.internal_org, person_type="sales")
+        other_sales = Person.objects.create(name="李四", organization=self.internal_org, person_type="sales")
+        Project.objects.create(project_no="PRJ-SEARCH-003", name="销售归属项目", sales_person=sales)
+        Project.objects.create(project_no="PRJ-SEARCH-004", name="其他销售项目", sales_person=other_sales)
+
+        response = self.client.get("/api/projects/?search=许超飞")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["project_no"] for item in response.data], ["PRJ-SEARCH-003"])
+
+    def test_project_search_matches_project_stage(self):
+        Project.objects.create(project_no="PRJ-SEARCH-005", name="交付阶段项目", project_stage="delivery")
+        Project.objects.create(project_no="PRJ-SEARCH-006", name="售前阶段项目", project_stage="presale")
+
+        response = self.client.get("/api/projects/?search=delivery")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["project_no"] for item in response.data], ["PRJ-SEARCH-005"])
+
+    def test_device_model_search_matches_model_code(self):
+        product = Product.objects.create(name="边界防护平台", product_code="EDGE-P", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=product, model_name="边界一体机 3000", model_code="SG3000", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=product, model_name="边界一体机 5000", model_code="SG5000", manufacturer=self.vendor)
+
+        response = self.client.get("/api/device-models/?search=SG3000")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["model_code"] for item in response.data], ["SG3000"])
+
+    def test_device_model_search_matches_product_name(self):
+        target_product = Product.objects.create(name="边界防护平台", product_code="EDGE-P2", manufacturer=self.vendor)
+        other_product = Product.objects.create(name="数据库审计平台", product_code="DBA-P", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=target_product, model_name="边界防护一体机", model_code="DM-EDGE-1", manufacturer=self.vendor)
+        DeviceModel.objects.create(product=other_product, model_name="数据库审计一体机", model_code="DM-DBA-1", manufacturer=self.vendor)
+
+        response = self.client.get("/api/device-models/?search=边界防护")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["model_code"] for item in response.data], ["DM-EDGE-1"])
+
+    def test_device_model_search_can_stack_with_product_version_scope(self):
+        line = ProductLine.objects.create(name="边界安全产品线", code="EDGE-LINE")
+        target_product = Product.objects.create(name="边界防护平台", product_code="EDGE-P3", product_line=line, manufacturer=self.vendor)
+        other_product = Product.objects.create(name="边界防护平台副线", product_code="EDGE-P4", product_line=line, manufacturer=self.vendor)
+        target_version = ProductVersion.objects.create(product=target_product, version_name="专用版", version_code="VER-TARGET")
+        other_version = ProductVersion.objects.create(product=other_product, version_name="通用版", version_code="VER-OTHER")
+        DeviceModel.objects.create(
+            product=target_product,
+            product_version=target_version,
+            model_name="边界防护专用型号",
+            model_code="EDGE-TARGET",
+            manufacturer=self.vendor,
+        )
+        DeviceModel.objects.create(
+            product=other_product,
+            product_version=other_version,
+            model_name="边界防护通用型号",
+            model_code="EDGE-OTHER",
+            manufacturer=self.vendor,
+        )
+
+        response = self.client.get(f"/api/device-models/?product_version={target_version.id}&search=边界防护")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["model_code"] for item in response.data], ["EDGE-TARGET"])
 
 
 class ProductProjectModelTests(TestCase):
