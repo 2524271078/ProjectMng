@@ -10,6 +10,9 @@
       <div class="section-head">
         <div><span class="eyebrow-dark">Product Catalog</span><h2>产品型号管理</h2></div>
         <div class="action-row">
+          <el-input v-model="searchKeyword" placeholder="搜索型号 / 编码 / 产品 / 版本" clearable @keyup.enter="handleSearch" />
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="resetSearch">重置</el-button>
           <el-button @click="openDialog('line')">新增产线</el-button>
           <el-button @click="openDialog('product')">新增产品</el-button>
           <el-button @click="openDialog('version')">新增版本</el-button>
@@ -20,7 +23,7 @@
       </div>
       <el-alert v-if="!lines.length" title="请先新增产线，再在产线下新增产品、版本和型号。" type="info" show-icon :closable="false" class="mb-16" />
       <div class="page-table-scroll">
-        <el-table :data="filteredModels" stripe>
+        <el-table :data="models" stripe>
         <el-table-column prop="model_name" label="型号名称" min-width="180" />
         <el-table-column prop="model_code" label="型号编码" min-width="160" />
         <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
@@ -79,27 +82,52 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const dialogType = ref('line')
 const editingId = ref(null)
+const searchKeyword = ref('')
 const form = reactive({})
 const dialogTitle = computed(() => ({ line: editingId.value ? '编辑产线' : '新增产线', product: editingId.value ? '编辑产品' : '新增产品', version: editingId.value ? '编辑版本' : '新增版本', model: editingId.value ? '编辑型号' : '新增型号' }[dialogType.value]))
 const productTree = computed(() => lines.value.map((line) => ({ key: `line-${line.id}`, type: 'line', id: line.id, label: line.name, children: products.value.filter((p) => p.product_line === line.id).map((product) => ({ key: `product-${product.id}`, type: 'product', id: product.id, label: product.name, children: versions.value.filter((v) => v.product === product.id).map((version) => ({ key: `version-${version.id}`, type: 'version', id: version.id, label: version.version_name })) })) })))
-const filteredModels = computed(() => {
-  if (!selectedNode.value) return models.value
-  if (selectedNode.value.type === 'version') return models.value.filter((model) => model.product_version === selectedNode.value.id)
-  if (selectedNode.value.type === 'product') return models.value.filter((model) => model.product === selectedNode.value.id)
-  if (selectedNode.value.type === 'line') {
-    const productIds = products.value.filter((p) => p.product_line === selectedNode.value.id).map((p) => p.id)
-    return models.value.filter((model) => productIds.includes(model.product))
-  }
-  return models.value
-})
 const modelVersionOptions = computed(() => versions.value.filter((version) => version.product === form.product))
-async function loadAll() {
-  lines.value = unwrapList((await listResource('product-lines')).data)
-  products.value = unwrapList((await listResource('products')).data)
-  versions.value = unwrapList((await listResource('product-versions')).data)
-  models.value = unwrapList((await listResource('device-models')).data)
+function currentModelFilters() {
+  const params = {}
+  if (selectedNode.value?.type === 'line') params.product_line = selectedNode.value.id
+  if (selectedNode.value?.type === 'product') params.product = selectedNode.value.id
+  if (selectedNode.value?.type === 'version') params.product_version = selectedNode.value.id
+  if (searchKeyword.value.trim()) params.search = searchKeyword.value.trim()
+  return params
 }
-function selectNode(node) { selectedNode.value = node }
+
+async function loadModels() {
+  try {
+    models.value = unwrapList((await listResource('device-models', currentModelFilters())).data)
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载型号列表失败'))
+  }
+}
+
+async function loadAll() {
+  try {
+    lines.value = unwrapList((await listResource('product-lines')).data)
+    products.value = unwrapList((await listResource('products')).data)
+    versions.value = unwrapList((await listResource('product-versions')).data)
+    await loadModels()
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载产品中心数据失败'))
+  }
+}
+
+function handleSearch() {
+  loadModels()
+}
+
+function resetSearch() {
+  searchKeyword.value = ''
+  loadModels()
+}
+
+function selectNode(node) {
+  selectedNode.value = node
+  loadModels()
+}
 
 function resetForm() {
   editingId.value = null
