@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildProjectDevicePayload, createDefaultProjectDeviceForm } from './projectDeviceForm.js'
+import { buildProjectDeviceBindingPayload, buildProjectDevicePayload, createDefaultProjectDeviceForm } from './projectDeviceForm.js'
 
 test('default project device form creates a new device by default', () => {
   const form = createDefaultProjectDeviceForm()
@@ -9,6 +9,9 @@ test('default project device form creates a new device by default', () => {
   assert.equal(form.bind_mode, 'new')
   assert.equal(form.device, null)
   assert.equal(form.device_model, null)
+  assert.equal(form.service_type, 'new_install')
+  assert.equal(form.service_start_date, '')
+  assert.equal(form.service_end_date, '')
 })
 
 
@@ -27,4 +30,22 @@ test('buildProjectDevicePayload applies current customer and sales ownership', (
 
   assert.equal(payload.customer_org, 11)
   assert.equal(payload.sales_person, 22)
+})
+
+
+test('buildProjectDeviceBindingPayload keeps service cycle fields', () => {
+  const payload = buildProjectDeviceBindingPayload({
+    deploy_location: '主机房',
+    device_project_type: '正式设备',
+    service_type: 'renewal',
+    service_start_date: '2026-07-01',
+    service_end_date: '2027-06-30',
+  })
+
+  assert.equal(payload.quantity, 1)
+  assert.equal(payload.deploy_location, '主机房')
+  assert.equal(payload.device_project_type, '正式设备')
+  assert.equal(payload.service_type, 'renewal')
+  assert.equal(payload.service_start_date, '2026-07-01')
+  assert.equal(payload.service_end_date, '2027-06-30')
 })

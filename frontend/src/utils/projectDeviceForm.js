@@ -15,6 +15,9 @@ export function createDefaultProjectDeviceForm() {
     is_standard_product: true,
     is_under_warranty: false,
     supports_remote: false,
+    service_type: 'new_install',
+    service_start_date: '',
+    service_end_date: '',
     ops_person: null,
     screenshot_url: '',
     rack_install_date: '',
@@ -29,5 +32,17 @@ export function buildProjectDevicePayload(form, { customerOrgId, salesPersonId }
     device_model: form.device_model,
     customer_org: customerOrgId ?? null,
     sales_person: salesPersonId ?? null,
+  }
+}
+
+
+export function buildProjectDeviceBindingPayload(form) {
+  return {
+    quantity: 1,
+    deploy_location: form.deploy_location,
+    device_project_type: form.device_project_type,
+    service_type: form.service_type,
+    service_start_date: form.service_start_date || null,
+    service_end_date: form.service_end_date || null,
   }
 }

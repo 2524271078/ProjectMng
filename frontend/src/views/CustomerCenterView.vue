@@ -52,7 +52,9 @@
           <el-table :data="overview.devices">
             <el-table-column prop="name" label="设备" />
             <el-table-column prop="serial_number" label="序列号" />
-            <el-table-column prop="status" label="状态" />
+            <el-table-column prop="current_service_status" label="当前保内状态" />
+            <el-table-column prop="current_service_start_date" label="服务开始" />
+            <el-table-column prop="current_service_end_date" label="服务结束" />
             <el-table-column label="操作" width="100">
               <template #default="scope">
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
@@ -129,6 +131,12 @@
             <el-table-column prop="name" label="设备" min-width="160" />
             <el-table-column prop="serial_number" label="序列号" min-width="160" />
             <el-table-column prop="device_project_type" label="项目类型" min-width="120" />
+            <el-table-column label="服务类型" min-width="100">
+              <template #default="scope">{{ serviceTypeLabel(scope.row.service_type) }}</template>
+            </el-table-column>
+            <el-table-column prop="service_start_date" label="服务开始" min-width="120" />
+            <el-table-column prop="service_end_date" label="服务结束" min-width="120" />
+            <el-table-column prop="service_status" label="保内状态" min-width="100" />
             <el-table-column prop="management_address" label="管理地址" min-width="180" />
             <el-table-column label="现场运维" min-width="120">
               <template #default="scope">{{ scope.row.ops_person?.name || '-' }}</template>
@@ -175,6 +183,9 @@
         <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
         <el-descriptions-item label="设备系统版本">{{ selectedDevice.software_version || '-' }}</el-descriptions-item>
         <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="服务开始">{{ selectedDevice.current_service_start_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="服务结束">{{ selectedDevice.current_service_end_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="当前保内状态">{{ selectedDevice.current_service_status || (selectedDevice.is_under_warranty ? '保内' : '保外') }}</el-descriptions-item>
         <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
         <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
         <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
@@ -198,6 +209,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import { createResource, deleteResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource } from '../api/resources'
 import { buildOrganizationTree } from '../utils/orgTree'
+import { serviceTypeLabel } from '../utils/displayMaps'
 
 const organizations = ref([])
 const selected = ref(null)
