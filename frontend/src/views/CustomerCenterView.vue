@@ -53,6 +53,11 @@
             <el-table-column prop="name" label="设备" />
             <el-table-column prop="serial_number" label="序列号" />
             <el-table-column prop="status" label="状态" />
+            <el-table-column label="操作" width="100">
+              <template #default="scope">
+                <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
         <el-tab-pane label="关联合同" name="contracts">
@@ -128,6 +133,11 @@
             <el-table-column label="现场运维" min-width="120">
               <template #default="scope">{{ scope.row.ops_person?.name || '-' }}</template>
             </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template #default="scope">
+                <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
 
@@ -154,6 +164,31 @@
         </el-tab-pane>
       </el-tabs>
     </el-drawer>
+
+
+    <el-dialog v-model="deviceDetailVisible" title="设备详情" width="860px">
+      <el-descriptions v-if="selectedDevice" :column="2" border>
+        <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="序列号">{{ selectedDevice.serial_number || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="管理地址">{{ selectedDevice.management_address || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="设备系统版本">{{ selectedDevice.software_version || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
+        <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
+        <el-descriptions-item label="是否保内">{{ selectedDevice.is_under_warranty ? '保内' : '保外' }}</el-descriptions-item>
+        <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="截图链接">
+          <a v-if="selectedDevice.screenshot_url" :href="selectedDevice.screenshot_url" target="_blank" rel="noopener noreferrer">预览</a>
+          <span v-else>-</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="授权信息" :span="2">{{ typeof selectedDevice.license_info === 'string' ? selectedDevice.license_info : JSON.stringify(selectedDevice.license_info || {}) }}</el-descriptions-item>
+        <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </div>
 </template>
 
@@ -169,6 +204,8 @@ const selected = ref(null)
 const overview = ref(null)
 const projectDrawerVisible = ref(false)
 const projectOverview = ref(null)
+const deviceDetailVisible = ref(false)
+const selectedDevice = ref(null)
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
@@ -191,6 +228,11 @@ async function openProjectDetail(row) {
   const { data } = await fetchProjectOverview(row.id)
   projectOverview.value = data
   projectDrawerVisible.value = true
+}
+
+function openDeviceDetail(device) {
+  selectedDevice.value = device
+  deviceDetailVisible.value = true
 }
 
 function previewAttachment(row) {
