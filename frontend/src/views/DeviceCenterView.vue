@@ -14,9 +14,15 @@
       <el-table-column prop="winning_company" label="实际中标公司" min-width="160" />
       <el-table-column prop="contact_company" label="对接公司" min-width="160" />
       <el-table-column prop="status" label="状态" />
+      <el-table-column label="操作" width="150" fixed="right">
+        <template #default="scope">
+          <el-button link type="primary" @click.stop="openEditDialog(scope.row)">编辑</el-button>
+          <el-button link type="danger" @click.stop="removeProject(scope.row)">删除</el-button>
+        </template>
+      </el-table-column>
     </el-table>
 
-    <el-dialog v-model="dialogVisible" title="新增项目" width="620px">
+    <el-dialog v-model="dialogVisible" :title="editingProjectId ? '编辑项目' : '新增项目'" width="620px">
       <el-form :model="form" label-width="110px">
         <el-form-item label="项目编号"><el-input v-model="form.project_no" /></el-form-item>
         <el-form-item label="项目名称"><el-input v-model="form.name" /></el-form-item>
@@ -32,7 +38,7 @@
         <el-form-item label="项目阶段"><el-select v-model="form.project_stage"><el-option label="立项" value="new" /><el-option label="签约" value="signed" /><el-option label="交付" value="delivery" /><el-option label="运维" value="ops" /></el-select></el-form-item>
         <el-form-item label="项目金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" @click="createProject">保存</el-button></template>
+      <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" @click="createProject">{{ editingProjectId ? '保存修改' : '保存' }}</el-button></template>
     </el-dialog>
 
     <el-drawer v-model="drawerVisible" size="70%" title="项目详情">
@@ -182,9 +188,9 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createProjectContract, createResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
+import { createProjectContract, createResource, deleteResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
 import { buildProjectDeviceBindingPayload, buildProjectDevicePayload, createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
@@ -202,6 +208,7 @@ const customerContacts = ref([])
 const overview = ref(null)
 const dialogVisible = ref(false)
 const drawerVisible = ref(false)
+const editingProjectId = ref(null)
 const deviceDetailVisible = ref(false)
 const activeProjectId = ref(null)
 const selectedDevice = ref(null)
@@ -254,9 +261,32 @@ async function loadOptions() {
   opsPeople.value = people.filter((person) => person.person_type === 'ops' || person.person_type === 'internal')
 }
 
-function openCreateDialog() {
+function resetProjectForm() {
   Object.assign(form, { project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
+}
+
+function openCreateDialog() {
+  editingProjectId.value = null
+  resetProjectForm()
   customerContacts.value = []
+  dialogVisible.value = true
+}
+
+async function openEditDialog(row) {
+  editingProjectId.value = row.id
+  Object.assign(form, {
+    project_no: row.project_no || '',
+    name: row.name || '',
+    customer_org: row.customer_org || null,
+    customer_contact: row.customer_contact || null,
+    winning_company: row.winning_company || '',
+    contact_company: row.contact_company || '',
+    sales_person: row.sales_person || null,
+    project_stage: row.project_stage || 'new',
+    amount: Number(row.amount || 0),
+  })
+  await loadCustomerContacts(form.customer_org)
+  form.customer_contact = row.customer_contact || null
   dialogVisible.value = true
 }
 
@@ -266,12 +296,24 @@ async function createProject() {
       ElMessage.warning('请选择客户公司下的联系人')
       return
     }
-    await createResource('projects', form)
-    ElMessage.success('项目已新增')
+    if (editingProjectId.value) {
+      await updateResource('projects', editingProjectId.value, form)
+      ElMessage.success('项目已更新')
+    } else {
+      await createResource('projects', form)
+      ElMessage.success('项目已新增')
+    }
     dialogVisible.value = false
+    editingProjectId.value = null
+    resetProjectForm()
     await loadProjects()
+    if (activeProjectId.value) {
+      const currentProjectId = activeProjectId.value
+      const exists = projects.value.some((item) => item.id === currentProjectId)
+      if (exists) await openDetail({ id: currentProjectId })
+    }
   } catch (error) {
-    ElMessage.error(formatApiError(error, '新增项目失败'))
+    ElMessage.error(formatApiError(error, editingProjectId.value ? '更新项目失败' : '新增项目失败'))
   }
 }
 
@@ -286,6 +328,24 @@ async function openDetail(row) {
     customerOverview.value = customerResult.data
   }
   drawerVisible.value = true
+}
+
+async function removeProject(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除项目“${row.name}”？`, '删除确认', { type: 'warning' })
+    await deleteResource('projects', row.id)
+    ElMessage.success('项目已删除')
+    if (activeProjectId.value === row.id) {
+      drawerVisible.value = false
+      activeProjectId.value = null
+      overview.value = null
+      customerOverview.value = null
+    }
+    await loadProjects()
+  } catch (error) {
+    if (error === 'cancel') return
+    ElMessage.error(formatApiError(error, '删除项目失败'))
+  }
 }
 
 function currentDeviceOwner() {
