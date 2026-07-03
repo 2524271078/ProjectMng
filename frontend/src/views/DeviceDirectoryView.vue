@@ -25,23 +25,38 @@
         </div>
       </div>
       <div class="toolbar-stats">
-        <div class="stat-card">
+        <button
+          type="button"
+          class="stat-card"
+          :class="{ 'is-active': statusFilter === 'all' }"
+          @click="setStatusFilter('all')"
+        >
           <span class="stat-label">设备总数</span>
           <strong class="stat-value">{{ devices.length }}</strong>
-        </div>
-        <div class="stat-card">
+        </button>
+        <button
+          type="button"
+          class="stat-card"
+          :class="{ 'is-active': statusFilter === 'in' }"
+          @click="setStatusFilter('in')"
+        >
           <span class="stat-label">保内设备</span>
           <strong class="stat-value">{{ warrantyStats.inWarranty }}</strong>
-        </div>
-        <div class="stat-card">
+        </button>
+        <button
+          type="button"
+          class="stat-card"
+          :class="{ 'is-active': statusFilter === 'out' }"
+          @click="setStatusFilter('out')"
+        >
           <span class="stat-label">保外设备</span>
           <strong class="stat-value">{{ warrantyStats.outOfWarranty }}</strong>
-        </div>
+        </button>
       </div>
     </section>
 
     <div class="page-table-scroll">
-      <el-table :data="devices" stripe>
+      <el-table :data="filteredDevices" stripe>
         <el-table-column prop="name" label="设备" min-width="180" />
         <el-table-column prop="serial_number" label="序列号" min-width="160" />
         <el-table-column label="当前保内状态" min-width="120">
@@ -112,6 +127,7 @@ const devices = ref([])
 const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
 const searchKeyword = ref('')
+const statusFilter = ref('all')
 
 const warrantyStats = computed(() => {
   const inWarranty = devices.value.filter((item) => item.current_service_status === '保内').length
@@ -121,9 +137,23 @@ const warrantyStats = computed(() => {
   }
 })
 
+const filteredDevices = computed(() => {
+  if (statusFilter.value === 'in') {
+    return devices.value.filter((item) => item.current_service_status === '保内')
+  }
+  if (statusFilter.value === 'out') {
+    return devices.value.filter((item) => item.current_service_status !== '保内')
+  }
+  return devices.value
+})
+
 function buildSearchParams() {
   const keyword = searchKeyword.value.trim()
   return keyword ? { search: keyword } : undefined
+}
+
+function setStatusFilter(nextFilter) {
+  statusFilter.value = nextFilter
 }
 
 async function loadDevices() {
@@ -141,6 +171,7 @@ function handleSearch() {
 
 function resetSearch() {
   searchKeyword.value = ''
+  statusFilter.value = 'all'
   loadDevices()
 }
 
@@ -209,6 +240,20 @@ onMounted(loadDevices)
   background: #f7fbff;
   border: 1px solid #dbe7f5;
   border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  border-color: #7ba7d9;
+  background: #f1f7ff;
+}
+
+.stat-card.is-active {
+  border-color: #2f7cf6;
+  background: #eaf2ff;
+  box-shadow: 0 0 0 1px rgba(47, 124, 246, 0.12);
 }
 
 .stat-label {
