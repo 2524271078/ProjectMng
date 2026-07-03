@@ -220,6 +220,12 @@ class ProjectApiTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         project_id = response.data["id"]
 
+        list_response = self.client.get("/api/projects/")
+        self.assertEqual(list_response.status_code, 200)
+        project_row = next(item for item in list_response.data if item["id"] == project_id)
+        self.assertEqual(project_row["customer_org_detail"]["name"], "API 客户")
+        self.assertEqual(project_row["sales_person_detail"]["name"], "API 销售")
+
         bind_response = self.client.post("/api/project-devices/", {"project": project_id, "device": device.id, "quantity": 1}, format="json")
         self.assertEqual(bind_response.status_code, 201)
 

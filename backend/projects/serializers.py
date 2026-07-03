@@ -79,6 +79,11 @@ class DeviceSerializer(serializers.ModelSerializer):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    customer_org_detail = OrganizationSerializer(source="customer_org", read_only=True)
+    customer_contact_detail = PersonSerializer(source="customer_contact", read_only=True)
+    sales_person_detail = PersonSerializer(source="sales_person", read_only=True)
+    ops_person_detail = PersonSerializer(source="ops_person", read_only=True)
+
     class Meta:
         model = Project
         fields = "__all__"
