@@ -150,12 +150,15 @@
             <div>上传合同、验收单、项目资料等附件</div>
           </el-upload>
           <el-table :data="overview.attachments" class="mt-16">
-            <el-table-column prop="name" label="附件名" />
-            <el-table-column prop="uploaded_at" label="上传时间" />
-            <el-table-column label="操作" width="160">
+            <el-table-column prop="name" label="附件名" min-width="240" show-overflow-tooltip />
+            <el-table-column prop="uploaded_at" label="上传时间" min-width="180" />
+            <el-table-column label="操作" width="190">
               <template #default="scope">
-                <el-button v-if="scope.row.file_url" link type="primary" @click.stop="previewAttachment(scope.row)">预览</el-button>
-                <el-button v-if="scope.row.file_url" link type="primary" @click.stop="downloadAttachment(scope.row)">下载</el-button>
+                <el-space wrap size="small">
+                  <el-button v-if="scope.row.file_url" link type="primary" @click.stop="previewAttachment(scope.row)">预览</el-button>
+                  <el-button v-if="scope.row.file_url" link type="primary" @click.stop="downloadAttachment(scope.row)">下载</el-button>
+                  <el-button link type="danger" @click.stop="removeAttachment(scope.row)">删除</el-button>
+                </el-space>
               </template>
             </el-table-column>
           </el-table>
@@ -410,6 +413,18 @@ function downloadAttachment(row) {
   link.download = row.name || '附件'
   link.target = '_blank'
   link.click()
+}
+
+async function removeAttachment(row) {
+  try {
+    await ElMessageBox.confirm(`确认删除附件“${row.name}”？`, '删除确认', { type: 'warning' })
+    await deleteResource('attachments', row.id)
+    ElMessage.success('附件已删除')
+    await openDetail({ id: activeProjectId.value })
+  } catch (error) {
+    if (error === 'cancel') return
+    ElMessage.error(formatApiError(error, '删除附件失败'))
+  }
 }
 
 function openDeviceDetail(device) {
