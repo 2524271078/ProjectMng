@@ -1,5 +1,9 @@
 import { apiClient } from './client'
 
+function fetchDetailList(resource, id, detail, params = {}) {
+  return apiClient.get(`/${resource}/${id}/${detail}/`, { params })
+}
+
 export function listResource(resource, params = {}) {
   return apiClient.get(`/${resource}/`, { params })
 }
@@ -74,6 +78,38 @@ export function saveSalesCustomerRelations(id, customerIds) {
 
 export function fetchProjectOverview(id) {
   return apiClient.get(`/projects/${id}/overview/`)
+}
+
+export function fetchCustomerDevices(id, params = {}) {
+  return fetchDetailList('organizations', id, 'devices', params)
+}
+
+export function fetchCustomerProjects(id, params = {}) {
+  return fetchDetailList('organizations', id, 'projects', params)
+}
+
+export function fetchCustomerContracts(id, params = {}) {
+  return fetchDetailList('organizations', id, 'contracts', params)
+}
+
+export function fetchCustomerContacts(id, params = {}) {
+  return fetchDetailList('organizations', id, 'contacts', params)
+}
+
+export function fetchCustomerSales(id, params = {}) {
+  return fetchDetailList('organizations', id, 'sales', params)
+}
+
+export function fetchProjectDevices(id, params = {}) {
+  return fetchDetailList('projects', id, 'devices', params)
+}
+
+export function fetchProjectContracts(id, params = {}) {
+  return fetchDetailList('projects', id, 'contracts', params)
+}
+
+export function fetchProjectAttachments(id, params = {}) {
+  return fetchDetailList('projects', id, 'attachments', params)
 }
 
 export function createProjectContract(payload) {
