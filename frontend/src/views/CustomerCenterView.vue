@@ -37,7 +37,7 @@
         </div>
       </div>
 
-      <el-tabs v-if="overview" model-value="base" class="page-tabs-scroll">
+      <el-tabs v-if="overview" v-model="activeCustomerTab" class="page-tabs-scroll" @tab-change="handleCustomerTabChange">
         <el-tab-pane label="客户详情" name="base">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="名称">{{ overview.customer.name }}</el-descriptions-item>
@@ -47,32 +47,39 @@
         </el-tab-pane>
 
         <el-tab-pane label="联系人" name="contacts">
-          <el-table :data="overview.contacts">
+          <el-table v-loading="contactPagination.loading" :data="contactPagination.rows">
             <el-table-column prop="name" label="姓名" />
             <el-table-column prop="position" label="职位" />
             <el-table-column prop="phone" label="电话" />
             <el-table-column prop="email" label="邮箱" />
           </el-table>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="contactPagination.page" :page-size="contactPagination.pageSize" :page-sizes="[10, 20, 50]" :total="contactPagination.total" @current-change="handleContactPageChange" @size-change="handleContactPageSizeChange" />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="负责销售" name="sales">
-          <el-table :data="overview.sales">
+          <el-table v-loading="salesPagination.loading" :data="salesPagination.rows">
             <el-table-column prop="name" label="销售" />
             <el-table-column prop="phone" label="电话" />
           </el-table>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="salesPagination.page" :page-size="salesPagination.pageSize" :page-sizes="[10, 20, 50]" :total="salesPagination.total" @current-change="handleSalesPageChange" @size-change="handleSalesPageSizeChange" />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="已购设备" name="devices">
           <div class="tab-toolbar">
-            <div class="tab-summary">共 {{ filteredCustomerDevices.length }} 台设备</div>
+            <div class="tab-summary">共 {{ devicePagination.total }} 台设备</div>
             <el-input
               v-model="deviceSearchKeyword"
               class="tab-search"
               placeholder="搜索设备名称 / 序列号 / 保内状态"
               clearable
+              @input="handleDeviceSearch"
             />
           </div>
-          <el-table :data="filteredCustomerDevices" stripe>
+          <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe>
             <el-table-column prop="name" label="设备" min-width="180" />
             <el-table-column prop="serial_number" label="序列号" min-width="160" />
             <el-table-column prop="current_service_status" label="当前保内状态" min-width="120" />
@@ -84,18 +91,24 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="devicePagination.page" :page-size="devicePagination.pageSize" :page-sizes="[10, 20, 50]" :total="devicePagination.total" @current-change="handleDevicePageChange" @size-change="handleDevicePageSizeChange" />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="关联合同" name="contracts">
-          <el-table :data="overview.contracts">
+          <el-table v-loading="contractPagination.loading" :data="contractPagination.rows">
             <el-table-column prop="contract_no" label="合同编号" />
             <el-table-column prop="contract_name" label="合同名称" />
             <el-table-column prop="amount" label="金额" />
           </el-table>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="contractPagination.page" :page-size="contractPagination.pageSize" :page-sizes="[10, 20, 50]" :total="contractPagination.total" @current-change="handleContractPageChange" @size-change="handleContractPageSizeChange" />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="关联项目" name="projects">
-          <el-table :data="overview.projects || []" @row-click="openProjectDetail">
+          <el-table v-loading="projectPagination.loading" :data="projectPagination.rows" @row-click="openProjectDetail">
             <el-table-column prop="project_no" label="项目编号" min-width="150" />
             <el-table-column prop="name" label="项目名称" min-width="220" />
             <el-table-column prop="project_stage" label="阶段" min-width="120" />
@@ -104,6 +117,9 @@
             </el-table-column>
             <el-table-column prop="amount" label="金额" min-width="120" />
           </el-table>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="projectPagination.page" :page-size="projectPagination.pageSize" :page-sizes="[10, 20, 50]" :total="projectPagination.total" @current-change="handleProjectPageChange" @size-change="handleProjectPageSizeChange" />
+          </div>
         </el-tab-pane>
       </el-tabs>
       <el-empty v-else description="请选择客户查看详情" />
@@ -238,7 +254,12 @@ import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import {
   createResource,
   deleteResource,
+  fetchCustomerContacts,
+  fetchCustomerContracts,
+  fetchCustomerDevices,
   fetchCustomerOverview,
+  fetchCustomerProjects,
+  fetchCustomerSales,
   fetchDeviceOverview,
   fetchProjectOverview,
   listResource,
@@ -246,10 +267,18 @@ import {
 } from '../api/resources'
 import { buildOrganizationTree } from '../utils/orgTree'
 import { serviceTypeLabel } from '../utils/displayMaps'
+import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const organizations = ref([])
 const selected = ref(null)
 const overview = ref(null)
+const activeCustomerTab = ref('base')
+const contactPagination = buildPaginationState()
+const salesPagination = buildPaginationState()
+const devicePagination = buildPaginationState()
+const contractPagination = buildPaginationState()
+const projectPagination = buildPaginationState()
+
 const projectDrawerVisible = ref(false)
 const projectOverview = ref(null)
 const deviceDetailVisible = ref(false)
@@ -263,15 +292,168 @@ const form = reactive({ parent: null, name: '', org_type: 'customer', short_name
 const treeProps = { label: 'name', children: 'children' }
 const treeData = computed(() => buildOrganizationTree(organizations.value))
 
-const filteredCustomerDevices = computed(() => {
-  const devices = overview.value?.devices || []
-  const keyword = deviceSearchKeyword.value.trim().toLowerCase()
-  if (!keyword) return devices
-  return devices.filter((item) => {
-    const values = [item.name, item.serial_number, item.current_service_status]
-    return values.some((value) => String(value || '').toLowerCase().includes(keyword))
-  })
-})
+function resetPaginationState(state) {
+  state.page = 1
+  state.pageSize = 10
+  state.total = 0
+  state.totalPages = 1
+  state.rows = []
+  state.loading = false
+}
+
+function resetCustomerTabPagination() {
+  resetPaginationState(contactPagination)
+  resetPaginationState(salesPagination)
+  resetPaginationState(devicePagination)
+  resetPaginationState(contractPagination)
+  resetPaginationState(projectPagination)
+}
+
+async function loadCustomerContactsTab() {
+  if (!selected.value) return
+  contactPagination.loading = true
+  try {
+    const { data } = await fetchCustomerContacts(selected.value.id, {
+      page: contactPagination.page,
+      page_size: contactPagination.pageSize,
+    })
+    applyPaginationResponse(contactPagination, data)
+  } finally {
+    contactPagination.loading = false
+  }
+}
+
+async function loadCustomerSalesTab() {
+  if (!selected.value) return
+  salesPagination.loading = true
+  try {
+    const { data } = await fetchCustomerSales(selected.value.id, {
+      page: salesPagination.page,
+      page_size: salesPagination.pageSize,
+    })
+    applyPaginationResponse(salesPagination, data)
+  } finally {
+    salesPagination.loading = false
+  }
+}
+
+async function loadCustomerDevicesTab() {
+  if (!selected.value) return
+  devicePagination.loading = true
+  try {
+    const { data } = await fetchCustomerDevices(selected.value.id, {
+      page: devicePagination.page,
+      page_size: devicePagination.pageSize,
+      ...(deviceSearchKeyword.value.trim() ? { search: deviceSearchKeyword.value.trim() } : {}),
+    })
+    applyPaginationResponse(devicePagination, data)
+  } finally {
+    devicePagination.loading = false
+  }
+}
+
+async function loadCustomerContractsTab() {
+  if (!selected.value) return
+  contractPagination.loading = true
+  try {
+    const { data } = await fetchCustomerContracts(selected.value.id, {
+      page: contractPagination.page,
+      page_size: contractPagination.pageSize,
+    })
+    applyPaginationResponse(contractPagination, data)
+  } finally {
+    contractPagination.loading = false
+  }
+}
+
+async function loadCustomerProjectsTab() {
+  if (!selected.value) return
+  projectPagination.loading = true
+  try {
+    const { data } = await fetchCustomerProjects(selected.value.id, {
+      page: projectPagination.page,
+      page_size: projectPagination.pageSize,
+    })
+    applyPaginationResponse(projectPagination, data)
+  } finally {
+    projectPagination.loading = false
+  }
+}
+
+async function loadActiveCustomerTab() {
+  if (activeCustomerTab.value === 'contacts') return loadCustomerContactsTab()
+  if (activeCustomerTab.value === 'sales') return loadCustomerSalesTab()
+  if (activeCustomerTab.value === 'devices') return loadCustomerDevicesTab()
+  if (activeCustomerTab.value === 'contracts') return loadCustomerContractsTab()
+  if (activeCustomerTab.value === 'projects') return loadCustomerProjectsTab()
+}
+
+function handleCustomerTabChange() {
+  loadActiveCustomerTab()
+}
+
+function handleDeviceSearch() {
+  devicePagination.page = 1
+  if (activeCustomerTab.value === 'devices' && selected.value) {
+    loadCustomerDevicesTab()
+  }
+}
+
+function handleContactPageChange(page) {
+  contactPagination.page = page
+  loadCustomerContactsTab()
+}
+
+function handleContactPageSizeChange(pageSize) {
+  contactPagination.page = 1
+  contactPagination.pageSize = pageSize
+  loadCustomerContactsTab()
+}
+
+function handleSalesPageChange(page) {
+  salesPagination.page = page
+  loadCustomerSalesTab()
+}
+
+function handleSalesPageSizeChange(pageSize) {
+  salesPagination.page = 1
+  salesPagination.pageSize = pageSize
+  loadCustomerSalesTab()
+}
+
+function handleDevicePageChange(page) {
+  devicePagination.page = page
+  loadCustomerDevicesTab()
+}
+
+function handleDevicePageSizeChange(pageSize) {
+  devicePagination.page = 1
+  devicePagination.pageSize = pageSize
+  loadCustomerDevicesTab()
+}
+
+function handleContractPageChange(page) {
+  contractPagination.page = page
+  loadCustomerContractsTab()
+}
+
+function handleContractPageSizeChange(pageSize) {
+  contractPagination.page = 1
+  contractPagination.pageSize = pageSize
+  loadCustomerContractsTab()
+}
+
+function handleProjectPageChange(page) {
+  projectPagination.page = page
+  loadCustomerProjectsTab()
+}
+
+function handleProjectPageSizeChange(pageSize) {
+  projectPagination.page = 1
+  projectPagination.pageSize = pageSize
+  loadCustomerProjectsTab()
+}
+
 
 async function loadOrganizations() {
   try {
@@ -282,6 +464,7 @@ async function loadOrganizations() {
       selected.value = null
       overview.value = null
       deviceSearchKeyword.value = ''
+      resetCustomerTabPagination()
     }
   } catch {
     ElMessage.error('加载客户列表失败')
@@ -299,7 +482,9 @@ function resetSearch() {
 
 async function selectCustomer(node) {
   selected.value = node
+  activeCustomerTab.value = 'base'
   deviceSearchKeyword.value = ''
+  resetCustomerTabPagination()
   const { data } = await fetchCustomerOverview(node.id)
   overview.value = data
 }
@@ -404,7 +589,9 @@ async function removeOrganization() {
   overview.value = null
   projectOverview.value = null
   projectDrawerVisible.value = false
+  activeCustomerTab.value = 'base'
   deviceSearchKeyword.value = ''
+  resetCustomerTabPagination()
   await loadOrganizations()
 }
 
