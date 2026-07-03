@@ -43,13 +43,35 @@
           </el-table>
         </el-tab-pane>
         <el-tab-pane label="负责销售" name="sales">
-          <el-table :data="overview.sales"><el-table-column prop="name" label="销售" /><el-table-column prop="phone" label="电话" /></el-table>
+          <el-table :data="overview.sales">
+            <el-table-column prop="name" label="销售" />
+            <el-table-column prop="phone" label="电话" />
+          </el-table>
         </el-tab-pane>
         <el-tab-pane label="已购设备" name="devices">
-          <el-table :data="overview.devices"><el-table-column prop="name" label="设备" /><el-table-column prop="serial_number" label="序列号" /><el-table-column prop="status" label="状态" /></el-table>
+          <el-table :data="overview.devices">
+            <el-table-column prop="name" label="设备" />
+            <el-table-column prop="serial_number" label="序列号" />
+            <el-table-column prop="status" label="状态" />
+          </el-table>
         </el-tab-pane>
         <el-tab-pane label="关联合同" name="contracts">
-          <el-table :data="overview.contracts"><el-table-column prop="contract_no" label="合同编号" /><el-table-column prop="contract_name" label="合同名称" /><el-table-column prop="amount" label="金额" /></el-table>
+          <el-table :data="overview.contracts">
+            <el-table-column prop="contract_no" label="合同编号" />
+            <el-table-column prop="contract_name" label="合同名称" />
+            <el-table-column prop="amount" label="金额" />
+          </el-table>
+        </el-tab-pane>
+        <el-tab-pane label="关联项目" name="projects">
+          <el-table :data="overview.projects || []" @row-click="openProjectDetail">
+            <el-table-column prop="project_no" label="项目编号" min-width="150" />
+            <el-table-column prop="name" label="项目名称" min-width="220" />
+            <el-table-column prop="project_stage" label="阶段" min-width="120" />
+            <el-table-column label="销售" min-width="120">
+              <template #default="scope">{{ scope.row.sales_person?.name || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额" min-width="120" />
+          </el-table>
         </el-tab-pane>
       </el-tabs>
       <el-empty v-else description="请选择客户查看详情" />
@@ -79,6 +101,17 @@
         <el-button type="primary" :loading="saving" @click="createOrganization">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="projectDrawerVisible" size="60%" title="项目详情">
+      <el-descriptions v-if="projectOverview" :column="2" border>
+        <el-descriptions-item label="项目编号">{{ projectOverview.project.project_no }}</el-descriptions-item>
+        <el-descriptions-item label="项目名称">{{ projectOverview.project.name }}</el-descriptions-item>
+        <el-descriptions-item label="客户公司">{{ projectOverview.customer?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="客户联系人">{{ projectOverview.customer_contact?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="销售">{{ projectOverview.sales_person?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="金额">{{ projectOverview.project.amount }}</el-descriptions-item>
+      </el-descriptions>
+    </el-drawer>
   </div>
 </template>
 
@@ -86,12 +119,14 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, deleteResource, fetchCustomerOverview, listResource, updateResource } from '../api/resources'
+import { createResource, deleteResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource } from '../api/resources'
 import { buildOrganizationTree } from '../utils/orgTree'
 
 const organizations = ref([])
 const selected = ref(null)
 const overview = ref(null)
+const projectDrawerVisible = ref(false)
+const projectOverview = ref(null)
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
@@ -108,6 +143,12 @@ async function selectCustomer(node) {
   selected.value = node
   const { data } = await fetchCustomerOverview(node.id)
   overview.value = data
+}
+
+async function openProjectDetail(row) {
+  const { data } = await fetchProjectOverview(row.id)
+  projectOverview.value = data
+  projectDrawerVisible.value = true
 }
 
 function openCreateDialog() {
@@ -172,6 +213,8 @@ async function removeOrganization() {
   ElMessage.success('组织已删除')
   selected.value = null
   overview.value = null
+  projectOverview.value = null
+  projectDrawerVisible.value = false
   await loadOrganizations()
 }
 
