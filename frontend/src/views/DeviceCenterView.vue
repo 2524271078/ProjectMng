@@ -11,7 +11,7 @@
     </div>
 
     <div class="page-table-scroll">
-      <el-table :data="projects" stripe @row-click="openDetail">
+      <el-table v-loading="projectPagination.loading" :data="projects" stripe @row-click="openDetail">
       <el-table-column prop="name" label="项目名称" min-width="220" />
       <el-table-column label="客户公司" min-width="220">
         <template #default="scope">{{ scope.row.customer_org_detail?.name || '-' }}</template>
@@ -29,6 +29,19 @@
         </template>
       </el-table-column>
       </el-table>
+    </div>
+
+    <div class="mt-16">
+      <el-pagination
+        background
+        layout="total, sizes, prev, pager, next"
+        :current-page="projectPagination.page"
+        :page-size="projectPagination.pageSize"
+        :page-sizes="[10, 20, 50]"
+        :total="projectPagination.total"
+        @current-change="handleProjectPageChange"
+        @size-change="handleProjectPageSizeChange"
+      />
     </div>
 
     <el-dialog v-model="dialogVisible" :title="editingProjectId ? '编辑项目' : '新增项目'" width="620px">
@@ -51,7 +64,7 @@
     </el-dialog>
 
     <el-drawer v-model="drawerVisible" size="70%" title="项目详情">
-      <el-tabs v-if="overview" model-value="base" class="drawer-tabs-scroll">
+      <el-tabs v-if="overview" v-model="activeProjectTab" class="drawer-tabs-scroll" @tab-change="handleProjectTabChange">
         <el-tab-pane label="基础信息" name="base">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="项目编号">{{ overview.project.project_no }}</el-descriptions-item>
@@ -76,7 +89,7 @@
             </div>
           </div>
 
-          <el-table :data="overview.devices" stripe>
+          <el-table v-loading="projectDevicePagination.loading" :data="projectDevicePagination.rows" stripe>
             <el-table-column prop="name" label="设备" min-width="160" />
             <el-table-column prop="serial_number" label="序列号" min-width="160" />
             <el-table-column prop="device_project_type" label="项目类型" min-width="120" />
@@ -100,6 +113,18 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="mt-16">
+            <el-pagination
+              background
+              layout="total, sizes, prev, pager, next"
+              :current-page="projectDevicePagination.page"
+              :page-size="projectDevicePagination.pageSize"
+              :page-sizes="[10, 20, 50]"
+              :total="projectDevicePagination.total"
+              @current-change="handleProjectDevicePageChange"
+              @size-change="handleProjectDevicePageSizeChange"
+            />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="关联合同" name="contracts">
@@ -111,7 +136,7 @@
             </el-form-item>
             <el-button type="primary" @click="bindContract">关联合同</el-button>
           </el-form>
-          <el-table :data="overview.contracts || []" stripe>
+          <el-table v-loading="projectContractPagination.loading" :data="projectContractPagination.rows" stripe>
             <el-table-column prop="contract_no" label="合同编号" min-width="150" />
             <el-table-column prop="contract_name" label="合同名称" min-width="220" />
             <el-table-column prop="amount" label="金额" min-width="120" />
@@ -121,6 +146,18 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="mt-16">
+            <el-pagination
+              background
+              layout="total, sizes, prev, pager, next"
+              :current-page="projectContractPagination.page"
+              :page-size="projectContractPagination.pageSize"
+              :page-sizes="[10, 20, 50]"
+              :total="projectContractPagination.total"
+              @current-change="handleProjectContractPageChange"
+              @size-change="handleProjectContractPageSizeChange"
+            />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="项目附件" name="attachments">
@@ -128,7 +165,7 @@
             <el-icon><UploadFilled /></el-icon>
             <div>上传合同、验收单、项目资料等附件</div>
           </el-upload>
-          <el-table :data="overview.attachments" class="mt-16">
+          <el-table v-loading="projectAttachmentPagination.loading" :data="projectAttachmentPagination.rows" class="mt-16">
             <el-table-column prop="name" label="附件名" min-width="240" show-overflow-tooltip />
             <el-table-column prop="uploaded_at" label="上传时间" min-width="180" />
             <el-table-column label="操作" width="190">
@@ -141,6 +178,18 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="mt-16">
+            <el-pagination
+              background
+              layout="total, sizes, prev, pager, next"
+              :current-page="projectAttachmentPagination.page"
+              :page-size="projectAttachmentPagination.pageSize"
+              :page-sizes="[10, 20, 50]"
+              :total="projectAttachmentPagination.total"
+              @current-change="handleProjectAttachmentPageChange"
+              @size-change="handleProjectAttachmentPageSizeChange"
+            />
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-drawer>
@@ -256,13 +305,19 @@ import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import ProductModelTreeSelect from '../components/ProductModelTreeSelect.vue'
-import { createProjectContract, createResource, deleteProjectContract, deleteResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
+import { createProjectContract, createResource, deleteProjectContract, deleteResource, fetchCustomerOverview, fetchProjectAttachments, fetchProjectContracts, fetchProjectDevices, fetchProjectOverview, listAllResource, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
 import { buildProjectDeviceBindingPayload, buildProjectDevicePayload, createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
 import { projectStageLabel, serviceTypeLabel } from '../utils/displayMaps'
+import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
-const projects = ref([])
+const projectPagination = buildPaginationState()
+const projectDevicePagination = buildPaginationState()
+const projectContractPagination = buildPaginationState()
+const projectAttachmentPagination = buildPaginationState()
+
+const projects = computed(() => projectPagination.rows)
 const devices = ref([])
 const customerOverview = ref(null)
 const contracts = ref([])
@@ -283,6 +338,7 @@ const editingProjectDeviceId = ref(null)
 const selectedDevice = ref(null)
 const selectedContractId = ref(null)
 const projectSearchKeyword = ref('')
+const activeProjectTab = ref('base')
 const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
 
@@ -342,29 +398,151 @@ async function loadCustomerContacts(customerOrgId) {
 }
 
 async function loadProjects() {
+  projectPagination.loading = true
   try {
-    const params = projectSearchKeyword.value.trim() ? { search: projectSearchKeyword.value.trim() } : undefined
+    const params = {
+      page: projectPagination.page,
+      page_size: projectPagination.pageSize,
+      ...(projectSearchKeyword.value.trim() ? { search: projectSearchKeyword.value.trim() } : {}),
+    }
     const { data } = await listResource('projects', params)
-    projects.value = unwrapList(data)
+    applyPaginationResponse(projectPagination, data)
   } catch (error) {
-    ElMessage.error(formatApiError(error, '加载项目列表失败'))
+    ElMessage.error(formatApiError(error, '鍔犺浇椤圭洰鍒楄〃澶辫触'))
+  } finally {
+    projectPagination.loading = false
   }
 }
 
 function handleProjectSearch() {
+  projectPagination.page = 1
   loadProjects()
 }
 
 function resetProjectSearch() {
   projectSearchKeyword.value = ''
+  projectPagination.page = 1
   loadProjects()
 }
 
+function handleProjectPageChange(page) {
+  projectPagination.page = page
+  loadProjects()
+}
+
+function handleProjectPageSizeChange(pageSize) {
+  projectPagination.page = 1
+  projectPagination.pageSize = pageSize
+  loadProjects()
+}
+
+function resetDetailPaginationState(state) {
+  state.page = 1
+  state.pageSize = 10
+  state.total = 0
+  state.totalPages = 1
+  state.rows = []
+  state.loading = false
+}
+
+function resetProjectDetailPagination() {
+  resetDetailPaginationState(projectDevicePagination)
+  resetDetailPaginationState(projectContractPagination)
+  resetDetailPaginationState(projectAttachmentPagination)
+}
+
+async function loadProjectDevices(projectId = activeProjectId.value) {
+  if (!projectId) return
+  projectDevicePagination.loading = true
+  try {
+    const { data } = await fetchProjectDevices(projectId, {
+      page: projectDevicePagination.page,
+      page_size: projectDevicePagination.pageSize,
+    })
+    applyPaginationResponse(projectDevicePagination, data)
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '鍔犺浇椤圭洰璁惧澶辫触'))
+  } finally {
+    projectDevicePagination.loading = false
+  }
+}
+
+async function loadProjectContracts(projectId = activeProjectId.value) {
+  if (!projectId) return
+  projectContractPagination.loading = true
+  try {
+    const { data } = await fetchProjectContracts(projectId, {
+      page: projectContractPagination.page,
+      page_size: projectContractPagination.pageSize,
+    })
+    applyPaginationResponse(projectContractPagination, data)
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '鍔犺浇鍏宠仈鍚堝悓澶辫触'))
+  } finally {
+    projectContractPagination.loading = false
+  }
+}
+
+async function loadProjectAttachments(projectId = activeProjectId.value) {
+  if (!projectId) return
+  projectAttachmentPagination.loading = true
+  try {
+    const { data } = await fetchProjectAttachments(projectId, {
+      page: projectAttachmentPagination.page,
+      page_size: projectAttachmentPagination.pageSize,
+    })
+    applyPaginationResponse(projectAttachmentPagination, data)
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '鍔犺浇椤圭洰闄勪欢澶辫触'))
+  } finally {
+    projectAttachmentPagination.loading = false
+  }
+}
+
+function handleProjectDevicePageChange(page) {
+  projectDevicePagination.page = page
+  loadProjectDevices()
+}
+
+function handleProjectDevicePageSizeChange(pageSize) {
+  projectDevicePagination.page = 1
+  projectDevicePagination.pageSize = pageSize
+  loadProjectDevices()
+}
+
+function handleProjectContractPageChange(page) {
+  projectContractPagination.page = page
+  loadProjectContracts()
+}
+
+function handleProjectContractPageSizeChange(pageSize) {
+  projectContractPagination.page = 1
+  projectContractPagination.pageSize = pageSize
+  loadProjectContracts()
+}
+
+function handleProjectAttachmentPageChange(page) {
+  projectAttachmentPagination.page = page
+  loadProjectAttachments()
+}
+
+function handleProjectAttachmentPageSizeChange(pageSize) {
+  projectAttachmentPagination.page = 1
+  projectAttachmentPagination.pageSize = pageSize
+  loadProjectAttachments()
+}
+
+function handleProjectTabChange(tabName) {
+  if (tabName === 'devices') loadProjectDevices()
+  if (tabName === 'contracts') loadProjectContracts()
+  if (tabName === 'attachments') loadProjectAttachments()
+}
+
 async function loadOptions() {
-  devices.value = unwrapList((await listResource('devices')).data)
-  contracts.value = unwrapList((await listResource('contracts')).data)
-  deviceModels.value = unwrapList((await listResource('device-models')).data)
-  const people = unwrapList((await listResource('people')).data)
+  devices.value = unwrapList((await listAllResource('devices')).data)
+  contracts.value = unwrapList((await listAllResource('contracts')).data)
+  deviceModels.value = unwrapList((await listAllResource('device-models')).data)
+  const people = unwrapList((await listAllResource('people')).data)
   salesPeople.value = people.filter((person) => person.person_type === 'sales')
   opsPeople.value = people.filter((person) => person.person_type === 'ops' || person.person_type === 'internal')
 }
@@ -418,17 +596,19 @@ async function createProject() {
     if (activeProjectId.value) {
       const currentProjectId = activeProjectId.value
       const exists = projects.value.some((item) => item.id === currentProjectId)
-      if (exists) await openDetail({ id: currentProjectId })
+      if (exists) await openDetail({ id: currentProjectId }, { resetPagination: false })
     }
   } catch (error) {
     ElMessage.error(formatApiError(error, editingProjectId.value ? '更新项目失败' : '新增项目失败'))
   }
 }
 
-async function openDetail(row) {
+async function openDetail(row, { resetPagination = true } = {}) {
   activeProjectId.value = row.id
+  activeProjectTab.value = 'base'
   selectedContractId.value = null
   customerOverview.value = null
+  if (resetPagination) resetProjectDetailPagination()
   const { data } = await fetchProjectOverview(row.id)
   overview.value = data
   if (data.customer?.id) {
@@ -436,6 +616,11 @@ async function openDetail(row) {
     customerOverview.value = customerResult.data
   }
   drawerVisible.value = true
+  await Promise.all([
+    loadProjectDevices(row.id),
+    loadProjectContracts(row.id),
+    loadProjectAttachments(row.id),
+  ])
 }
 
 async function removeProject(row) {
@@ -487,7 +672,7 @@ async function uploadProjectAttachment(file) {
     payload.append('file', file.raw)
     await uploadAttachment(payload)
     ElMessage.success('附件已上传')
-    await openDetail({ id: activeProjectId.value })
+    await openDetail({ id: activeProjectId.value }, { resetPagination: false })
   } catch (error) {
     ElMessage.error(formatApiError(error, '上传附件失败'))
   }
@@ -510,7 +695,7 @@ async function removeAttachment(row) {
     await ElMessageBox.confirm(`确认删除附件“${row.name}”？`, '删除确认', { type: 'warning' })
     await deleteResource('attachments', row.id)
     ElMessage.success('附件已删除')
-    await openDetail({ id: activeProjectId.value })
+    await openDetail({ id: activeProjectId.value }, { resetPagination: false })
   } catch (error) {
     if (error === 'cancel') return
     ElMessage.error(formatApiError(error, '删除附件失败'))
@@ -616,7 +801,7 @@ async function removeProjectDevice(row) {
     await deleteResource('project-devices', row.id)
     ElMessage.success('项目设备已删除')
     if (editingProjectDeviceId.value === row.id) resetDeviceBinding()
-    await openDetail({ id: activeProjectId.value })
+    await openDetail({ id: activeProjectId.value }, { resetPagination: false })
   } catch (error) {
     if (error === 'cancel') return
     ElMessage.error(formatApiError(error, '删除项目设备失败'))
@@ -654,7 +839,7 @@ async function bindDevice() {
     }
     closeDeviceDialogs()
     await loadOptions()
-    await openDetail({ id: activeProjectId.value })
+    await openDetail({ id: activeProjectId.value }, { resetPagination: false })
   } catch (error) {
     ElMessage.error(formatApiError(error, '绑定设备失败'))
   }
@@ -672,7 +857,7 @@ async function bindContract() {
     })
     selectedContractId.value = null
     ElMessage.success('合同已关联')
-    await openDetail({ id: activeProjectId.value })
+    await openDetail({ id: activeProjectId.value }, { resetPagination: false })
   } catch (error) {
     ElMessage.error(formatApiError(error, '关联合同失败'))
   }
@@ -683,7 +868,7 @@ async function removeProjectContract(row) {
     await ElMessageBox.confirm(`确认解除合同“${row.contract_no}”？`, '解除确认', { type: 'warning' })
     await deleteProjectContract(row.id)
     ElMessage.success('合同关联已解除')
-    await openDetail({ id: activeProjectId.value })
+    await openDetail({ id: activeProjectId.value }, { resetPagination: false })
   } catch (error) {
     if (error === 'cancel') return
     ElMessage.error(formatApiError(error, '解除合同关联失败'))
