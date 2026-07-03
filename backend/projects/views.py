@@ -146,6 +146,7 @@ class DeviceViewSet(SoftDeleteModelViewSet):
                 "customer_org__name",
                 "sales_person__name",
                 "project_devices__project__customer_contact__name",
+                "project_devices__project__sales_person__name",
             ],
         )
         return queryset.distinct()

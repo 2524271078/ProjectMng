@@ -823,3 +823,36 @@ class DeviceDirectorySearchApiTests(APITestCase):
         for response in [by_device, by_serial, by_customer, by_contact, by_sales]:
             self.assertEqual(response.status_code, 200)
             self.assertEqual([item["id"] for item in response.data], [device.id])
+
+    def test_device_list_search_matches_project_sales_when_device_sales_is_empty(self):
+        customer = Organization.objects.create(name="项目销售客户", org_type="customer")
+        contact = Person.objects.create(name="项目销售联系人", organization=customer, person_type="customer_contact")
+        sales = Person.objects.create(name="许超飞", person_type="sales")
+        product = Product.objects.create(name="项目销售产品", product_code="DEVICE-PROJECT-SALES-P")
+        model = DeviceModel.objects.create(product=product, model_name="PROJECT-SALES-1000", model_code="PROJECT-SALES-1000")
+        device = Device.objects.create(
+            name="项目继承销售设备",
+            serial_number="PROJECT-SALES-SN-001",
+            device_model=model,
+            customer_org=customer,
+            sales_person=None,
+        )
+        project = Project.objects.create(
+            project_no="DEVICE-PROJECT-SALES-PRJ-001",
+            name="项目继承销售项目",
+            customer_org=customer,
+            customer_contact=contact,
+            sales_person=sales,
+        )
+        ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_type="renewal",
+            service_start_date="2026-07-01",
+            service_end_date="2027-06-30",
+        )
+
+        response = self.client.get("/api/devices/?search=许超飞")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in response.data], [device.id])
