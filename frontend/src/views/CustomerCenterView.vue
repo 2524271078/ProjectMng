@@ -174,8 +174,8 @@
     </el-drawer>
 
 
-    <el-dialog v-model="deviceDetailVisible" title="设备详情" width="860px">
-      <el-descriptions v-if="selectedDevice" :column="2" border>
+    <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(860px, calc(100vw - 32px))" top="4vh">
+      <div class="device-detail-scroll"><el-descriptions v-if="selectedDevice" :column="2" border>
         <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="序列号">{{ selectedDevice.serial_number || '-' }}</el-descriptions-item>
         <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
@@ -197,7 +197,7 @@
         </el-descriptions-item>
         <el-descriptions-item label="授权信息" :span="2">{{ typeof selectedDevice.license_info === 'string' ? selectedDevice.license_info : JSON.stringify(selectedDevice.license_info || {}) }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
-      </el-descriptions>
+      </el-descriptions></div>
     </el-dialog>
   </div>
 </template>
