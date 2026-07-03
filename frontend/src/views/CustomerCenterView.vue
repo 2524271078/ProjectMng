@@ -3,7 +3,13 @@
     <aside class="tree-panel">
       <div class="panel-title">组织树</div>
       <el-button type="primary" plain @click="loadOrganizations">刷新组织</el-button>
-      <el-input v-model="searchKeyword" class="mt-16" placeholder="搜索客户名称 / 区域 / 类型" clearable @keyup.enter="handleSearch" />
+      <el-input
+        v-model="searchKeyword"
+        class="mt-16"
+        placeholder="搜索客户名称 / 区域 / 类型"
+        clearable
+        @keyup.enter="handleSearch"
+      />
       <div class="action-row mt-16">
         <el-button type="primary" @click="handleSearch">搜索</el-button>
         <el-button @click="resetSearch">重置</el-button>
@@ -39,6 +45,7 @@
             <el-descriptions-item label="区域">{{ overview.customer.region || '-' }}</el-descriptions-item>
           </el-descriptions>
         </el-tab-pane>
+
         <el-tab-pane label="联系人" name="contacts">
           <el-table :data="overview.contacts">
             <el-table-column prop="name" label="姓名" />
@@ -47,26 +54,38 @@
             <el-table-column prop="email" label="邮箱" />
           </el-table>
         </el-tab-pane>
+
         <el-tab-pane label="负责销售" name="sales">
           <el-table :data="overview.sales">
             <el-table-column prop="name" label="销售" />
             <el-table-column prop="phone" label="电话" />
           </el-table>
         </el-tab-pane>
+
         <el-tab-pane label="已购设备" name="devices">
-          <el-table :data="overview.devices">
-            <el-table-column prop="name" label="设备" />
-            <el-table-column prop="serial_number" label="序列号" />
-            <el-table-column prop="current_service_status" label="当前保内状态" />
-            <el-table-column prop="current_service_start_date" label="服务开始" />
-            <el-table-column prop="current_service_end_date" label="服务结束" />
-            <el-table-column label="操作" width="100">
+          <div class="tab-toolbar">
+            <div class="tab-summary">共 {{ filteredCustomerDevices.length }} 台设备</div>
+            <el-input
+              v-model="deviceSearchKeyword"
+              class="tab-search"
+              placeholder="搜索设备名称 / 序列号 / 保内状态"
+              clearable
+            />
+          </div>
+          <el-table :data="filteredCustomerDevices" stripe>
+            <el-table-column prop="name" label="设备" min-width="180" />
+            <el-table-column prop="serial_number" label="序列号" min-width="160" />
+            <el-table-column prop="current_service_status" label="当前保内状态" min-width="120" />
+            <el-table-column prop="current_service_start_date" label="服务开始" min-width="140" />
+            <el-table-column prop="current_service_end_date" label="服务结束" min-width="140" />
+            <el-table-column label="操作" width="100" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
               </template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
+
         <el-tab-pane label="关联合同" name="contracts">
           <el-table :data="overview.contracts">
             <el-table-column prop="contract_no" label="合同编号" />
@@ -74,6 +93,7 @@
             <el-table-column prop="amount" label="金额" />
           </el-table>
         </el-tab-pane>
+
         <el-tab-pane label="关联项目" name="projects">
           <el-table :data="overview.projects || []" @row-click="openProjectDetail">
             <el-table-column prop="project_no" label="项目编号" min-width="150" />
@@ -178,31 +198,35 @@
       </el-tabs>
     </el-drawer>
 
-
     <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(860px, calc(100vw - 32px))" top="4vh">
-      <div class="device-detail-scroll"><el-descriptions v-if="selectedDevice" :column="2" border>
-        <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="序列号">{{ selectedDevice.serial_number || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="管理地址">{{ selectedDevice.management_address || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备系统版本">{{ selectedDevice.software_version || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="服务开始">{{ selectedDevice.current_service_start_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="服务结束">{{ selectedDevice.current_service_end_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="当前保内状态">{{ selectedDevice.current_service_status || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
-        <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
-        <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="截图链接">
-          <a v-if="selectedDevice.screenshot_url" :href="selectedDevice.screenshot_url" target="_blank" rel="noopener noreferrer">预览</a>
-          <span v-else>-</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="授权信息" :span="2">{{ typeof selectedDevice.license_info === 'string' ? selectedDevice.license_info : JSON.stringify(selectedDevice.license_info || {}) }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
-      </el-descriptions></div>
+      <div class="device-detail-scroll">
+        <el-descriptions v-if="selectedDevice" :column="2" border>
+          <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="序列号">{{ selectedDevice.serial_number || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="客户公司">{{ selectedDevice.customer?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="客户联系人">{{ selectedDevice.customer_contact?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="销售">{{ selectedDevice.sales_person?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="管理地址">{{ selectedDevice.management_address || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="设备系统版本">{{ selectedDevice.software_version || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="服务开始">{{ selectedDevice.current_service_start_date || selectedDevice.service_start_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="服务结束">{{ selectedDevice.current_service_end_date || selectedDevice.service_end_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="当前保内状态">{{ selectedDevice.current_service_status || selectedDevice.service_status || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
+          <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
+          <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="截图链接">
+            <a v-if="selectedDevice.screenshot_url" :href="selectedDevice.screenshot_url" target="_blank" rel="noopener noreferrer">预览</a>
+            <span v-else>-</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="授权信息" :span="2">{{ formatLicenseInfo(selectedDevice.license_info) }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -211,7 +235,15 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, deleteResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource } from '../api/resources'
+import {
+  createResource,
+  deleteResource,
+  fetchCustomerOverview,
+  fetchDeviceOverview,
+  fetchProjectOverview,
+  listResource,
+  updateResource,
+} from '../api/resources'
 import { buildOrganizationTree } from '../utils/orgTree'
 import { serviceTypeLabel } from '../utils/displayMaps'
 
@@ -224,11 +256,22 @@ const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
 const dialogVisible = ref(false)
 const searchKeyword = ref('')
+const deviceSearchKeyword = ref('')
 const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({ parent: null, name: '', org_type: 'customer', short_name: '', region: '', address: '' })
 const treeProps = { label: 'name', children: 'children' }
 const treeData = computed(() => buildOrganizationTree(organizations.value))
+
+const filteredCustomerDevices = computed(() => {
+  const devices = overview.value?.devices || []
+  const keyword = deviceSearchKeyword.value.trim().toLowerCase()
+  if (!keyword) return devices
+  return devices.filter((item) => {
+    const values = [item.name, item.serial_number, item.current_service_status]
+    return values.some((value) => String(value || '').toLowerCase().includes(keyword))
+  })
+})
 
 async function loadOrganizations() {
   try {
@@ -238,6 +281,7 @@ async function loadOrganizations() {
     if (selected.value && !organizations.value.some((item) => item.id === selected.value.id)) {
       selected.value = null
       overview.value = null
+      deviceSearchKeyword.value = ''
     }
   } catch {
     ElMessage.error('加载客户列表失败')
@@ -255,6 +299,7 @@ function resetSearch() {
 
 async function selectCustomer(node) {
   selected.value = node
+  deviceSearchKeyword.value = ''
   const { data } = await fetchCustomerOverview(node.id)
   overview.value = data
 }
@@ -265,8 +310,21 @@ async function openProjectDetail(row) {
   projectDrawerVisible.value = true
 }
 
-function openDeviceDetail(device) {
-  selectedDevice.value = device
+function formatLicenseInfo(value) {
+  if (!value) return '{}'
+  return typeof value === 'string' ? value : JSON.stringify(value)
+}
+
+async function openDeviceDetail(device) {
+  const { data } = await fetchDeviceOverview(device.device_id || device.id)
+  selectedDevice.value = {
+    ...device,
+    ...data.device,
+    customer: data.customer,
+    customer_contact: data.customer_contact,
+    sales_person: data.sales_person,
+    ops_person: data.ops_person,
+  }
   deviceDetailVisible.value = true
 }
 
@@ -330,7 +388,7 @@ async function createOrganization() {
     resetForm()
     editingId.value = null
     await loadOrganizations()
-  } catch (error) {
+  } catch {
     ElMessage.error('保存组织失败，请检查必填项')
   } finally {
     saving.value = false
@@ -346,8 +404,29 @@ async function removeOrganization() {
   overview.value = null
   projectOverview.value = null
   projectDrawerVisible.value = false
+  deviceSearchKeyword.value = ''
   await loadOrganizations()
 }
 
 onMounted(loadOrganizations)
 </script>
+
+<style scoped>
+.tab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tab-summary {
+  font-size: 13px;
+  color: #5f6b7a;
+}
+
+.tab-search {
+  width: min(360px, 100%);
+}
+</style>
