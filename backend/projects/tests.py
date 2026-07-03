@@ -1,8 +1,11 @@
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 from django.test import TestCase
 from rest_framework.test import APITestCase
+
+from projects.views import paginate_queryset
 
 from projects.models import (
     Attachment,
@@ -169,19 +172,39 @@ class SoftDeleteApiTests(APITestCase):
 
 
 
+class PaginationHelperTests(TestCase):
+    def test_paginate_queryset_applies_stable_pk_order_when_queryset_has_no_explicit_order(self):
+        org = Organization.objects.create(name="Stable Org", org_type="internal_company")
+        people = [
+            Person.objects.create(name=f"Stable Person {index}", organization=org, person_type="sales")
+            for index in range(3)
+        ]
+        request = SimpleNamespace(query_params={"page": "1", "page_size": "2"})
+
+        page_items, meta = paginate_queryset(request, Person.objects.all())
+
+        self.assertEqual(tuple(page_items.query.order_by), ("-created_at", "id"))
+        self.assertEqual(
+            list(page_items.values_list("id", flat=True)),
+            list(Person.objects.order_by("-created_at", "id").values_list("id", flat=True)[:2]),
+        )
+        self.assertEqual(meta["count"], 3)
+        self.assertEqual(meta["total_pages"], 2)
+
+
 class PaginationApiTests(APITestCase):
     def setUp(self):
         from django.contrib.auth.models import User
 
         self.user = User.objects.create_user(username="pagination-api", password="pass123456")
         self.client.force_authenticate(self.user)
+        self.org = Organization.objects.create(name="Pagination Org", org_type="internal_company")
 
     def test_people_list_returns_default_pagination_shape(self):
-        org = Organization.objects.create(name="分页组织", org_type="internal_company")
         for index in range(12):
             Person.objects.create(
-                name=f"销售人员{index:02d}",
-                organization=org,
+                name=f"Sales Person {index:02d}",
+                organization=self.org,
                 person_type="sales",
             )
 
@@ -197,21 +220,94 @@ class PaginationApiTests(APITestCase):
         self.assertEqual(response.data["page_size"], 10)
         self.assertEqual(response.data["total_pages"], 2)
         self.assertEqual(len(response.data["results"]), 10)
+        self.assertEqual(
+            [item["id"] for item in response.data["results"]],
+            list(Person.objects.filter(person_type="sales").order_by("-created_at", "id").values_list("id", flat=True)[:10]),
+        )
+
+    def test_organization_list_returns_pagination_envelope(self):
+        for index in range(3):
+            Organization.objects.create(name=f"Customer {index}", org_type="customer")
+
+        response = self.client.get("/api/organizations/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(response.data.keys()),
+            {"count", "page", "page_size", "total_pages", "results"},
+        )
+        self.assertEqual(response.data["page"], 1)
+        self.assertEqual(response.data["page_size"], 10)
+        self.assertEqual(response.data["count"], 4)
+        self.assertEqual(len(response.data["results"]), 4)
+
+    def test_device_list_returns_pagination_envelope(self):
+        product = Product.objects.create(name="Envelope Product", product_code="ENV-P")
+        model = DeviceModel.objects.create(product=product, model_name="ENV-1000", model_code="ENV-1000")
+        Device.objects.create(name="Device A", serial_number="ENV-SN-001", device_model=model)
+
+        response = self.client.get("/api/devices/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(response.data.keys()),
+            {"count", "page", "page_size", "total_pages", "results"},
+        )
+        self.assertEqual(response.data["page"], 1)
+        self.assertEqual(response.data["page_size"], 10)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
 
     def test_people_list_supports_search_and_safe_invalid_pagination_params(self):
-        org = Organization.objects.create(name="分页搜索组织", org_type="internal_company")
-        Person.objects.create(name="许超飞", organization=org, person_type="sales")
-        Person.objects.create(name="许超", organization=org, person_type="sales")
-        Person.objects.create(name="许超飞", organization=org, person_type="customer_contact")
+        Person.objects.create(name="Target Name", organization=self.org, person_type="sales")
+        Person.objects.create(name="Other Name", organization=self.org, person_type="sales")
+        Person.objects.create(name="Target Name", organization=self.org, person_type="customer_contact")
 
-        response = self.client.get("/api/people/?person_type=sales&search=许超飞&page=abc&page_size=xyz")
+        response = self.client.get("/api/people/?person_type=sales&search=Target Name&page=abc&page_size=xyz")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["page"], 1)
         self.assertEqual(response.data["page_size"], 10)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["total_pages"], 1)
-        self.assertEqual([item["name"] for item in response.data["results"]], ["许超飞"])
+        self.assertEqual([item["name"] for item in response.data["results"]], ["Target Name"])
+
+    def test_people_list_clamps_non_positive_page_to_first_page(self):
+        for index in range(3):
+            Person.objects.create(name=f"Boundary Person {index}", organization=self.org, person_type="sales")
+
+        zero_response = self.client.get("/api/people/?person_type=sales&page=0&page_size=2")
+        negative_response = self.client.get("/api/people/?person_type=sales&page=-1&page_size=2")
+
+        self.assertEqual(zero_response.status_code, 200)
+        self.assertEqual(zero_response.data["page"], 1)
+        self.assertEqual(zero_response.data["page_size"], 2)
+        self.assertEqual(len(zero_response.data["results"]), 2)
+        self.assertEqual(negative_response.status_code, 200)
+        self.assertEqual(negative_response.data["page"], 1)
+        self.assertEqual(negative_response.data["page_size"], 2)
+        self.assertEqual(
+            [item["id"] for item in negative_response.data["results"]],
+            [item["id"] for item in zero_response.data["results"]],
+        )
+
+    def test_people_list_resets_non_positive_page_size_to_default(self):
+        for index in range(12):
+            Person.objects.create(name=f"Size Person {index}", organization=self.org, person_type="sales")
+
+        zero_response = self.client.get("/api/people/?person_type=sales&page_size=0")
+        negative_response = self.client.get("/api/people/?person_type=sales&page_size=-1")
+
+        self.assertEqual(zero_response.status_code, 200)
+        self.assertEqual(zero_response.data["page"], 1)
+        self.assertEqual(zero_response.data["page_size"], 10)
+        self.assertEqual(zero_response.data["total_pages"], 2)
+        self.assertEqual(len(zero_response.data["results"]), 10)
+        self.assertEqual(negative_response.status_code, 200)
+        self.assertEqual(negative_response.data["page_size"], 10)
+        self.assertEqual(negative_response.data["total_pages"], 2)
+        self.assertEqual(len(negative_response.data["results"]), 10)
+
 
 
 class SearchApiTests(APITestCase):

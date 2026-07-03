@@ -56,11 +56,35 @@ def parse_query_int(raw_value):
         return None
 
 
+def ensure_pagination_ordering(queryset):
+    pk_name = queryset.model._meta.pk.name
+
+    if queryset.query.order_by:
+        ordering = list(queryset.query.order_by)
+    elif queryset.query.default_ordering and queryset.model._meta.ordering:
+        ordering = list(queryset.model._meta.ordering)
+    else:
+        ordering = []
+
+    normalized = [field.lstrip("-") for field in ordering if isinstance(field, str)]
+    if pk_name not in normalized:
+        ordering.append(pk_name)
+
+    return queryset.order_by(*ordering) if ordering else queryset.order_by(pk_name)
+
+
 def paginate_queryset(request, queryset, default_page_size=10):
-    page = parse_query_int(request.query_params.get("page")) or 1
-    page_size = parse_query_int(request.query_params.get("page_size")) or default_page_size
-    page = max(page, 1)
-    page_size = max(min(page_size, 100), 1)
+    page = parse_query_int(request.query_params.get("page"))
+    page_size = parse_query_int(request.query_params.get("page_size"))
+
+    if page is None or page <= 0:
+        page = 1
+    if page_size is None or page_size <= 0:
+        page_size = default_page_size
+    else:
+        page_size = min(page_size, 100)
+
+    queryset = ensure_pagination_ordering(queryset)
 
     count = queryset.count()
     total_pages = max(ceil(count / page_size), 1) if count else 1
