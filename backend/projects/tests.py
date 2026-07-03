@@ -663,3 +663,89 @@ class DeviceCurrentServiceStatusTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["device"]["current_service_status"], "保内")
         self.assertEqual(response.data["device"]["current_service_end_date"], "2027-12-31")
+
+
+
+class DeviceDirectoryApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="device-directory", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_device_list_includes_customer_contact_customer_org_and_sales_details(self):
+        customer = Organization.objects.create(name="设备中心客户", org_type="customer")
+        contact = Person.objects.create(name="设备中心联系人", organization=customer, person_type="customer_contact", position="信息主管")
+        sales = Person.objects.create(name="设备中心销售", person_type="sales")
+        product = Product.objects.create(name="设备中心产品", product_code="DEVICE-DIR-P")
+        model = DeviceModel.objects.create(product=product, model_name="DEVICE-DIR-1000", model_code="DEVICE-DIR-1000")
+        device = Device.objects.create(
+            name="设备中心设备",
+            serial_number="DEVICE-DIR-SN-001",
+            device_model=model,
+            customer_org=customer,
+            sales_person=sales,
+        )
+        project = Project.objects.create(
+            project_no="DEVICE-DIR-PRJ-001",
+            name="设备中心项目",
+            customer_org=customer,
+            customer_contact=contact,
+            sales_person=sales,
+        )
+        ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_type="renewal",
+            service_start_date="2026-07-01",
+            service_end_date="2027-06-30",
+        )
+
+        response = self.client.get("/api/devices/")
+
+        self.assertEqual(response.status_code, 200)
+        item = next(row for row in response.data if row["id"] == device.id)
+        self.assertEqual(item["customer_org_detail"]["id"], customer.id)
+        self.assertEqual(item["customer_org_detail"]["name"], "设备中心客户")
+        self.assertEqual(item["customer_contact_detail"]["id"], contact.id)
+        self.assertEqual(item["customer_contact_detail"]["name"], "设备中心联系人")
+        self.assertEqual(item["sales_person_detail"]["id"], sales.id)
+        self.assertEqual(item["sales_person_detail"]["name"], "设备中心销售")
+        self.assertEqual(item["current_service_start_date"], "2026-07-01")
+        self.assertEqual(item["current_service_end_date"], "2027-06-30")
+
+    def test_device_overview_includes_customer_contact_detail(self):
+        customer = Organization.objects.create(name="设备详情客户", org_type="customer")
+        contact = Person.objects.create(name="设备详情联系人", organization=customer, person_type="customer_contact")
+        sales = Person.objects.create(name="设备详情销售", person_type="sales")
+        product = Product.objects.create(name="设备详情产品", product_code="DEVICE-OVERVIEW-P")
+        model = DeviceModel.objects.create(product=product, model_name="DEVICE-OVERVIEW-1000", model_code="DEVICE-OVERVIEW-1000")
+        device = Device.objects.create(
+            name="设备详情设备",
+            serial_number="DEVICE-OVERVIEW-SN-001",
+            device_model=model,
+            customer_org=customer,
+            sales_person=sales,
+        )
+        project = Project.objects.create(
+            project_no="DEVICE-OVERVIEW-PRJ-001",
+            name="设备详情项目",
+            customer_org=customer,
+            customer_contact=contact,
+            sales_person=sales,
+        )
+        ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_type="new_install",
+            service_start_date="2026-07-01",
+            service_end_date="2027-06-30",
+        )
+
+        response = self.client.get(f"/api/devices/{device.id}/overview/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["customer"]["id"], customer.id)
+        self.assertEqual(response.data["customer_contact"]["id"], contact.id)
+        self.assertEqual(response.data["customer_contact"]["name"], "设备详情联系人")
+        self.assertEqual(response.data["sales_person"]["id"], sales.id)

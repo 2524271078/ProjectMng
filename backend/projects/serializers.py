@@ -49,25 +49,36 @@ class DeviceSerializer(serializers.ModelSerializer):
     current_service_status = serializers.SerializerMethodField()
     current_service_start_date = serializers.SerializerMethodField()
     current_service_end_date = serializers.SerializerMethodField()
+    customer_org_detail = serializers.SerializerMethodField()
+    customer_contact_detail = serializers.SerializerMethodField()
+    sales_person_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = Device
         fields = "__all__"
 
     def _latest_binding(self, obj):
-        return (
-            obj.project_devices.filter(is_deleted=False)
-            .order_by("-service_end_date", "-updated_at", "-id")
+        if hasattr(obj, '_latest_active_project_binding_cached'):
+            return obj._latest_active_project_binding_cached
+        obj._latest_active_project_binding_cached = (
+            obj.project_devices.select_related('project__customer_org', 'project__customer_contact', 'project__sales_person')
+            .filter(is_deleted=False)
+            .order_by('-service_end_date', '-updated_at', '-id')
             .first()
         )
+        return obj._latest_active_project_binding_cached
+
+    def _latest_project(self, obj):
+        binding = self._latest_binding(obj)
+        return binding.project if binding else None
 
     def get_current_service_status(self, obj):
         binding = self._latest_binding(obj)
         if not binding or not binding.service_start_date or not binding.service_end_date:
-            return "保外"
+            return '保外'
         from django.utils import timezone
         today = timezone.localdate()
-        return "保内" if binding.service_start_date <= today <= binding.service_end_date else "保外"
+        return '保内' if binding.service_start_date <= today <= binding.service_end_date else '保外'
 
     def get_current_service_start_date(self, obj):
         binding = self._latest_binding(obj)
@@ -77,12 +88,27 @@ class DeviceSerializer(serializers.ModelSerializer):
         binding = self._latest_binding(obj)
         return binding.service_end_date.isoformat() if binding and binding.service_end_date else None
 
+    def get_customer_org_detail(self, obj):
+        project = self._latest_project(obj)
+        organization = obj.customer_org or (project.customer_org if project else None)
+        return OrganizationSerializer(organization).data if organization else None
+
+    def get_customer_contact_detail(self, obj):
+        project = self._latest_project(obj)
+        person = project.customer_contact if project else None
+        return PersonSerializer(person).data if person else None
+
+    def get_sales_person_detail(self, obj):
+        project = self._latest_project(obj)
+        person = obj.sales_person or (project.sales_person if project else None)
+        return PersonSerializer(person).data if person else None
+
 
 class ProjectSerializer(serializers.ModelSerializer):
-    customer_org_detail = OrganizationSerializer(source="customer_org", read_only=True)
-    customer_contact_detail = PersonSerializer(source="customer_contact", read_only=True)
-    sales_person_detail = PersonSerializer(source="sales_person", read_only=True)
-    ops_person_detail = PersonSerializer(source="ops_person", read_only=True)
+    customer_org_detail = OrganizationSerializer(source='customer_org', read_only=True)
+    customer_contact_detail = PersonSerializer(source='customer_contact', read_only=True)
+    sales_person_detail = PersonSerializer(source='sales_person', read_only=True)
+    ops_person_detail = PersonSerializer(source='ops_person', read_only=True)
 
     class Meta:
         model = Project
@@ -129,7 +155,7 @@ class AttachmentSerializer(serializers.ModelSerializer):
     def get_file_url(self, obj):
         if not obj.file:
             return ""
-        request = self.context.get("request")
+        request = self.context.get('request')
         url = obj.file.url
         return request.build_absolute_uri(url) if request else url
 

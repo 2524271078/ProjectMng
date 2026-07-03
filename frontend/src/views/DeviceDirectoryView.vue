@@ -1,0 +1,112 @@
+<template>
+  <div class="page-scroll-layout">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow-dark">Device Center</span>
+        <h2>设备中心</h2>
+      </div>
+      <div class="action-row">
+        <el-button type="primary" plain @click="loadDevices">刷新设备</el-button>
+      </div>
+    </div>
+
+    <div class="page-table-scroll">
+      <el-table :data="devices" stripe>
+        <el-table-column prop="name" label="设备" min-width="180" />
+        <el-table-column prop="serial_number" label="序列号" min-width="160" />
+        <el-table-column label="当前保内状态" min-width="120">
+          <template #default="scope">{{ scope.row.current_service_status || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="服务开始" min-width="140">
+          <template #default="scope">{{ scope.row.current_service_start_date || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="服务结束" min-width="140">
+          <template #default="scope">{{ scope.row.current_service_end_date || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="客户公司" min-width="200">
+          <template #default="scope">{{ scope.row.customer_org_detail?.name || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="客户联系人" min-width="160">
+          <template #default="scope">{{ scope.row.customer_contact_detail?.name || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="销售" min-width="140">
+          <template #default="scope">{{ scope.row.sales_person_detail?.name || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="scope">
+            <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(860px, calc(100vw - 32px))" top="4vh">
+      <div class="device-detail-scroll">
+        <el-descriptions v-if="selectedDevice" :column="2" border>
+          <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="序列号">{{ selectedDevice.serial_number || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="客户公司">{{ selectedDevice.customer?.name || selectedDevice.customer_org_detail?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="客户联系人">{{ selectedDevice.customer_contact?.name || selectedDevice.customer_contact_detail?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="销售">{{ selectedDevice.sales_person?.name || selectedDevice.sales_person_detail?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="管理地址">{{ selectedDevice.management_address || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="设备系统版本">{{ selectedDevice.software_version || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="服务开始">{{ selectedDevice.current_service_start_date || selectedDevice.service_start_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="服务结束">{{ selectedDevice.current_service_end_date || selectedDevice.service_end_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="当前保内状态">{{ selectedDevice.current_service_status || selectedDevice.service_status || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
+          <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
+          <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="截图链接">
+            <a v-if="selectedDevice.screenshot_url" :href="selectedDevice.screenshot_url" target="_blank" rel="noopener noreferrer">预览</a>
+            <span v-else>-</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="授权信息" :span="2">{{ typeof selectedDevice.license_info === 'string' ? selectedDevice.license_info : JSON.stringify(selectedDevice.license_info || {}) }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { fetchDeviceOverview, listResource } from '../api/resources'
+import { formatApiError, unwrapList } from '../utils/apiData'
+
+const devices = ref([])
+const deviceDetailVisible = ref(false)
+const selectedDevice = ref(null)
+
+async function loadDevices() {
+  try {
+    const { data } = await listResource('devices')
+    devices.value = unwrapList(data)
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载设备列表失败'))
+  }
+}
+
+async function openDeviceDetail(row) {
+  try {
+    const { data } = await fetchDeviceOverview(row.id)
+    selectedDevice.value = {
+      ...row,
+      ...data.device,
+      customer: data.customer,
+      customer_contact: data.customer_contact,
+      sales_person: data.sales_person,
+      ops_person: data.ops_person,
+    }
+    deviceDetailVisible.value = true
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载设备详情失败'))
+  }
+}
+
+onMounted(loadDevices)
+</script>

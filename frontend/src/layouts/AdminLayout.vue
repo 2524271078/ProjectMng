@@ -12,6 +12,7 @@
         <el-menu-item index="/dashboard">工作台</el-menu-item>
         <el-menu-item index="/customers">客户中心</el-menu-item>
         <el-menu-item index="/devices">项目中心</el-menu-item>
+        <el-menu-item index="/device-center">设备中心</el-menu-item>
         <el-menu-item index="/sales">销售中心</el-menu-item>
         <el-menu-item index="/contracts">合同中心</el-menu-item>
         <el-menu-item index="/products">产品型号</el-menu-item>

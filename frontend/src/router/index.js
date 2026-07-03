@@ -5,6 +5,7 @@ import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import CustomerCenterView from '../views/CustomerCenterView.vue'
 import DeviceCenterView from '../views/DeviceCenterView.vue'
+import DeviceDirectoryView from '../views/DeviceDirectoryView.vue'
 import SalesCenterView from '../views/SalesCenterView.vue'
 import ContractCenterView from '../views/ContractCenterView.vue'
 import ProductModelView from '../views/ProductModelView.vue'
@@ -17,14 +18,17 @@ const routes = [
     path: '/',
     component: AdminLayout,
     redirect: '/dashboard',
-    children: [{ path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
+    children: [
+      { path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
       { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心' } },
       { path: 'devices', component: DeviceCenterView, meta: { title: '项目中心' } },
+      { path: 'device-center', component: DeviceDirectoryView, meta: { title: '设备中心' } },
       { path: 'sales', component: SalesCenterView, meta: { title: '销售中心' } },
       { path: 'contracts', component: ContractCenterView, meta: { title: '合同中心' } },
       { path: 'products', component: ProductModelView, meta: { title: '产品型号管理' } },
       { path: 'people', component: PersonManageView, meta: { title: '人员管理' } },
-      { path: 'system', component: SystemManageView, meta: { title: '系统管理' } }],
+      { path: 'system', component: SystemManageView, meta: { title: '系统管理' } },
+    ],
   },
 ]
 

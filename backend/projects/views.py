@@ -127,7 +127,11 @@ class DeviceModelViewSet(SoftDeleteModelViewSet):
 
 
 class DeviceViewSet(SoftDeleteModelViewSet):
-    queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").all()
+    queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").prefetch_related(
+        "project_devices__project__customer_org",
+        "project_devices__project__customer_contact",
+        "project_devices__project__sales_person",
+    ).all()
     serializer_class = DeviceSerializer
 
 
@@ -335,11 +339,17 @@ def customer_overview(request, pk):
 @api_view(["GET"])
 def device_overview(request, pk):
     device = Device.objects.select_related("customer_org", "sales_person", "ops_person", "device_model__product").get(pk=pk)
+    latest_binding = latest_project_device_service(device)
+    latest_project = latest_binding.project if latest_binding else None
+    customer_org = device.customer_org or (latest_project.customer_org if latest_project else None)
+    sales_person = device.sales_person or (latest_project.sales_person if latest_project else None)
+    customer_contact = latest_project.customer_contact if latest_project else None
     contracts = [binding.contract for binding in device.contract_devices.select_related("contract").all()]
     return Response({
         "device": DeviceSerializer(device).data,
-        "customer": organization_summary(device.customer_org) if device.customer_org else None,
-        "sales_person": person_summary(device.sales_person),
+        "customer": organization_summary(customer_org) if customer_org else None,
+        "customer_contact": person_summary(customer_contact),
+        "sales_person": person_summary(sales_person),
         "ops_person": person_summary(device.ops_person),
         "contracts": [contract_summary(contract) for contract in contracts],
         "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="device", object_id=device.id), many=True, context={"request": request}).data,
