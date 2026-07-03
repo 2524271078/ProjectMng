@@ -185,11 +185,10 @@
         <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
         <el-descriptions-item label="服务开始">{{ selectedDevice.current_service_start_date || '-' }}</el-descriptions-item>
         <el-descriptions-item label="服务结束">{{ selectedDevice.current_service_end_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="当前保内状态">{{ selectedDevice.current_service_status || (selectedDevice.is_under_warranty ? '保内' : '保外') }}</el-descriptions-item>
+        <el-descriptions-item label="当前保内状态">{{ selectedDevice.current_service_status || '-' }}</el-descriptions-item>
         <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
         <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
         <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
-        <el-descriptions-item label="是否保内">{{ selectedDevice.is_under_warranty ? '保内' : '保外' }}</el-descriptions-item>
         <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
         <el-descriptions-item label="截图链接">

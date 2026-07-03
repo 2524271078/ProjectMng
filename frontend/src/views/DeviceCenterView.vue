@@ -81,7 +81,6 @@
                 <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="是否支持远程"><el-switch v-model="deviceBinding.supports_remote" active-text="支持" inactive-text="不支持" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="是否保内"><el-switch v-model="deviceBinding.is_under_warranty" active-text="保内" inactive-text="保外" /></el-form-item></el-col>
                 <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceBinding.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
                 <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceBinding.license_info_text" type="textarea" placeholder="可填 JSON，也可直接写授权说明" /></el-form-item></el-col>
                 <el-col :span="24"><el-form-item label="设备截图链接"><el-input v-model="deviceBinding.screenshot_url" placeholder="https://..." /></el-form-item></el-col>
@@ -102,7 +101,7 @@
             <el-table-column prop="service_start_date" label="服务开始" min-width="120" />
             <el-table-column prop="service_end_date" label="服务结束" min-width="120" />
             <el-table-column label="保内状态" min-width="100">
-              <template #default="scope">{{ scope.row.service_status || (scope.row.is_under_warranty ? '保内' : '保外') }}</template>
+              <template #default="scope">{{ scope.row.service_status || '-' }}</template>
             </el-table-column>
             <el-table-column prop="management_address" label="管理地址" min-width="180" />
             <el-table-column label="现场运维" min-width="120">
@@ -163,11 +162,10 @@
         <el-descriptions-item label="服务类型">{{ serviceTypeLabel(selectedDevice.service_type) }}</el-descriptions-item>
         <el-descriptions-item label="服务开始">{{ selectedDevice.service_start_date || selectedDevice.current_service_start_date || '-' }}</el-descriptions-item>
         <el-descriptions-item label="服务结束">{{ selectedDevice.service_end_date || selectedDevice.current_service_end_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="保内状态">{{ selectedDevice.service_status || selectedDevice.current_service_status || (selectedDevice.is_under_warranty ? '保内' : '保外') }}</el-descriptions-item>
+        <el-descriptions-item label="保内状态">{{ selectedDevice.service_status || selectedDevice.current_service_status || '-' }}</el-descriptions-item>
         <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
         <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
         <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
-        <el-descriptions-item label="是否保内">{{ selectedDevice.is_under_warranty ? '保内' : '保外' }}</el-descriptions-item>
         <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
         <el-descriptions-item label="截图链接">
@@ -371,21 +369,33 @@ function parseLicenseInfo() {
   }
 }
 
+function findSelectedDevice(deviceId) {
+  return customerScopedDevices.value.find((item) => item.id === deviceId) || devices.value.find((item) => item.id === deviceId) || null
+}
+
+function findCurrentProjectBinding(deviceId) {
+  const device = findSelectedDevice(deviceId)
+  if (!device || !overview.value?.devices?.length) return null
+  return overview.value.devices.find((item) => item.serial_number && item.serial_number === device.serial_number) || null
+}
+
 function fillDeviceFields(deviceId) {
-  const device = customerScopedDevices.value.find((item) => item.id === deviceId) || devices.value.find((item) => item.id === deviceId)
+  const device = findSelectedDevice(deviceId)
   if (!device) return
+  const binding = findCurrentProjectBinding(deviceId)
   Object.assign(deviceBinding, {
+    deploy_location: binding?.deploy_location || '',
+    device_project_type: binding?.device_project_type || '',
     management_address: device.management_address || '',
     hardware_code: device.hardware_code || '',
     software_version: device.software_version || '',
     version_update_method: device.version_update_method || '',
     license_info_text: device.license_info ? JSON.stringify(device.license_info) : '',
     is_standard_product: device.is_standard_product ?? true,
-    is_under_warranty: Boolean(device.is_under_warranty),
     supports_remote: Boolean(device.supports_remote),
-    service_type: 'renewal',
-    service_start_date: device.current_service_start_date || '',
-    service_end_date: device.current_service_end_date || '',
+    service_type: binding?.service_type || 'renewal',
+    service_start_date: binding?.service_start_date || device.current_service_start_date || '',
+    service_end_date: binding?.service_end_date || device.current_service_end_date || '',
     ops_person: device.ops_person || null,
     screenshot_url: device.screenshot_url || '',
     rack_install_date: device.rack_install_date || '',
@@ -406,18 +416,22 @@ async function bindDevice() {
       version_update_method: deviceBinding.version_update_method,
       license_info: parseLicenseInfo(),
       is_standard_product: deviceBinding.is_standard_product,
-      is_under_warranty: deviceBinding.is_under_warranty,
       supports_remote: deviceBinding.supports_remote,
       ops_person: deviceBinding.ops_person,
       screenshot_url: deviceBinding.screenshot_url,
       rack_install_date: deviceBinding.rack_install_date || null,
       remark: deviceBinding.remark,
     })
-    await createResource('project-devices', {
-      project: activeProjectId.value,
-      device: deviceId,
-      ...buildProjectDeviceBindingPayload(deviceBinding),
-    })
+    const existingBinding = findCurrentProjectBinding(deviceId)
+    if (existingBinding) {
+      await updateResource('project-devices', existingBinding.id, buildProjectDeviceBindingPayload(deviceBinding))
+    } else {
+      await createResource('project-devices', {
+        project: activeProjectId.value,
+        device: deviceId,
+        ...buildProjectDeviceBindingPayload(deviceBinding),
+      })
+    }
     Object.assign(deviceBinding, defaultDeviceBinding())
     uploadedScreenshots.value = []
     await loadOptions()
