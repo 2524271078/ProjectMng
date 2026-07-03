@@ -15,7 +15,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { listResource } from '../api/resources'
+import { listAllResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { buildProductModelTree } from '../utils/productModelTree'
 
@@ -32,10 +32,10 @@ const treeProps = { label: 'label', children: 'children', disabled: 'disabled' }
 async function loadProductCatalogTree() {
   try {
     const [linesResult, productsResult, versionsResult, modelsResult] = await Promise.all([
-      listResource('product-lines'),
-      listResource('products'),
-      listResource('product-versions'),
-      listResource('device-models'),
+      listAllResource('product-lines'),
+      listAllResource('products'),
+      listAllResource('product-versions'),
+      listAllResource('device-models'),
     ])
     treeData.value = buildProductModelTree({
       lines: unwrapList(linesResult.data),

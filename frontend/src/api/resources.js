@@ -4,6 +4,38 @@ export function listResource(resource, params = {}) {
   return apiClient.get(`/${resource}/`, { params })
 }
 
+export async function listAllResource(resource, params = {}) {
+  const firstResponse = await listResource(resource, params)
+  const firstData = firstResponse.data
+
+  if (!firstData || Array.isArray(firstData) || !Array.isArray(firstData.results)) {
+    return firstResponse
+  }
+
+  const totalPages = Number(firstData.total_pages || 1)
+  if (totalPages <= 1) {
+    return firstResponse
+  }
+
+  const results = [...firstData.results]
+  for (let page = 2; page <= totalPages; page += 1) {
+    const { data } = await listResource(resource, { ...params, page })
+    results.push(...(data.results || []))
+  }
+
+  return {
+    ...firstResponse,
+    data: {
+      ...firstData,
+      page: 1,
+      page_size: results.length,
+      total_pages: 1,
+      count: results.length,
+      results,
+    },
+  }
+}
+
 export function createResource(resource, payload) {
   return apiClient.post(`/${resource}/`, payload)
 }

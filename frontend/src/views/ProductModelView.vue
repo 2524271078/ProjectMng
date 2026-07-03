@@ -69,7 +69,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createResource, deleteResource, listResource, updateResource } from '../api/resources'
+import { createResource, deleteResource, listAllResource, listResource, updateResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { validateCatalogForm } from '../utils/productCatalog'
 
@@ -106,9 +106,9 @@ async function loadModels() {
 
 async function loadAll() {
   try {
-    lines.value = unwrapList((await listResource('product-lines')).data)
-    products.value = unwrapList((await listResource('products')).data)
-    versions.value = unwrapList((await listResource('product-versions')).data)
+    lines.value = unwrapList((await listAllResource('product-lines')).data)
+    products.value = unwrapList((await listAllResource('products')).data)
+    versions.value = unwrapList((await listAllResource('product-versions')).data)
     await loadModels()
   } catch (error) {
     ElMessage.error(formatApiError(error, '加载产品中心数据失败'))
