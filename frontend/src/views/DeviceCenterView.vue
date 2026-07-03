@@ -59,43 +59,13 @@
         </el-tab-pane>
 
         <el-tab-pane label="项目设备" name="devices">
-          <el-card shadow="never" class="mb-16">
-            <template #header>
-              <div class="section-head compact"><span>{{ editingProjectDeviceId ? '编辑项目设备' : '新增项目设备' }}</span><div><el-button v-if="editingProjectDeviceId" link @click="resetDeviceBinding">取消编辑</el-button><el-button link type="primary" @click="toggleDeviceMode">{{ deviceBinding.bind_mode === 'new' ? '选择已有设备' : '改为新建设备' }}</el-button></div></div>
-            </template>
-            <el-form :model="deviceBinding" label-width="130px">
-              <el-row :gutter="14">
-                <el-col v-if="deviceBinding.bind_mode === 'existing'" :span="24">
-                  <el-alert v-if="!customerScopedDevices.length" title="当前客户下暂无已购设备，请切换到“新建设备”后补录。" type="warning" show-icon :closable="false" class="mb-16" />
-                  <el-form-item label="选择已有设备"><el-select v-model="deviceBinding.device" placeholder="选择当前客户下的设备实例" filterable @change="fillDeviceFields"><el-option v-for="device in customerScopedDevices" :key="device.id" :label="formatDeviceOptionLabel(device, deviceModels)" :value="device.id" /></el-select></el-form-item>
-                </el-col>
-                <template v-else>
-                  <el-col :span="24"><el-alert title="默认流程：选择产品型号，填写这台设备的序列号等信息，保存后会自动创建设备并绑定到当前项目和当前客户。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
-                  <el-col :span="12"><el-form-item label="产品型号" required><el-select v-model="deviceBinding.device_model" placeholder="选择产品中心维护的具体型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
-                  <el-col :span="12"><el-form-item label="设备名称" required><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
-                  <el-col :span="12"><el-form-item label="序列号" required><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
-                </template>
-                <el-col :span="12"><el-form-item label="设备项目类型"><el-input v-model="deviceBinding.device_project_type" placeholder="如：正式设备/试点设备/备机" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="部署位置"><el-input v-model="deviceBinding.deploy_location" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="管理地址"><el-input v-model="deviceBinding.management_address" placeholder="IP / URL / 管理平台地址" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceBinding.hardware_code" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceBinding.software_version" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceBinding.version_update_method" placeholder="远程升级/现场升级/手动导入" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="服务类型"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /></el-select></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="服务开始"><el-date-picker v-model="deviceBinding.service_start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务开始日期" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="服务结束"><el-date-picker v-model="deviceBinding.service_end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务结束日期" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="是否支持远程"><el-switch v-model="deviceBinding.supports_remote" active-text="支持" inactive-text="不支持" /></el-form-item></el-col>
-                <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceBinding.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
-                <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceBinding.license_info_text" type="textarea" placeholder="可填 JSON，也可直接写授权说明" /></el-form-item></el-col>
-                <el-col :span="24"><el-form-item label="设备截图链接"><el-input v-model="deviceBinding.screenshot_url" placeholder="https://..." /></el-form-item></el-col>
-                <el-col :span="24"><el-form-item label="上传截图"><el-upload :auto-upload="false" :on-change="uploadDeviceScreenshot" :show-file-list="false"><el-button>选择并上传截图</el-button></el-upload><div v-if="uploadedScreenshots.length" class="upload-preview"><a v-for="item in uploadedScreenshots" :key="item.id" :href="item.file_url" target="_blank">{{ item.name }}</a></div></el-form-item></el-col>
-                <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceBinding.remark" type="textarea" /></el-form-item></el-col>
-              </el-row>
-              <el-button type="primary" @click="bindDevice">{{ editingProjectDeviceId ? '保存修改' : (deviceBinding.bind_mode === 'new' ? '保存项目设备' : '绑定已有设备') }}</el-button>
-            </el-form>
-          </el-card>
+          <div class="section-head compact mb-16">
+            <span>项目设备列表</span>
+            <div>
+              <el-button type="primary" plain @click="openNewDeviceDialog">新增项目设备</el-button>
+              <el-button type="primary" @click="openExistingDeviceDialog">选择已有设备</el-button>
+            </div>
+          </div>
 
           <el-table :data="overview.devices" stripe>
             <el-table-column prop="name" label="设备" min-width="160" />
@@ -166,6 +136,82 @@
       </el-tabs>
     </el-drawer>
 
+    <el-dialog
+      v-model="newDeviceDialogVisible"
+      :title="editingProjectDeviceId ? '编辑项目设备' : '新增项目设备'"
+      width="980px"
+      destroy-on-close
+      @closed="handleDeviceDialogClosed"
+    >
+      <el-form :model="deviceBinding" label-width="130px">
+        <el-row :gutter="14">
+          <el-col :span="24"><el-alert title="默认流程：选择产品型号，填写这台设备的序列号等信息，保存后会自动创建设备并绑定到当前项目和当前客户。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
+          <el-col :span="12"><el-form-item label="产品型号" required><el-select v-model="deviceBinding.device_model" placeholder="选择产品中心维护的具体型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备名称" required><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="序列号" required><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备项目类型"><el-input v-model="deviceBinding.device_project_type" placeholder="如：正式设备/试点设备/备机" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="部署位置"><el-input v-model="deviceBinding.deploy_location" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="管理地址"><el-input v-model="deviceBinding.management_address" placeholder="IP / URL / 管理平台地址" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceBinding.hardware_code" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceBinding.software_version" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceBinding.version_update_method" placeholder="远程升级/现场升级/手动导入" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务类型"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务开始"><el-date-picker v-model="deviceBinding.service_start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务开始日期" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务结束"><el-date-picker v-model="deviceBinding.service_end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务结束日期" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="是否支持远程"><el-switch v-model="deviceBinding.supports_remote" active-text="支持" inactive-text="不支持" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceBinding.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceBinding.license_info_text" type="textarea" placeholder="可填 JSON，也可直接写授权说明" /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="设备截图链接"><el-input v-model="deviceBinding.screenshot_url" placeholder="https://..." /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="上传截图"><el-upload :auto-upload="false" :on-change="uploadDeviceScreenshot" :show-file-list="false"><el-button>选择并上传截图</el-button></el-upload><div v-if="uploadedScreenshots.length" class="upload-preview"><a v-for="item in uploadedScreenshots" :key="item.id" :href="item.file_url" target="_blank">{{ item.name }}</a></div></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceBinding.remark" type="textarea" /></el-form-item></el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeDeviceDialogs">取消</el-button>
+        <el-button type="primary" @click="bindDevice">{{ editingProjectDeviceId ? '保存修改' : '保存项目设备' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="existingDeviceDialogVisible"
+      :title="editingProjectDeviceId ? '编辑项目设备' : '选择已有设备'"
+      width="920px"
+      destroy-on-close
+      @closed="handleDeviceDialogClosed"
+    >
+      <el-form :model="deviceBinding" label-width="130px">
+        <el-row :gutter="14">
+          <el-col :span="24">
+            <el-alert v-if="!customerScopedDevices.length" title="当前客户下暂无已购设备，请先新增项目设备后再绑定。" type="warning" show-icon :closable="false" class="mb-16" />
+            <el-form-item label="选择已有设备"><el-select v-model="deviceBinding.device" placeholder="选择当前客户下的设备实例" filterable @change="fillDeviceFields"><el-option v-for="device in customerScopedDevices" :key="device.id" :label="formatDeviceOptionLabel(device, deviceModels)" :value="device.id" /></el-select></el-form-item>
+          </el-col>
+          <el-col :span="12"><el-form-item label="设备项目类型"><el-input v-model="deviceBinding.device_project_type" placeholder="如：正式设备/试点设备/备机" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="部署位置"><el-input v-model="deviceBinding.deploy_location" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="管理地址"><el-input v-model="deviceBinding.management_address" placeholder="IP / URL / 管理平台地址" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceBinding.hardware_code" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceBinding.software_version" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceBinding.version_update_method" placeholder="远程升级/现场升级/手动导入" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务类型"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务开始"><el-date-picker v-model="deviceBinding.service_start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务开始日期" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务结束"><el-date-picker v-model="deviceBinding.service_end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务结束日期" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="是否支持远程"><el-switch v-model="deviceBinding.supports_remote" active-text="支持" inactive-text="不支持" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceBinding.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceBinding.license_info_text" type="textarea" placeholder="可填 JSON，也可直接写授权说明" /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="设备截图链接"><el-input v-model="deviceBinding.screenshot_url" placeholder="https://..." /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="上传截图"><el-upload :auto-upload="false" :on-change="uploadDeviceScreenshot" :show-file-list="false"><el-button>选择并上传截图</el-button></el-upload><div v-if="uploadedScreenshots.length" class="upload-preview"><a v-for="item in uploadedScreenshots" :key="item.id" :href="item.file_url" target="_blank">{{ item.name }}</a></div></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceBinding.remark" type="textarea" /></el-form-item></el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeDeviceDialogs">取消</el-button>
+        <el-button type="primary" :disabled="!customerScopedDevices.length && !editingProjectDeviceId" @click="bindDevice">{{ editingProjectDeviceId ? '保存修改' : '绑定已有设备' }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="deviceDetailVisible" title="设备详情" width="860px">
       <el-descriptions v-if="selectedDevice" :column="2" border>
         <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
@@ -220,6 +266,8 @@ const dialogVisible = ref(false)
 const drawerVisible = ref(false)
 const editingProjectId = ref(null)
 const deviceDetailVisible = ref(false)
+const newDeviceDialogVisible = ref(false)
+const existingDeviceDialogVisible = ref(false)
 const activeProjectId = ref(null)
 const editingProjectDeviceId = ref(null)
 const selectedDevice = ref(null)
@@ -250,11 +298,28 @@ function resetDeviceBinding() {
   uploadedScreenshots.value = []
 }
 
-function toggleDeviceMode() {
-  const nextMode = deviceBinding.bind_mode === 'new' ? 'existing' : 'new'
-  editingProjectDeviceId.value = null
-  Object.assign(deviceBinding, defaultDeviceBinding(), { bind_mode: nextMode, service_type: nextMode === 'existing' ? 'renewal' : 'new_install' })
-  uploadedScreenshots.value = []
+function closeDeviceDialogs() {
+  newDeviceDialogVisible.value = false
+  existingDeviceDialogVisible.value = false
+  resetDeviceBinding()
+}
+
+function handleDeviceDialogClosed() {
+  if (!newDeviceDialogVisible.value && !existingDeviceDialogVisible.value) {
+    resetDeviceBinding()
+  }
+}
+
+function openNewDeviceDialog() {
+  resetDeviceBinding()
+  Object.assign(deviceBinding, defaultDeviceBinding(), { bind_mode: 'new', service_type: 'new_install' })
+  newDeviceDialogVisible.value = true
+}
+
+function openExistingDeviceDialog() {
+  resetDeviceBinding()
+  Object.assign(deviceBinding, defaultDeviceBinding(), { bind_mode: 'existing', service_type: 'renewal' })
+  existingDeviceDialogVisible.value = true
 }
 
 async function loadCustomerContacts(customerOrgId) {
@@ -516,6 +581,8 @@ function editProjectDevice(row) {
     remark: row.remark || '',
   })
   uploadedScreenshots.value = []
+  newDeviceDialogVisible.value = false
+  existingDeviceDialogVisible.value = true
 }
 
 async function removeProjectDevice(row) {
@@ -560,7 +627,7 @@ async function bindDevice() {
         ...buildProjectDeviceBindingPayload(deviceBinding),
       })
     }
-    resetDeviceBinding()
+    closeDeviceDialogs()
     await loadOptions()
     await openDetail({ id: activeProjectId.value })
   } catch (error) {
