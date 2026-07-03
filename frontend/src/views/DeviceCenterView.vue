@@ -136,6 +136,11 @@
             <el-table-column prop="contract_no" label="合同编号" min-width="150" />
             <el-table-column prop="contract_name" label="合同名称" min-width="220" />
             <el-table-column prop="amount" label="金额" min-width="120" />
+            <el-table-column label="操作" width="100">
+              <template #default="scope">
+                <el-button link type="danger" @click.stop="removeProjectContract(scope.row)">解除</el-button>
+              </template>
+            </el-table-column>
           </el-table>
         </el-tab-pane>
 
@@ -192,7 +197,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createProjectContract, createResource, deleteResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
+import { createProjectContract, createResource, deleteProjectContract, deleteResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
 import { buildProjectDeviceBindingPayload, buildProjectDevicePayload, createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
@@ -563,6 +568,18 @@ async function bindContract() {
     await openDetail({ id: activeProjectId.value })
   } catch (error) {
     ElMessage.error(formatApiError(error, '关联合同失败'))
+  }
+}
+
+async function removeProjectContract(row) {
+  try {
+    await ElMessageBox.confirm(`确认解除合同“${row.contract_no}”？`, '解除确认', { type: 'warning' })
+    await deleteProjectContract(row.id)
+    ElMessage.success('合同关联已解除')
+    await openDetail({ id: activeProjectId.value })
+  } catch (error) {
+    if (error === 'cancel') return
+    ElMessage.error(formatApiError(error, '解除合同关联失败'))
   }
 }
 
