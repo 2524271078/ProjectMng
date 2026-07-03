@@ -198,6 +198,22 @@ class SearchApiTests(APITestCase):
         self.assertEqual([item["name"] for item in response.data], ["许超"])
         self.assertTrue(all(item["person_type"] == "sales" for item in response.data))
 
+
+    def test_product_list_hides_orphan_and_deleted_line_products(self):
+        active_line = ProductLine.objects.create(name="有效产线", code="ACTIVE-LINE")
+        deleted_line = ProductLine.objects.create(name="已删产线", code="DELETED-LINE", is_deleted=True)
+        active_product = Product.objects.create(name="有效产品", product_code="ACTIVE-PRODUCT", product_line=active_line, manufacturer=self.vendor)
+        Product.objects.create(name="孤儿产品", product_code="ORPHAN-PRODUCT", manufacturer=self.vendor)
+        Product.objects.create(name="残留产品", product_code="DELETED-LINE-PRODUCT", product_line=deleted_line, manufacturer=self.vendor)
+
+        response = self.client.get("/api/products/")
+
+        self.assertEqual(response.status_code, 200)
+        names = [item["name"] for item in response.data]
+        self.assertIn(active_product.name, names)
+        self.assertNotIn("孤儿产品", names)
+        self.assertNotIn("残留产品", names)
+
     def test_project_search_matches_customer_organization_name(self):
         customer = Organization.objects.create(name="国网华北电力", org_type="customer")
         Project.objects.create(project_no="PRJ-SEARCH-001", name="区域加固项目", customer_org=customer)

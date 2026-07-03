@@ -105,6 +105,10 @@ class ProductViewSet(SoftDeleteModelViewSet):
     queryset = Product.objects.select_related("product_line", "manufacturer").all().order_by("id")
     serializer_class = ProductSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset.filter(product_line__isnull=False, product_line__is_deleted=False)
+
 
 class ProductVersionViewSet(SoftDeleteModelViewSet):
     queryset = ProductVersion.objects.select_related("product").all().order_by("id")
