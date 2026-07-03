@@ -370,6 +370,28 @@ class CustomerProjectOverviewTests(APITestCase):
         self.assertEqual(response.data["projects"][0]["sales_person"]["id"], sales.id)
 
 
+class CustomerPurchasedDeviceTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="customer-devices", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_customer_overview_includes_project_linked_devices(self):
+        customer = Organization.objects.create(name="设备客户", org_type="customer")
+        product = Product.objects.create(name="客户设备产品", product_code="CUST-DEV")
+        model = DeviceModel.objects.create(product=product, model_name="CUST-1000", model_code="CUST-1000")
+        device = Device.objects.create(name="项目挂接设备", serial_number="CUST-SN-001", device_model=model)
+        project = Project.objects.create(project_no="CUST-DEV-001", name="客户设备项目", customer_org=customer)
+        ProjectDevice.objects.create(project=project, device=device, service_type="renewal", service_start_date="2026-01-01", service_end_date="2026-12-31")
+
+        response = self.client.get(f"/api/customers/{customer.id}/overview/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["devices"]), 1)
+        self.assertEqual(response.data["devices"][0]["serial_number"], "CUST-SN-001")
+
+
 class ProjectContractOverviewTests(APITestCase):
     def setUp(self):
         from django.contrib.auth.models import User

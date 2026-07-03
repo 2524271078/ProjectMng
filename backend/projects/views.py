@@ -164,6 +164,21 @@ def latest_project_device_service(device):
     )
 
 
+def customer_devices(customer):
+    direct_devices = list(customer.devices.filter(is_deleted=False))
+    related_project_devices = list(
+        Device.objects.filter(
+            project_devices__project__customer_org=customer,
+            project_devices__is_deleted=False,
+            is_deleted=False,
+        ).distinct()
+    )
+    merged = {device.id: device for device in direct_devices}
+    for device in related_project_devices:
+        merged.setdefault(device.id, device)
+    return list(merged.values())
+
+
 def service_status_from_binding(binding):
     if not binding or not binding.service_start_date or not binding.service_end_date:
         return "保外"
@@ -208,7 +223,7 @@ def sales_customers(request, pk):
         payload.append({
             **organization_summary(customer),
             "relation_type": relation.relation_type,
-            "devices": [device_summary(device) for device in customer.devices.all()],
+            "devices": [device_summary(device) for device in customer_devices(customer)],
             "contracts": [contract_summary(contract) for contract in customer.final_customer_contracts.all()],
         })
     return Response(payload)
@@ -241,7 +256,7 @@ def customer_overview(request, pk):
         "customer": organization_summary(customer),
         "contacts": [person_summary(person) for person in customer.people.filter(person_type="customer_contact")],
         "sales": [person_summary(relation.sales_person) for relation in relations],
-        "devices": [device_summary(device) for device in customer.devices.all()],
+        "devices": [device_summary(device) for device in customer_devices(customer)],
         "contracts": [contract_summary(contract) for contract in customer.final_customer_contracts.all()],
         "projects": [project_summary(project) for project in customer.projects.select_related("customer_contact", "sales_person").all()],
     })
