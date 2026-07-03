@@ -10,6 +10,36 @@
       </div>
     </div>
 
+    <section class="device-toolbar">
+      <div class="toolbar-main">
+        <el-input
+          v-model="searchKeyword"
+          class="search-input"
+          placeholder="搜索设备名称 / 序列号 / 客户公司 / 联系人 / 销售"
+          clearable
+          @keyup.enter="handleSearch"
+        />
+        <div class="action-row">
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="resetSearch">重置</el-button>
+        </div>
+      </div>
+      <div class="toolbar-stats">
+        <div class="stat-card">
+          <span class="stat-label">设备总数</span>
+          <strong class="stat-value">{{ devices.length }}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">保内设备</span>
+          <strong class="stat-value">{{ warrantyStats.inWarranty }}</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">保外设备</span>
+          <strong class="stat-value">{{ warrantyStats.outOfWarranty }}</strong>
+        </div>
+      </div>
+    </section>
+
     <div class="page-table-scroll">
       <el-table :data="devices" stripe>
         <el-table-column prop="name" label="设备" min-width="180" />
@@ -64,7 +94,7 @@
             <a v-if="selectedDevice.screenshot_url" :href="selectedDevice.screenshot_url" target="_blank" rel="noopener noreferrer">预览</a>
             <span v-else>-</span>
           </el-descriptions-item>
-          <el-descriptions-item label="授权信息" :span="2">{{ typeof selectedDevice.license_info === 'string' ? selectedDevice.license_info : JSON.stringify(selectedDevice.license_info || {}) }}</el-descriptions-item>
+          <el-descriptions-item label="授权信息" :span="2">{{ formatLicenseInfo(selectedDevice.license_info) }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
         </el-descriptions>
       </div>
@@ -73,7 +103,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchDeviceOverview, listResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
@@ -81,14 +111,42 @@ import { formatApiError, unwrapList } from '../utils/apiData'
 const devices = ref([])
 const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
+const searchKeyword = ref('')
+
+const warrantyStats = computed(() => {
+  const inWarranty = devices.value.filter((item) => item.current_service_status === '保内').length
+  return {
+    inWarranty,
+    outOfWarranty: devices.value.length - inWarranty,
+  }
+})
+
+function buildSearchParams() {
+  const keyword = searchKeyword.value.trim()
+  return keyword ? { search: keyword } : undefined
+}
 
 async function loadDevices() {
   try {
-    const { data } = await listResource('devices')
+    const { data } = await listResource('devices', buildSearchParams())
     devices.value = unwrapList(data)
   } catch (error) {
     ElMessage.error(formatApiError(error, '加载设备列表失败'))
   }
+}
+
+function handleSearch() {
+  loadDevices()
+}
+
+function resetSearch() {
+  searchKeyword.value = ''
+  loadDevices()
+}
+
+function formatLicenseInfo(value) {
+  if (!value) return '{}'
+  return typeof value === 'string' ? value : JSON.stringify(value)
 }
 
 async function openDeviceDetail(row) {
@@ -110,3 +168,57 @@ async function openDeviceDetail(row) {
 
 onMounted(loadDevices)
 </script>
+
+<style scoped>
+.device-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  background: #ffffff;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+}
+
+.toolbar-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 320px;
+  max-width: 680px;
+}
+
+.toolbar-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  background: #f7fbff;
+  border: 1px solid #dbe7f5;
+  border-radius: 8px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #5f6b7a;
+}
+
+.stat-value {
+  font-size: 24px;
+  color: #183153;
+  line-height: 1;
+}
+</style>
