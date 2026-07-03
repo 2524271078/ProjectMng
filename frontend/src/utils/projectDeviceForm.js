@@ -21,3 +21,13 @@ export function createDefaultProjectDeviceForm() {
     remark: '',
   }
 }
+
+export function buildProjectDevicePayload(form, { customerOrgId, salesPersonId }) {
+  return {
+    name: form.device_name,
+    serial_number: form.serial_number,
+    device_model: form.device_model,
+    customer_org: customerOrgId ?? null,
+    sales_person: salesPersonId ?? null,
+  }
+}

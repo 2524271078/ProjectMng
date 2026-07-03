@@ -8,7 +8,9 @@
     <el-table :data="projects" stripe @row-click="openDetail">
       <el-table-column prop="project_no" label="项目编号" min-width="150" />
       <el-table-column prop="name" label="项目名称" min-width="220" />
-      <el-table-column label="阶段"><template #default="scope">{{ projectStageLabel(scope.row.project_stage) }}</template></el-table-column>
+      <el-table-column label="阶段">
+        <template #default="scope">{{ projectStageLabel(scope.row.project_stage) }}</template>
+      </el-table-column>
       <el-table-column prop="winning_company" label="实际中标公司" min-width="160" />
       <el-table-column prop="contact_company" label="对接公司" min-width="160" />
       <el-table-column prop="status" label="状态" />
@@ -30,7 +32,7 @@
         <el-form-item label="项目阶段"><el-select v-model="form.project_stage"><el-option label="立项" value="new" /><el-option label="签约" value="signed" /><el-option label="交付" value="delivery" /><el-option label="运维" value="ops" /></el-select></el-form-item>
         <el-form-item label="项目金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" @click="createProject">保存</el-button></template>
+      <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" @click="createProject">保存</el-button></template>
     </el-dialog>
 
     <el-drawer v-model="drawerVisible" size="70%" title="项目详情">
@@ -53,16 +55,16 @@
         <el-tab-pane label="项目设备" name="devices">
           <el-card shadow="never" class="mb-16">
             <template #header>
-              <div class="section-head compact"><span>新增项目设备</span><el-button link type="primary" @click="toggleDeviceMode">{{ deviceBinding.bind_mode === 'new' ? '选择已有设备' : '改为新增设备' }}</el-button></div>
+              <div class="section-head compact"><span>新增项目设备</span><el-button link type="primary" @click="toggleDeviceMode">{{ deviceBinding.bind_mode === 'new' ? '选择已有设备' : '改为新建设备' }}</el-button></div>
             </template>
             <el-form :model="deviceBinding" label-width="130px">
               <el-row :gutter="14">
                 <el-col v-if="deviceBinding.bind_mode === 'existing'" :span="24">
-                  <el-alert v-if="!devices.length" title="暂无已有设备。请切换到“新建设备”，选择产品型号后创建设备实例。" type="warning" show-icon :closable="false" class="mb-16" />
-                  <el-form-item label="选择已有设备"><el-select v-model="deviceBinding.device" placeholder="选择已创建的设备实例" filterable @change="fillDeviceFields"><el-option v-for="device in devices" :key="device.id" :label="formatDeviceOptionLabel(device, deviceModels)" :value="device.id" /></el-select></el-form-item>
+                  <el-alert v-if="!customerScopedDevices.length" title="当前客户下暂无已购设备，请切换到“新建设备”后补录。" type="warning" show-icon :closable="false" class="mb-16" />
+                  <el-form-item label="选择已有设备"><el-select v-model="deviceBinding.device" placeholder="选择当前客户下的设备实例" filterable @change="fillDeviceFields"><el-option v-for="device in customerScopedDevices" :key="device.id" :label="formatDeviceOptionLabel(device, deviceModels)" :value="device.id" /></el-select></el-form-item>
                 </el-col>
                 <template v-else>
-                  <el-col :span="24"><el-alert title="默认流程：选择产品型号，填写这台设备唯一序列号等信息，保存后自动创建真实设备并绑定当前项目。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
+                  <el-col :span="24"><el-alert title="默认流程：选择产品型号，填写这台设备的序列号等信息，保存后会自动创建设备并绑定到当前项目和当前客户。" type="info" show-icon :closable="false" class="mb-16" /></el-col>
                   <el-col :span="12"><el-form-item label="产品型号" required><el-select v-model="deviceBinding.device_model" placeholder="选择产品中心维护的具体型号" filterable><el-option v-for="model in deviceModels" :key="model.id" :label="`${model.model_name} / ${model.model_code}`" :value="model.id" /></el-select></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="设备名称" required><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
                   <el-col :span="12"><el-form-item label="序列号" required><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
@@ -103,7 +105,23 @@
           </el-table>
         </el-tab-pane>
 
-        <el-tab-pane label="合同和附件" name="attachments">
+        <el-tab-pane label="关联合同" name="contracts">
+          <el-form inline class="mb-16">
+            <el-form-item label="选择合同">
+              <el-select v-model="selectedContractId" filterable clearable placeholder="选择该客户相关合同">
+                <el-option v-for="contract in customerScopedContracts" :key="contract.id" :label="`${contract.contract_no} / ${contract.contract_name}`" :value="contract.id" />
+              </el-select>
+            </el-form-item>
+            <el-button type="primary" @click="bindContract">关联合同</el-button>
+          </el-form>
+          <el-table :data="overview.contracts || []" stripe>
+            <el-table-column prop="contract_no" label="合同编号" min-width="150" />
+            <el-table-column prop="contract_name" label="合同名称" min-width="220" />
+            <el-table-column prop="amount" label="金额" min-width="120" />
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane label="项目附件" name="attachments">
           <el-upload drag action="#" :auto-upload="false" :on-change="uploadProjectAttachment" :show-file-list="false">
             <el-icon><UploadFilled /></el-icon>
             <div>上传合同、验收单、项目资料等附件</div>
@@ -149,18 +167,19 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
+import { createProjectContract, createResource, fetchCustomerOverview, fetchProjectOverview, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
-import { createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
+import { buildProjectDevicePayload, createDefaultProjectDeviceForm } from '../utils/projectDeviceForm'
 import { projectStageLabel } from '../utils/displayMaps'
 
 const projects = ref([])
 const devices = ref([])
+const contracts = ref([])
 const deviceModels = ref([])
 const uploadedScreenshots = ref([])
 const salesPeople = ref([])
@@ -172,8 +191,21 @@ const drawerVisible = ref(false)
 const deviceDetailVisible = ref(false)
 const activeProjectId = ref(null)
 const selectedDevice = ref(null)
+const selectedContractId = ref(null)
 const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
+
+const customerScopedDevices = computed(() => {
+  const customerId = overview.value?.customer?.id
+  if (!customerId) return devices.value
+  return devices.value.filter((device) => device.customer_org === customerId)
+})
+
+const customerScopedContracts = computed(() => {
+  const customerId = overview.value?.customer?.id
+  if (!customerId) return contracts.value
+  return contracts.value.filter((contract) => contract.final_customer === customerId)
+})
 
 function defaultDeviceBinding() {
   return createDefaultProjectDeviceForm()
@@ -200,6 +232,7 @@ async function loadProjects() {
 
 async function loadOptions() {
   devices.value = unwrapList((await listResource('devices')).data)
+  contracts.value = unwrapList((await listResource('contracts')).data)
   deviceModels.value = unwrapList((await listResource('device-models')).data)
   const people = unwrapList((await listResource('people')).data)
   salesPeople.value = people.filter((person) => person.person_type === 'sales')
@@ -229,29 +262,32 @@ async function createProject() {
 
 async function openDetail(row) {
   activeProjectId.value = row.id
+  selectedContractId.value = null
   const { data } = await fetchProjectOverview(row.id)
   overview.value = data
   drawerVisible.value = true
 }
 
+function currentDeviceOwner() {
+  return {
+    customerOrgId: overview.value?.customer?.id,
+    salesPersonId: overview.value?.sales_person?.id,
+  }
+}
 
 async function ensureDevice() {
   if (deviceBinding.bind_mode === 'existing') {
     if (!deviceBinding.device) throw new Error('请选择设备')
     return deviceBinding.device
   }
+  if (deviceBinding.device) return deviceBinding.device
   if (!deviceBinding.device_model) throw new Error('请选择产品型号')
   if (!deviceBinding.device_name?.trim()) throw new Error('请填写设备名称')
   if (!deviceBinding.serial_number?.trim()) throw new Error('请填写设备序列号')
-  const { data } = await createResource('devices', {
-    name: deviceBinding.device_name,
-    serial_number: deviceBinding.serial_number,
-    device_model: deviceBinding.device_model,
-  })
+  const { data } = await createResource('devices', buildProjectDevicePayload(deviceBinding, currentDeviceOwner()))
   deviceBinding.device = data.id
   return data.id
 }
-
 
 async function uploadProjectAttachment(file) {
   try {
@@ -365,10 +401,30 @@ async function bindDevice() {
   }
 }
 
+async function bindContract() {
+  try {
+    if (!activeProjectId.value || !selectedContractId.value) {
+      ElMessage.warning('请选择要关联的合同')
+      return
+    }
+    await createProjectContract({
+      project: activeProjectId.value,
+      contract: selectedContractId.value,
+    })
+    selectedContractId.value = null
+    ElMessage.success('合同已关联')
+    await openDetail({ id: activeProjectId.value })
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '关联合同失败'))
+  }
+}
+
 watch(() => form.customer_org, async (customerOrgId) => {
   if (!dialogVisible.value) return
   await loadCustomerContacts(customerOrgId)
 })
 
-onMounted(async () => { await Promise.all([loadProjects(), loadOptions()]) })
+onMounted(async () => {
+  await Promise.all([loadProjects(), loadOptions()])
+})
 </script>
