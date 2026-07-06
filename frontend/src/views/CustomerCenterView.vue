@@ -465,7 +465,7 @@ function handleProjectPageSizeChange(pageSize) {
 
 async function loadOrganizations() {
   try {
-    const params = searchKeyword.value.trim() ? { search: searchKeyword.value.trim() } : undefined
+    const params = { org_type: 'customer', ...(searchKeyword.value.trim() ? { search: searchKeyword.value.trim() } : {}) }
     const { data } = await listResource('organizations', params)
     organizations.value = data.results || data
     if (selected.value && !organizations.value.some((item) => item.id === selected.value.id)) {

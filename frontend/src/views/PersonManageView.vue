@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="page-scroll-layout">
     <div class="section-head">
       <div>
@@ -10,12 +10,14 @@
 
     <div class="page-table-scroll">
       <el-table v-loading="peoplePagination.loading" :data="peoplePagination.rows" stripe>
-        <el-table-column prop="name" label="姓名" />
-        <el-table-column prop="person_type" label="人员类型" />
-        <el-table-column prop="position" label="职位" />
-        <el-table-column prop="phone" label="电话" />
-        <el-table-column prop="email" label="邮箱" />
-        <el-table-column label="操作" width="150">
+        <el-table-column prop="name" label="姓名" min-width="140" />
+        <el-table-column label="人员类型" min-width="130">
+          <template #default="scope">{{ personTypeLabel(scope.row.person_type) }}</template>
+        </el-table-column>
+        <el-table-column prop="position" label="职位" min-width="120" />
+        <el-table-column prop="phone" label="电话" min-width="140" />
+        <el-table-column prop="email" label="邮箱" min-width="220" />
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
             <el-button link type="danger" @click="removePerson(scope.row)">删除</el-button>
@@ -41,11 +43,7 @@
         <el-form-item label="姓名" required><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="类型" required>
           <el-select v-model="form.person_type">
-            <el-option label="销售" value="sales" />
-            <el-option label="客户联系人" value="customer_contact" />
-            <el-option label="内部人员" value="internal" />
-            <el-option label="现场运维" value="ops" />
-            <el-option label="厂商联系人" value="vendor_contact" />
+            <el-option v-for="item in personTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="所属组织"><OrganizationTreeSelect v-model="form.organization" placeholder="请选择所属公司，可不选" /></el-form-item>
@@ -72,6 +70,7 @@ import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import { createResource, deleteResource, fetchSalesCustomerRelations, listResource, saveSalesCustomerRelations, updateResource } from '../api/resources'
 import { buildPersonPayload } from '../utils/personPayload'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
+import { personTypeLabel, personTypeOptions } from '../utils/personTypes'
 
 const dialogVisible = ref(false)
 const saving = ref(false)
@@ -144,7 +143,7 @@ function buildPayload() {
 function formatApiError(error) {
   const data = error.response?.data
   if (!data || typeof data === 'string') return data || '保存失败'
-  return Object.entries(data).map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join('，') : messages}`).join('；')
+  return Object.entries(data).map(([field, messages]) => field + ': ' + (Array.isArray(messages) ? messages.join('，') : messages)).join('；')
 }
 
 async function savePerson() {
@@ -178,7 +177,7 @@ async function savePerson() {
 }
 
 async function removePerson(row) {
-  await ElMessageBox.confirm(`确认删除人员“${row.name}”吗？`, '删除确认', { type: 'warning' })
+  await ElMessageBox.confirm('确认删除人员“' + row.name + '”吗？', '删除确认', { type: 'warning' })
   await deleteResource('people', row.id)
   ElMessage.success('人员已删除')
   await loadPeople()

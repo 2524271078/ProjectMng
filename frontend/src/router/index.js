@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AdminLayout from '../layouts/AdminLayout.vue'
 import LoginView from '../views/LoginView.vue'
@@ -20,24 +20,29 @@ const routes = [
     redirect: '/dashboard',
     children: [
       { path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
-      { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心' } },
-      { path: 'devices', component: DeviceCenterView, meta: { title: '项目中心' } },
-      { path: 'device-center', component: DeviceDirectoryView, meta: { title: '设备中心' } },
-      { path: 'sales', component: SalesCenterView, meta: { title: '销售中心' } },
-      { path: 'contracts', component: ContractCenterView, meta: { title: '合同中心' } },
-      { path: 'products', component: ProductModelView, meta: { title: '产品型号管理' } },
-      { path: 'people', component: PersonManageView, meta: { title: '人员管理' } },
-      { path: 'system', component: SystemManageView, meta: { title: '系统管理' } },
+      { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心', menuCode: 'customers' } },
+      { path: 'devices', component: DeviceCenterView, meta: { title: '项目中心', menuCode: 'devices' } },
+      { path: 'device-center', component: DeviceDirectoryView, meta: { title: '设备中心', menuCode: 'device-center' } },
+      { path: 'sales', component: SalesCenterView, meta: { title: '销售中心', menuCode: 'sales' } },
+      { path: 'contracts', component: ContractCenterView, meta: { title: '合同中心', menuCode: 'contracts' } },
+      { path: 'products', component: ProductModelView, meta: { title: '产品型号管理', menuCode: 'products' } },
+      { path: 'people', component: PersonManageView, meta: { title: '人员管理', menuCode: 'people' } },
+      { path: 'system', component: SystemManageView, meta: { title: '系统管理', menuCode: 'system' } },
     ],
   },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.path !== '/login' && !auth.isAuthenticated) return '/login'
   if (to.path === '/login' && auth.isAuthenticated) return '/dashboard'
+  if (auth.isAuthenticated && !auth.user) {
+    await auth.loadCurrentUser()
+  }
+  const menuCode = to.meta?.menuCode
+  if (menuCode && !auth.hasMenu(menuCode)) return '/dashboard'
 })
 
 export default router
