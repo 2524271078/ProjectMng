@@ -1,4 +1,6 @@
-﻿from django.contrib.auth.models import User
+import re
+
+from django.contrib.auth.models import User
 from rest_framework import serializers
 
 from accounts.models import Menu, Permission, Role, UserAccessProfile, UserRole, UserSalesScope
@@ -206,14 +208,36 @@ class MenuSerializer(serializers.ModelSerializer):
 
 
 class RoleSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(required=False, allow_blank=True)
     permission_pairs = serializers.SerializerMethodField()
 
     class Meta:
         model = Role
         fields = ["id", "name", "code", "remark", "status", "created_at", "updated_at", "permission_pairs"]
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        code = (attrs.get("code") or "").strip()
+        if not code:
+            attrs["code"] = self._generate_role_code(attrs.get("name") or getattr(self.instance, "name", "role"))
+        return attrs
+
     def get_permission_pairs(self, obj):
         return list(obj.permissions.values_list("menu_id", "action"))
+
+    def _generate_role_code(self, name):
+        normalized = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+        base = f"role-{normalized}" if normalized else "role-1"
+        candidate = base
+        index = 1
+        queryset = Role.objects.all()
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        existing_codes = set(queryset.values_list("code", flat=True))
+        while candidate in existing_codes:
+            index += 1
+            candidate = f"{base}-{index}"
+        return candidate
 
 
 class PermissionSerializer(serializers.ModelSerializer):

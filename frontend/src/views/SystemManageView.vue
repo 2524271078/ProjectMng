@@ -165,8 +165,8 @@
           <el-form-item label="角色名称" required>
             <el-input v-model="roleForm.name" />
           </el-form-item>
-          <el-form-item label="角色编码" required>
-            <el-input v-model="roleForm.code" :disabled="Boolean(editingRoleId)" />
+          <el-form-item label="角色编码">
+            <el-input :model-value="roleForm.code || '保存后自动生成'" disabled />
           </el-form-item>
           <el-form-item label="状态">
             <el-select v-model="roleForm.status">
@@ -474,8 +474,8 @@ async function syncRolePermissions(roleId) {
 }
 
 async function saveRole() {
-  if (!roleForm.name.trim() || !roleForm.code.trim()) {
-    ElMessage.warning('请填写角色名称和编码')
+  if (!roleForm.name.trim()) {
+    ElMessage.warning('请填写角色名称')
     return
   }
 

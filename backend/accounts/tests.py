@@ -38,6 +38,31 @@ class AccountApiTests(APITestCase):
         self.assertEqual(current.data["access_profile"]["bound_person"]["id"], sales.id)
         self.assertEqual(len(current.data["access_profile"]["sales_scope"]), 2)
 
+    def test_role_api_auto_generates_code_when_missing(self):
+        operator = User.objects.create_superuser(username="root", password="pass123456", email="root@example.com")
+        self.client.force_authenticate(operator)
+
+        response = self.client.post("/api/roles/", {
+            "name": "项目经理",
+            "remark": "自动编码",
+            "status": "active",
+        }, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data["code"].startswith("role-"))
+
+    def test_menu_api_bootstraps_default_menus_when_empty(self):
+        operator = User.objects.create_superuser(username="root2", password="pass123456", email="root2@example.com")
+        self.client.force_authenticate(operator)
+        Menu.objects.all().delete()
+
+        response = self.client.get("/api/menus/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.data), 8)
+        self.assertTrue(any(item["code"] == "customers" for item in response.data))
+        self.assertEqual(Menu.objects.count(), len(response.data))
+
     def test_user_api_can_create_user_with_roles_and_sales_scope(self):
         operator = User.objects.create_superuser(username="root", password="pass123456", email="root@example.com")
         self.client.force_authenticate(operator)

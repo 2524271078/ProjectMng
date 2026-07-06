@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from accounts.models import Menu, Permission, Role, UserRole
 from accounts.serializers import MenuSerializer, PermissionSerializer, RoleSerializer, UserRoleSerializer, UserSerializer
-from accounts.services import get_user_menus, get_user_permissions, get_user_role_ids
+from accounts.services import ensure_default_menus, get_user_menus, get_user_permissions, get_user_role_ids
 
 
 @api_view(["POST"])
@@ -48,6 +48,10 @@ class RoleViewSet(viewsets.ModelViewSet):
 class MenuViewSet(viewsets.ModelViewSet):
     queryset = Menu.objects.all().order_by("order_index", "id")
     serializer_class = MenuSerializer
+
+    def get_queryset(self):
+        ensure_default_menus()
+        return super().get_queryset()
 
 
 class PermissionViewSet(viewsets.ModelViewSet):
