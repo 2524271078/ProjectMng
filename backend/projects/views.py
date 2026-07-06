@@ -141,7 +141,7 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
     @action(detail=True, methods=["get"], url_path="devices")
     def devices(self, request, pk=None):
         customer = self.get_object()
-        queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").filter(
+        queryset = Device.objects.select_related("device_model", "device_model__product", "device_model__product_version", "customer_org", "sales_person", "ops_person").filter(
             Q(customer_org=customer) |
             Q(project_devices__project__customer_org=customer, project_devices__is_deleted=False),
             is_deleted=False,
@@ -259,7 +259,7 @@ class ProjectViewSet(SoftDeleteModelViewSet):
     @action(detail=True, methods=["get"], url_path="devices")
     def devices(self, request, pk=None):
         project = self.get_object()
-        queryset = project.project_devices.filter(is_deleted=False).select_related("device", "device__device_model")
+        queryset = project.project_devices.filter(is_deleted=False).select_related("device", "device__device_model", "device__device_model__product", "device__device_model__product_version")
         return build_paginated_response(request, queryset, lambda page_items: [project_device_summary(item) for item in page_items])
 
     @action(detail=True, methods=["get"], url_path="contracts")
@@ -280,7 +280,7 @@ class ProjectViewSet(SoftDeleteModelViewSet):
 
 
 class ProjectDeviceViewSet(SoftDeleteModelViewSet):
-    queryset = ProjectDevice.objects.select_related("project", "device").all().order_by("id")
+    queryset = ProjectDevice.objects.select_related("project", "device", "device__device_model", "device__device_model__product", "device__device_model__product_version").all().order_by("id")
     serializer_class = ProjectDeviceSerializer
 
 
@@ -333,12 +333,30 @@ def person_summary(person):
     return {"id": person.id, "name": person.name, "person_type": person.person_type, "position": person.position, "phone": person.phone, "email": person.email}
 
 
+def device_model_summary(model):
+    if not model:
+        return None
+    product = getattr(model, "product", None)
+    version = getattr(model, "product_version", None)
+    return {
+        "id": model.id,
+        "model_name": model.model_name,
+        "model_code": model.model_code,
+        "product": model.product_id,
+        "product_name": product.name if product else "",
+        "product_version": model.product_version_id,
+        "product_version_name": version.version_name if version else "",
+    }
+
+
 def device_summary(device):
     latest_binding = latest_project_device_service(device)
     return {
         "id": device.id,
         "name": device.name,
         "serial_number": device.serial_number,
+        "device_model": device.device_model_id,
+        "device_model_detail": device_model_summary(device.device_model),
         "hardware_code": device.hardware_code,
         "management_address": device.management_address,
         "version_update_method": device.version_update_method,
@@ -472,7 +490,7 @@ def customer_overview(request, pk):
 
 @api_view(["GET"])
 def device_overview(request, pk):
-    device = Device.objects.select_related("customer_org", "sales_person", "ops_person", "device_model__product").get(pk=pk)
+    device = Device.objects.select_related("customer_org", "sales_person", "ops_person", "device_model__product", "device_model__product_version").get(pk=pk)
     latest_binding = latest_project_device_service(device)
     latest_project = latest_binding.project if latest_binding else None
     customer_org = device.customer_org or (latest_project.customer_org if latest_project else None)

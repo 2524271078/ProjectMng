@@ -52,6 +52,7 @@ class DeviceSerializer(serializers.ModelSerializer):
     customer_org_detail = serializers.SerializerMethodField()
     customer_contact_detail = serializers.SerializerMethodField()
     sales_person_detail = serializers.SerializerMethodField()
+    device_model_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = Device
@@ -102,6 +103,22 @@ class DeviceSerializer(serializers.ModelSerializer):
         project = self._latest_project(obj)
         person = obj.sales_person or (project.sales_person if project else None)
         return PersonSerializer(person).data if person else None
+
+    def get_device_model_detail(self, obj):
+        model = obj.device_model
+        if not model:
+            return None
+        product = getattr(model, 'product', None)
+        version = getattr(model, 'product_version', None)
+        return {
+            'id': model.id,
+            'model_name': model.model_name,
+            'model_code': model.model_code,
+            'product': model.product_id,
+            'product_name': product.name if product else '',
+            'product_version': model.product_version_id,
+            'product_version_name': version.version_name if version else '',
+        }
 
 
 class ProjectSerializer(serializers.ModelSerializer):

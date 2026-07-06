@@ -569,6 +569,8 @@ class ProjectApiTests(APITestCase):
         self.assertEqual(overview.data["customer_contact"]["name"], "API 客户联系人")
         self.assertEqual(overview.data["customer_contact"]["position"], "项目经理")
         self.assertEqual(overview.data["devices"][0]["serial_number"], "API-SN-001")
+        self.assertEqual(overview.data["devices"][0]["device_model_detail"]["model_name"], "DA-2000")
+        self.assertEqual(overview.data["devices"][0]["device_model_detail"]["model_code"], "DA2000")
 
 
 class ProjectDeviceDetailApiTests(APITestCase):
@@ -626,6 +628,10 @@ class ProjectDeviceDetailApiTests(APITestCase):
         self.assertEqual(detail["device_project_type"], "正式设备")
         self.assertEqual(detail["ops_person"]["name"], "现场运维")
         self.assertEqual(detail["remark"], "设备备注")
+        self.assertEqual(detail["device_model_detail"]["model_name"], "TEST-1000")
+        self.assertEqual(detail["device_model_detail"]["model_code"], "TEST1000")
+        self.assertEqual(detail["device_model_detail"]["product_name"], "测试产品")
+        self.assertEqual(detail["device_model_detail"]["product_version_name"], "V1.0")
 
 
 class AttachmentUploadApiTests(APITestCase):
@@ -984,6 +990,8 @@ class DeviceDirectoryApiTests(APITestCase):
         self.assertEqual(item["sales_person_detail"]["name"], "设备中心销售")
         self.assertEqual(item["current_service_start_date"], "2026-07-01")
         self.assertEqual(item["current_service_end_date"], "2027-06-30")
+        self.assertEqual(item["device_model_detail"]["model_name"], "DEVICE-DIR-1000")
+        self.assertEqual(item["device_model_detail"]["model_code"], "DEVICE-DIR-1000")
 
     def test_device_overview_includes_customer_contact_detail(self):
         customer = Organization.objects.create(name="设备详情客户", org_type="customer")
@@ -1020,6 +1028,8 @@ class DeviceDirectoryApiTests(APITestCase):
         self.assertEqual(response.data["customer_contact"]["id"], contact.id)
         self.assertEqual(response.data["customer_contact"]["name"], "设备详情联系人")
         self.assertEqual(response.data["sales_person"]["id"], sales.id)
+        self.assertEqual(response.data["device"]["device_model_detail"]["model_name"], "DEVICE-OVERVIEW-1000")
+        self.assertEqual(response.data["device"]["device_model_detail"]["model_code"], "DEVICE-OVERVIEW-1000")
 
 
 
