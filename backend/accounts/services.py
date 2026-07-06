@@ -17,7 +17,7 @@ def get_user_sales_scope(user):
 
     profile = getattr(user, "access_profile", None)
     if not profile:
-        return set()
+        return None
 
     if profile.data_scope_type == UserAccessProfile.DATA_SCOPE_ALL:
         return None
@@ -40,7 +40,7 @@ def get_user_menus(user):
 
 def get_user_permissions(user):
     if user.is_superuser:
-        return [("*", "*")]
+        return [["*", "*"]]
     role_ids = get_user_role_ids(user)
     return [list(item) for item in Permission.objects.filter(role_id__in=role_ids).values_list("menu__code", "action")]
 
@@ -59,4 +59,5 @@ def filter_queryset_by_sales_scope(queryset, user, sales_field="sales_person_id"
     if not sales_ids:
         return queryset.none()
     return queryset.filter(**{f"{sales_field}__in": list(sales_ids)})
+
 

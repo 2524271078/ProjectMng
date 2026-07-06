@@ -1,12 +1,14 @@
 from math import ceil
 
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action, api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status, viewsets
 
+from accounts.services import filter_queryset_by_sales_scope, get_user_sales_scope
 from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation
 from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer
 
@@ -124,6 +126,38 @@ def apply_device_model_scope(queryset, query_params):
     return queryset.filter(**{lookup: value})
 
 
+def customer_ids_for_user(user):
+    sales_ids = get_user_sales_scope(user)
+    if sales_ids is None:
+        return None
+    if not sales_ids:
+        return set()
+    return set(
+        SalesCustomerRelation.objects.filter(is_deleted=False, sales_person_id__in=sales_ids).values_list("customer_org_id", flat=True)
+    )
+
+
+def filter_customer_queryset_for_user(queryset, user):
+    customer_ids = customer_ids_for_user(user)
+    if customer_ids is None:
+        return queryset
+    if not customer_ids:
+        return queryset.none()
+    return queryset.filter(id__in=customer_ids)
+
+
+def filter_device_queryset_for_user(queryset, user):
+    sales_ids = get_user_sales_scope(user)
+    if sales_ids is None:
+        return queryset
+    if not sales_ids:
+        return queryset.none()
+    return queryset.filter(
+        Q(sales_person_id__in=sales_ids)
+        | Q(sales_person__isnull=True, project_devices__is_deleted=False, project_devices__project__sales_person_id__in=sales_ids)
+    ).distinct()
+
+
 class OrganizationViewSet(SoftDeleteModelViewSet):
     queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
@@ -135,41 +169,52 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        org_type = self.request.query_params.get("org_type", "").strip()
         search_value = self.request.query_params.get("search", "").strip()
+        if org_type:
+            queryset = queryset.filter(org_type=org_type)
+        if org_type == "customer":
+            queryset = filter_customer_queryset_for_user(queryset, self.request.user)
         return apply_search(queryset, search_value, ["name", "region", "org_type"])
 
     @action(detail=True, methods=["get"], url_path="devices")
     def devices(self, request, pk=None):
-        customer = self.get_object()
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
         queryset = Device.objects.select_related("device_model", "device_model__product", "device_model__product_version", "customer_org", "sales_person", "ops_person").filter(
             Q(customer_org=customer) |
             Q(project_devices__project__customer_org=customer, project_devices__is_deleted=False),
             is_deleted=False,
         ).distinct()
+        queryset = filter_device_queryset_for_user(queryset, request.user)
         return build_paginated_response(request, queryset, lambda page_items: [device_summary(item) for item in page_items])
 
     @action(detail=True, methods=["get"], url_path="projects")
     def projects(self, request, pk=None):
-        customer = self.get_object()
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
         queryset = customer.projects.filter(is_deleted=False).select_related("customer_contact", "sales_person")
+        queryset = filter_queryset_by_sales_scope(queryset, request.user, "sales_person_id")
         return build_paginated_response(request, queryset, lambda page_items: [project_summary(item) for item in page_items])
 
     @action(detail=True, methods=["get"], url_path="contracts")
     def contracts(self, request, pk=None):
-        customer = self.get_object()
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
         queryset = customer.final_customer_contracts.filter(is_deleted=False).select_related("sales_person", "final_customer", "direct_buyer")
+        queryset = filter_queryset_by_sales_scope(queryset, request.user, "sales_person_id")
         return build_paginated_response(request, queryset, lambda page_items: [contract_summary(item) for item in page_items])
 
     @action(detail=True, methods=["get"], url_path="contacts")
     def contacts(self, request, pk=None):
-        customer = self.get_object()
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
         queryset = customer.people.filter(person_type="customer_contact", is_deleted=False)
         return build_paginated_response(request, queryset, lambda page_items: [person_summary(item) for item in page_items])
 
     @action(detail=True, methods=["get"], url_path="sales")
     def sales(self, request, pk=None):
-        customer = self.get_object()
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
         queryset = customer.sales_relations.filter(is_deleted=False).select_related("sales_person")
+        sales_ids = get_user_sales_scope(request.user)
+        if sales_ids is not None:
+            queryset = queryset.filter(sales_person_id__in=sales_ids) if sales_ids else queryset.none()
         return build_paginated_response(request, queryset, lambda page_items: [person_summary(item.sales_person) for item in page_items])
 
 
@@ -183,6 +228,10 @@ class PersonViewSet(SoftDeleteModelViewSet):
         search_value = self.request.query_params.get("search", "").strip()
         if person_type:
             queryset = queryset.filter(person_type=person_type)
+            if person_type == "sales":
+                sales_ids = get_user_sales_scope(self.request.user)
+                if sales_ids is not None:
+                    queryset = queryset.filter(id__in=sales_ids) if sales_ids else queryset.none()
         return apply_search(queryset, search_value, ["name", "phone", "email"])
 
 
@@ -244,6 +293,7 @@ class DeviceViewSet(SoftDeleteModelViewSet):
                 "project_devices__project__sales_person__name",
             ],
         )
+        queryset = filter_device_queryset_for_user(queryset, self.request.user)
         return queryset.distinct()
 
 
@@ -254,6 +304,7 @@ class ProjectViewSet(SoftDeleteModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         search_value = self.request.query_params.get("search", "").strip()
+        queryset = filter_queryset_by_sales_scope(queryset, self.request.user, "sales_person_id")
         return apply_search(queryset, search_value, ["name", "customer_org__name", "sales_person__name", "project_stage"])
 
     @action(detail=True, methods=["get"], url_path="devices")
@@ -292,6 +343,12 @@ class ProjectContractViewSet(SoftDeleteModelViewSet):
 class ContractViewSet(SoftDeleteModelViewSet):
     queryset = Contract.objects.select_related("final_customer", "direct_buyer", "sales_person").all()
     serializer_class = ContractSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search_value = self.request.query_params.get("search", "").strip()
+        queryset = filter_queryset_by_sales_scope(queryset, self.request.user, "sales_person_id")
+        return apply_search(queryset, search_value, ["contract_no", "contract_name", "final_customer__name", "sales_person__name"])
 
 
 class ContractDeviceViewSet(SoftDeleteModelViewSet):
@@ -442,7 +499,10 @@ def project_summary(project):
 
 @api_view(["GET"])
 def sales_customers(request, pk):
-    relations = SalesCustomerRelation.objects.filter(sales_person_id=pk).select_related("customer_org")
+    sales_ids = get_user_sales_scope(request.user)
+    if sales_ids is not None and pk not in sales_ids:
+        return Response([], status=status.HTTP_200_OK)
+    relations = SalesCustomerRelation.objects.filter(sales_person_id=pk, is_deleted=False).select_related("customer_org")
     payload = []
     for relation in relations:
         customer = relation.customer_org
@@ -476,7 +536,7 @@ def sales_customer_relations(request, pk):
 
 @api_view(["GET"])
 def customer_overview(request, pk):
-    customer = Organization.objects.get(pk=pk)
+    customer = get_object_or_404(filter_customer_queryset_for_user(Organization.objects.all(), request.user), pk=pk)
     relations = customer.sales_relations.select_related("sales_person").all()
     return Response({
         "customer": organization_summary(customer),
@@ -490,7 +550,7 @@ def customer_overview(request, pk):
 
 @api_view(["GET"])
 def device_overview(request, pk):
-    device = Device.objects.select_related("customer_org", "sales_person", "ops_person", "device_model__product", "device_model__product_version").get(pk=pk)
+    device = get_object_or_404(filter_device_queryset_for_user(Device.objects.select_related("customer_org", "sales_person", "ops_person", "device_model__product", "device_model__product_version"), request.user), pk=pk)
     latest_binding = latest_project_device_service(device)
     latest_project = latest_binding.project if latest_binding else None
     customer_org = device.customer_org or (latest_project.customer_org if latest_project else None)
@@ -510,7 +570,7 @@ def device_overview(request, pk):
 
 @api_view(["GET"])
 def project_overview(request, pk):
-    project = Project.objects.select_related("customer_org", "customer_contact", "sales_person", "ops_person").get(pk=pk)
+    project = get_object_or_404(filter_queryset_by_sales_scope(Project.objects.select_related("customer_org", "customer_contact", "sales_person", "ops_person"), request.user, "sales_person_id"), pk=pk)
     bindings = project.project_devices.select_related("device", "device__device_model").all()
     project_contracts = project.project_contracts.select_related("contract").all()
     return Response({
@@ -527,7 +587,7 @@ def project_overview(request, pk):
 
 @api_view(["GET"])
 def contract_overview(request, pk):
-    contract = Contract.objects.get(pk=pk)
+    contract = get_object_or_404(filter_queryset_by_sales_scope(Contract.objects.all(), request.user, "sales_person_id"), pk=pk)
     parties = contract.parties.select_related("organization").all()
     bindings = contract.contract_devices.select_related("device").all()
     return Response({

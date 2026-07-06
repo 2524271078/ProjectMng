@@ -1137,3 +1137,86 @@ class DeviceDirectorySearchApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["id"] for item in api_results(response)], [device.id])
+
+
+class DataScopeFilteringTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from accounts.models import UserAccessProfile, UserSalesScope
+
+        self.user = User.objects.create_user(username="scope-user", password="pass123456")
+        self.client.force_authenticate(self.user)
+        self.internal = Organization.objects.create(name="权限内部组织", org_type="internal_company")
+        self.allowed_sales = Person.objects.create(name="允许销售", organization=self.internal, person_type="sales")
+        self.other_sales = Person.objects.create(name="其他销售", organization=self.internal, person_type="sales")
+        profile = UserAccessProfile.objects.create(user=self.user, data_scope_type=UserAccessProfile.DATA_SCOPE_CUSTOM)
+        UserSalesScope.objects.create(profile=profile, sales_person=self.allowed_sales)
+
+        self.allowed_customer = Organization.objects.create(name="允许客户", org_type="customer")
+        self.other_customer = Organization.objects.create(name="其他客户", org_type="customer")
+        SalesCustomerRelation.objects.create(sales_person=self.allowed_sales, customer_org=self.allowed_customer, relation_type="owner")
+        SalesCustomerRelation.objects.create(sales_person=self.other_sales, customer_org=self.other_customer, relation_type="owner")
+
+        product = Product.objects.create(name="权限产品", product_code="SCOPE-P")
+        model = DeviceModel.objects.create(product=product, model_name="SCOPE-1000", model_code="SCOPE-1000")
+
+        self.allowed_project = Project.objects.create(project_no="SCOPE-PRJ-1", name="允许项目", customer_org=self.allowed_customer, sales_person=self.allowed_sales)
+        self.other_project = Project.objects.create(project_no="SCOPE-PRJ-2", name="其他项目", customer_org=self.other_customer, sales_person=self.other_sales)
+
+        self.allowed_device = Device.objects.create(name="允许设备", serial_number="SCOPE-DEVICE-1", device_model=model, customer_org=self.allowed_customer, sales_person=self.allowed_sales)
+        self.fallback_device = Device.objects.create(name="回退设备", serial_number="SCOPE-DEVICE-2", device_model=model, customer_org=self.allowed_customer, sales_person=None)
+        self.other_device = Device.objects.create(name="其他设备", serial_number="SCOPE-DEVICE-3", device_model=model, customer_org=self.other_customer, sales_person=self.other_sales)
+        ProjectDevice.objects.create(project=self.allowed_project, device=self.allowed_device, service_type="new_install")
+        ProjectDevice.objects.create(project=self.allowed_project, device=self.fallback_device, service_type="renewal")
+        ProjectDevice.objects.create(project=self.other_project, device=self.other_device, service_type="renewal")
+
+        self.allowed_contract = Contract.objects.create(contract_no="SCOPE-CON-1", contract_name="允许合同", final_customer=self.allowed_customer, sales_person=self.allowed_sales)
+        self.other_contract = Contract.objects.create(contract_no="SCOPE-CON-2", contract_name="其他合同", final_customer=self.other_customer, sales_person=self.other_sales)
+
+    def test_project_list_is_filtered_by_authorized_sales(self):
+        response = self.client.get('/api/projects/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item['id'] for item in api_results(response)], [self.allowed_project.id])
+
+    def test_device_list_allows_direct_and_project_fallback_sales_matches(self):
+        response = self.client.get('/api/devices/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            [item['id'] for item in api_results(response)],
+            [self.allowed_device.id, self.fallback_device.id],
+        )
+
+    def test_customer_customer_tree_query_only_returns_authorized_customers(self):
+        response = self.client.get('/api/organizations/?org_type=customer')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item['id'] for item in response.data], [self.allowed_customer.id])
+
+    def test_sales_people_list_and_overview_are_filtered(self):
+        sales_response = self.client.get('/api/people/?person_type=sales')
+        visible_sales_ids = [item['id'] for item in api_results(sales_response)]
+        self.assertEqual(visible_sales_ids, [self.allowed_sales.id])
+
+        allowed_customers = self.client.get(f'/api/sales/{self.allowed_sales.id}/customers/')
+        blocked_customers = self.client.get(f'/api/sales/{self.other_sales.id}/customers/')
+        self.assertEqual(allowed_customers.status_code, 200)
+        self.assertEqual(len(allowed_customers.data), 1)
+        self.assertEqual(blocked_customers.status_code, 200)
+        self.assertEqual(blocked_customers.data, [])
+
+    def test_customer_project_contract_and_overview_block_unauthorized_records(self):
+        allowed_customer = self.client.get(f'/api/customers/{self.allowed_customer.id}/overview/')
+        blocked_customer = self.client.get(f'/api/customers/{self.other_customer.id}/overview/')
+        allowed_project = self.client.get(f'/api/projects/{self.allowed_project.id}/overview/')
+        blocked_project = self.client.get(f'/api/projects/{self.other_project.id}/overview/')
+        allowed_contract = self.client.get(f'/api/contracts/{self.allowed_contract.id}/overview/')
+        blocked_contract = self.client.get(f'/api/contracts/{self.other_contract.id}/overview/')
+
+        self.assertEqual(allowed_customer.status_code, 200)
+        self.assertEqual(blocked_customer.status_code, 404)
+        self.assertEqual(allowed_project.status_code, 200)
+        self.assertEqual(blocked_project.status_code, 404)
+        self.assertEqual(allowed_contract.status_code, 200)
+        self.assertEqual(blocked_contract.status_code, 404)
