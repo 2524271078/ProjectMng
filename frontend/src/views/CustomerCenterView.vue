@@ -301,9 +301,13 @@ const salesPagination = buildPaginationState()
 const devicePagination = buildPaginationState()
 const contractPagination = buildPaginationState()
 const projectPagination = buildPaginationState()
+const projectDeviceDrawerPagination = reactive({ page: 1, pageSize: 5, total: 0 })
+const projectContractDrawerPagination = reactive({ page: 1, pageSize: 5, total: 0 })
+const projectAttachmentDrawerPagination = reactive({ page: 1, pageSize: 5, total: 0 })
 
 const projectDrawerVisible = ref(false)
 const projectOverview = ref(null)
+const projectDetailTab = ref('base')
 const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
 const dialogVisible = ref(false)
@@ -314,6 +318,9 @@ const editingId = ref(null)
 const form = reactive({ parent: null, name: '', org_type: 'customer', short_name: '', region: '', address: '' })
 const treeProps = { label: 'name', children: 'children' }
 const treeData = computed(() => buildOrganizationTree(organizations.value))
+const projectDeviceRows = computed(() => paginateProjectDrawerRows(projectOverview.value?.devices || [], projectDeviceDrawerPagination))
+const projectContractRows = computed(() => paginateProjectDrawerRows(projectOverview.value?.contracts || [], projectContractDrawerPagination))
+const projectAttachmentRows = computed(() => paginateProjectDrawerRows(projectOverview.value?.attachments || [], projectAttachmentDrawerPagination))
 
 function resetPaginationState(state) {
   state.page = 1
@@ -527,6 +534,8 @@ async function selectCustomer(node) {
 async function openProjectDetail(row) {
   const { data } = await fetchProjectOverview(row.id)
   projectOverview.value = data
+  projectDetailTab.value = 'base'
+  resetProjectDrawerPagination()
   projectDrawerVisible.value = true
 }
 
