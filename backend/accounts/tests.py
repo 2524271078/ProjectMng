@@ -1,20 +1,27 @@
-from datetime import date
+﻿from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 
-from accounts.models import Menu, Permission, Role, UserRole
+from accounts.models import Menu, Permission, Role, UserAccessProfile, UserRole, UserSalesScope
 from projects.models import Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, SalesCustomerRelation
 
 
 class AccountApiTests(APITestCase):
-    def test_login_returns_token_and_current_user_menus(self):
+    def test_login_returns_token_and_current_user_permissions_and_scope(self):
         user = User.objects.create_user(username="admin", password="pass123456")
         role = Role.objects.create(name="管理员", code="admin")
         menu = Menu.objects.create(name="客户中心", code="customers", path="/customers", order_index=1)
         Permission.objects.create(role=role, menu=menu, action="view")
         UserRole.objects.create(user=user, role=role)
+        sales = Person.objects.create(name="许超飞", person_type="sales")
+        other_sales = Person.objects.create(name="P1", person_type="sales")
+        sales.user = user
+        sales.save(update_fields=["user"])
+        profile = UserAccessProfile.objects.create(user=user, data_scope_type=UserAccessProfile.DATA_SCOPE_CUSTOM)
+        UserSalesScope.objects.create(profile=profile, sales_person=sales)
+        UserSalesScope.objects.create(profile=profile, sales_person=other_sales)
 
         login = self.client.post("/api/auth/login/", {"username": "admin", "password": "pass123456"}, format="json")
         self.assertEqual(login.status_code, 200)
@@ -26,6 +33,42 @@ class AccountApiTests(APITestCase):
         self.assertEqual(current.status_code, 200)
         self.assertEqual(current.data["username"], "admin")
         self.assertEqual(current.data["menus"][0]["code"], "customers")
+        self.assertEqual(current.data["permissions"][0], ["customers", "view"])
+        self.assertEqual(current.data["access_profile"]["data_scope_type"], UserAccessProfile.DATA_SCOPE_CUSTOM)
+        self.assertEqual(current.data["access_profile"]["bound_person"]["id"], sales.id)
+        self.assertEqual(len(current.data["access_profile"]["sales_scope"]), 2)
+
+    def test_user_api_can_create_user_with_roles_and_sales_scope(self):
+        operator = User.objects.create_superuser(username="root", password="pass123456", email="root@example.com")
+        self.client.force_authenticate(operator)
+        role = Role.objects.create(name="销售经理", code="sales-manager")
+        sales = Person.objects.create(name="许超飞", person_type="sales")
+        managed_a = Person.objects.create(name="P1", person_type="sales")
+        managed_b = Person.objects.create(name="P2", person_type="sales")
+
+        response = self.client.post("/api/users/", {
+            "username": "manager1",
+            "email": "manager1@example.com",
+            "password": "pass123456",
+            "is_active": True,
+            "is_staff": False,
+            "is_superuser": False,
+            "role_ids": [role.id],
+            "bound_person_id": sales.id,
+            "data_scope_type": UserAccessProfile.DATA_SCOPE_CUSTOM,
+            "sales_scope_ids": [managed_a.id, managed_b.id],
+        }, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        created = User.objects.get(username="manager1")
+        self.assertTrue(created.check_password("pass123456"))
+        self.assertEqual(created.user_roles.first().role_id, role.id)
+        self.assertEqual(created.person_profile.id, sales.id)
+        self.assertEqual(created.access_profile.data_scope_type, UserAccessProfile.DATA_SCOPE_CUSTOM)
+        self.assertCountEqual(
+            list(created.access_profile.sales_scopes.values_list("sales_person_id", flat=True)),
+            [managed_a.id, managed_b.id],
+        )
 
 
 class BusinessApiTests(APITestCase):
@@ -61,8 +104,6 @@ class BusinessApiTests(APITestCase):
         self.assertEqual(response.data[0]["name"], "客户 A")
         self.assertEqual(response.data[0]["devices"][0]["serial_number"], "SN-A")
         self.assertEqual(response.data[0]["contracts"][0]["contract_no"], "C-A")
-
-
 
     def test_set_sales_customers_creates_relations_visible_in_customer_overview(self):
         customer = Organization.objects.create(name="客户 B", org_type="customer")

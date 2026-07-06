@@ -1,4 +1,4 @@
-from django.conf import settings
+﻿from django.conf import settings
 from django.db import models
 
 
@@ -31,9 +31,20 @@ class Menu(models.Model):
 
 
 class Permission(models.Model):
+    ACTION_VIEW = "view"
+    ACTION_CREATE = "create"
+    ACTION_EDIT = "edit"
+    ACTION_DELETE = "delete"
+    ACTION_CHOICES = [
+        (ACTION_VIEW, "查看"),
+        (ACTION_CREATE, "新增"),
+        (ACTION_EDIT, "编辑"),
+        (ACTION_DELETE, "删除"),
+    ]
+
     role = models.ForeignKey(Role, related_name="permissions", on_delete=models.CASCADE)
     menu = models.ForeignKey(Menu, related_name="permissions", on_delete=models.CASCADE)
-    action = models.CharField(max_length=64, default="view")
+    action = models.CharField(max_length=64, default=ACTION_VIEW, choices=ACTION_CHOICES)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["role", "menu", "action"], name="uniq_role_menu_action")]
@@ -45,3 +56,30 @@ class UserRole(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["user", "role"], name="uniq_user_role")]
+
+
+class UserAccessProfile(models.Model):
+    DATA_SCOPE_ALL = "all"
+    DATA_SCOPE_SELF = "self"
+    DATA_SCOPE_CUSTOM = "custom"
+    DATA_SCOPE_CHOICES = [
+        (DATA_SCOPE_ALL, "全部数据"),
+        (DATA_SCOPE_SELF, "本人销售数据"),
+        (DATA_SCOPE_CUSTOM, "自定义销售范围"),
+    ]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name="access_profile", on_delete=models.CASCADE)
+    data_scope_type = models.CharField(max_length=16, choices=DATA_SCOPE_CHOICES, default=DATA_SCOPE_CUSTOM)
+    remark = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=32, default="active", db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class UserSalesScope(models.Model):
+    profile = models.ForeignKey(UserAccessProfile, related_name="sales_scopes", on_delete=models.CASCADE)
+    sales_person = models.ForeignKey("projects.Person", related_name="user_sales_scopes", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["profile", "sales_person"], name="uniq_profile_sales_scope")]

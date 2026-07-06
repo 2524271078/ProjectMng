@@ -1,12 +1,13 @@
-from django.contrib.auth import authenticate
+﻿from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from accounts.models import Menu, Permission, Role, UserRole
 from accounts.serializers import MenuSerializer, PermissionSerializer, RoleSerializer, UserRoleSerializer, UserSerializer
+from accounts.services import get_user_menus, get_user_permissions, get_user_role_ids
 
 
 @api_view(["POST"])
@@ -23,17 +24,19 @@ def login_view(request):
 
 @api_view(["GET"])
 def current_user_view(request):
-    role_ids = UserRole.objects.filter(user=request.user).values_list("role_id", flat=True)
-    menu_ids = Permission.objects.filter(role_id__in=role_ids).values_list("menu_id", flat=True).distinct()
-    menus = Menu.objects.filter(id__in=menu_ids, status="active").order_by("order_index", "id")
+    menus = get_user_menus(request.user)
     data = UserSerializer(request.user).data
+    data["role_ids"] = get_user_role_ids(request.user)
     data["menus"] = MenuSerializer(menus, many=True).data
-    data["permissions"] = list(Permission.objects.filter(role_id__in=role_ids).values_list("menu__code", "action"))
+    data["permissions"] = get_user_permissions(request.user)
     return Response(data)
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by("id")
+    queryset = User.objects.prefetch_related(
+        "user_roles__role",
+        "access_profile__sales_scopes__sales_person",
+    ).all().order_by("id")
     serializer_class = UserSerializer
 
 
