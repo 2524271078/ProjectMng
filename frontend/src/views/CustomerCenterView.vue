@@ -154,7 +154,7 @@
     </el-dialog>
 
     <el-drawer v-model="projectDrawerVisible" size="68%" title="项目详情">
-      <el-tabs v-if="projectOverview" model-value="base" class="drawer-tabs-scroll">
+      <el-tabs v-if="projectOverview" v-model="projectDetailTab" class="drawer-tabs-scroll">
         <el-tab-pane label="基础信息" name="base">
           <el-descriptions :column="2" border>
             <el-descriptions-item label="项目编号">{{ projectOverview.project.project_no }}</el-descriptions-item>
@@ -171,7 +171,8 @@
         </el-tab-pane>
 
         <el-tab-pane label="项目设备" name="devices">
-          <el-table :data="projectOverview.devices || []" stripe>
+          <div class="drawer-table-scroll">
+          <el-table :data="projectDeviceRows" stripe>
             <el-table-column prop="name" label="设备" min-width="160" />
             <el-table-column prop="serial_number" label="序列号" min-width="160" />
             <el-table-column label="产品型号" min-width="180" show-overflow-tooltip>
@@ -194,19 +195,29 @@
               </template>
             </el-table-column>
           </el-table>
+          </div>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="projectDeviceDrawerPagination.page" :page-size="projectDeviceDrawerPagination.pageSize" :page-sizes="[5, 10, 20]" :total="projectDeviceDrawerPagination.total" @current-change="handleProjectDeviceDrawerPageChange" @size-change="handleProjectDeviceDrawerPageSizeChange" />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="关联合同" name="contracts">
-          <el-table :data="projectOverview.contracts || []" stripe>
+          <div class="drawer-table-scroll">
+            <el-table :data="projectContractRows" stripe>
             <el-table-column prop="contract_no" label="合同编号" min-width="150" />
             <el-table-column prop="contract_name" label="合同名称" min-width="220" />
             <el-table-column prop="amount" label="金额" min-width="120" />
             <el-table-column prop="status" label="状态" min-width="120" />
           </el-table>
+          </div>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="projectContractDrawerPagination.page" :page-size="projectContractDrawerPagination.pageSize" :page-sizes="[5, 10, 20]" :total="projectContractDrawerPagination.total" @current-change="handleProjectContractDrawerPageChange" @size-change="handleProjectContractDrawerPageSizeChange" />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane label="项目附件" name="attachments">
-          <el-table :data="projectOverview.attachments || []" stripe>
+          <div class="drawer-table-scroll">
+            <el-table :data="projectAttachmentRows" stripe>
             <el-table-column prop="name" label="附件名" />
             <el-table-column prop="uploaded_at" label="上传时间" />
             <el-table-column label="操作" width="160">
@@ -216,6 +227,10 @@
               </template>
             </el-table-column>
           </el-table>
+          </div>
+          <div class="mt-16">
+            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="projectAttachmentDrawerPagination.page" :page-size="projectAttachmentDrawerPagination.pageSize" :page-sizes="[5, 10, 20]" :total="projectAttachmentDrawerPagination.total" @current-change="handleProjectAttachmentDrawerPageChange" @size-change="handleProjectAttachmentDrawerPageSizeChange" />
+          </div>
         </el-tab-pane>
       </el-tabs>
     </el-drawer>
@@ -315,6 +330,18 @@ function resetCustomerTabPagination() {
   resetPaginationState(devicePagination)
   resetPaginationState(contractPagination)
   resetPaginationState(projectPagination)
+}
+
+function paginateProjectDrawerRows(rows, pagination) {
+  pagination.total = rows.length
+  const start = (pagination.page - 1) * pagination.pageSize
+  return rows.slice(start, start + pagination.pageSize)
+}
+
+function resetProjectDrawerPagination() {
+  Object.assign(projectDeviceDrawerPagination, { page: 1, pageSize: 5, total: projectOverview.value?.devices?.length || 0 })
+  Object.assign(projectContractDrawerPagination, { page: 1, pageSize: 5, total: projectOverview.value?.contracts?.length || 0 })
+  Object.assign(projectAttachmentDrawerPagination, { page: 1, pageSize: 5, total: projectOverview.value?.attachments?.length || 0 })
 }
 
 async function loadCustomerContactsTab() {
@@ -519,6 +546,33 @@ async function openDeviceDetail(device) {
     ops_person: data.ops_person,
   }
   deviceDetailVisible.value = true
+}
+
+function handleProjectDeviceDrawerPageChange(page) {
+  projectDeviceDrawerPagination.page = page
+}
+
+function handleProjectDeviceDrawerPageSizeChange(pageSize) {
+  projectDeviceDrawerPagination.page = 1
+  projectDeviceDrawerPagination.pageSize = pageSize
+}
+
+function handleProjectContractDrawerPageChange(page) {
+  projectContractDrawerPagination.page = page
+}
+
+function handleProjectContractDrawerPageSizeChange(pageSize) {
+  projectContractDrawerPagination.page = 1
+  projectContractDrawerPagination.pageSize = pageSize
+}
+
+function handleProjectAttachmentDrawerPageChange(page) {
+  projectAttachmentDrawerPagination.page = page
+}
+
+function handleProjectAttachmentDrawerPageSizeChange(pageSize) {
+  projectAttachmentDrawerPagination.page = 1
+  projectAttachmentDrawerPagination.pageSize = pageSize
 }
 
 function previewAttachment(row) {
