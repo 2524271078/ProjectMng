@@ -59,6 +59,9 @@
       <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe>
         <el-table-column prop="name" label="设备" min-width="180" />
         <el-table-column prop="serial_number" label="序列号" min-width="160" />
+        <el-table-column label="产品型号" min-width="180" show-overflow-tooltip>
+          <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
+        </el-table-column>
         <el-table-column label="当前保内状态" min-width="120">
           <template #default="scope">{{ scope.row.current_service_status || '-' }}</template>
         </el-table-column>
@@ -105,6 +108,8 @@
           <el-descriptions-item label="客户公司">{{ selectedDevice.customer?.name || selectedDevice.customer_org_detail?.name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="客户联系人">{{ selectedDevice.customer_contact?.name || selectedDevice.customer_contact_detail?.name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="销售">{{ selectedDevice.sales_person?.name || selectedDevice.sales_person_detail?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="产品型号">{{ selectedDevice.device_model_detail?.model_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="型号编码">{{ selectedDevice.device_model_detail?.model_code || '-' }}</el-descriptions-item>
           <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
           <el-descriptions-item label="管理地址">{{ selectedDevice.management_address || '-' }}</el-descriptions-item>
           <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
