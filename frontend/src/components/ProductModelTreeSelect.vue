@@ -1,6 +1,6 @@
 <template>
   <el-tree-select
-    :model-value="modelValue"
+    :model-value="treeValue"
     :data="treeData"
     node-key="key"
     :props="treeProps"
@@ -8,26 +8,31 @@
     clearable
     filterable
     :placeholder="placeholder"
-    @update:model-value="$emit('update:modelValue', $event)"
+    @update:model-value="handleUpdate"
   />
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listAllResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
-import { buildProductModelTree } from '../utils/productModelTree'
+import { buildProductModelTree, parseProductModelTreeValue, toProductModelTreeKey } from '../utils/productModelTree'
 
-defineProps({
+const props = defineProps({
   modelValue: { type: [Number, null], default: null },
   placeholder: { type: String, default: '请选择具体型号' },
 })
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue'])
 
 const treeData = ref([])
 const treeProps = { label: 'label', children: 'children', disabled: 'disabled' }
+const treeValue = computed(() => toProductModelTreeKey(props.modelValue))
+
+function handleUpdate(value) {
+  emit('update:modelValue', parseProductModelTreeValue(value))
+}
 
 async function loadProductCatalogTree() {
   try {

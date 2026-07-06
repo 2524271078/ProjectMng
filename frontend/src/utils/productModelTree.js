@@ -20,6 +20,22 @@ function createModelNode(model) {
   }
 }
 
+export function toProductModelTreeKey(modelId) {
+  if (modelId === null || modelId === undefined || modelId === '') return null
+  return `model-${modelId}`
+}
+
+export function parseProductModelTreeValue(value) {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') {
+    const matched = value.match(/^model-(\d+)$/)
+    if (matched) return Number(matched[1])
+    if (/^\d+$/.test(value)) return Number(value)
+  }
+  return null
+}
+
 export function buildProductModelTree({ lines = [], products = [], versions = [], models = [] }) {
   const modelsByVersion = new Map()
   const modelsByProduct = new Map()
