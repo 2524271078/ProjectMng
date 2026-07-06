@@ -1,12 +1,12 @@
 <template>
   <main class="login-page">
     <section class="login-hero">
-      <span class="eyebrow">Project Management</span>
-      <h1>把分散表格变成可追踪的项目设备链路</h1>
-      <p>统一维护组织、人员、设备、合同和采购参与方，第一阶段优先跑通主流程。</p>
+      <span class="eyebrow">Delivery Hub</span>
+      <h1>交付中台</h1>
+      <p>客户、项目、设备、合同统一协同，支撑交付全过程管理。</p>
     </section>
     <el-card class="login-card" shadow="never">
-      <h2>登录系统</h2>
+      <h2>登录交付中台</h2>
       <el-form :model="form" @submit.prevent="submit">
         <el-form-item label="用户名"><el-input v-model="form.username" /></el-form-item>
         <el-form-item label="密码"><el-input v-model="form.password" type="password" show-password /></el-form-item>

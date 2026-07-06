@@ -4,8 +4,8 @@
       <div class="brand">
         <span class="brand-mark">PM</span>
         <div>
-          <strong>项目设备管理</strong>
-          <small>Project Ops</small>
+          <strong>交付中台</strong>
+          <small>Delivery Hub</small>
         </div>
       </div>
       <el-menu router :default-active="$route.path" class="side-menu">
@@ -16,7 +16,7 @@
       <header class="topbar">
         <div>
           <h1>{{ $route.meta.title || '工作台' }}</h1>
-          <p>销售、客户、设备、合同链路统一维护</p>
+          <p>客户、项目、设备、合同统一协同</p>
         </div>
         <el-button @click="handleLogout">退出</el-button>
       </header>
