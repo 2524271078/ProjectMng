@@ -1,4 +1,5 @@
-import axios from 'axios'
+﻿import axios from 'axios'
+import { resolveApiBaseUrl } from '../utils/apiBaseUrl'
 
 export const apiClient = axios.create({
   baseURL: resolveApiBaseUrl(import.meta.env, typeof window !== 'undefined' ? window.location.origin : ''),
@@ -18,3 +19,4 @@ export function login(payload) {
 export function fetchMe() {
   return apiClient.get('/auth/me/')
 }
+
