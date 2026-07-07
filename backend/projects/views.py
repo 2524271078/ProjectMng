@@ -418,11 +418,12 @@ def device_summary(device):
         "management_address": device.management_address,
         "version_update_method": device.version_update_method,
         "is_standard_product": device.is_standard_product,
+        "nonstandard_name": device.nonstandard_name,
         "supports_remote": device.supports_remote,
         "software_version": device.software_version,
         "rule_library_version": device.rule_library_version,
         "license_info": device.license_info,
-        "is_under_warranty": service_status_from_binding(latest_binding) == "保内",
+        "is_under_warranty": service_status_from_binding(latest_binding) == "\u4fdd\u5185",
         "current_service_status": service_status_from_binding(latest_binding),
         "current_service_start_date": latest_binding.service_start_date.isoformat() if latest_binding and latest_binding.service_start_date else None,
         "current_service_end_date": latest_binding.service_end_date.isoformat() if latest_binding and latest_binding.service_end_date else None,
@@ -463,9 +464,9 @@ def customer_devices(customer):
 
 def service_status_from_binding(binding):
     if not binding or not binding.service_start_date or not binding.service_end_date:
-        return "保外"
+        return "\u4fdd\u5916"
     today = timezone.localdate()
-    return "保内" if binding.service_start_date <= today <= binding.service_end_date else "保外"
+    return "\u4fdd\u5185" if binding.service_start_date <= today <= binding.service_end_date else "\u4fdd\u5916"
 
 
 def project_device_summary(binding):

@@ -115,6 +115,7 @@ class Device(BaseModel):
     management_address = models.CharField(max_length=255, blank=True, default="")
     version_update_method = models.CharField(max_length=100, blank=True, default="")
     is_standard_product = models.BooleanField(default=True, db_index=True)
+    nonstandard_name = models.CharField(max_length=200, blank=True, default='')
     supports_remote = models.BooleanField(default=False, db_index=True)
     software_version = models.CharField(max_length=100, blank=True, default="")
     rule_library_version = models.CharField(max_length=100, blank=True, default="")
@@ -162,8 +163,8 @@ class ProjectDevice(BaseModel):
     SERVICE_NEW_INSTALL = "new_install"
     SERVICE_RENEWAL = "renewal"
     SERVICE_TYPE_CHOICES = [
-        (SERVICE_NEW_INSTALL, "新上设备"),
-        (SERVICE_RENEWAL, "续保旧设备"),
+        (SERVICE_NEW_INSTALL, "\u65b0\u4e0a\u8bbe\u5907"),
+        (SERVICE_RENEWAL, "\u7eed\u4fdd\u65e7\u8bbe\u5907"),
     ]
 
     project = models.ForeignKey(Project, related_name="project_devices", on_delete=models.CASCADE)
