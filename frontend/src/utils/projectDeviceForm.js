@@ -15,6 +15,7 @@ export function createDefaultProjectDeviceForm() {
     version_update_method: '',
     license_info_text: '',
     is_standard_product: true,
+    nonstandard_name: '',
     is_under_warranty: false,
     supports_remote: false,
     service_type: 'new_install',
@@ -34,6 +35,7 @@ export function buildProjectDevicePayload(form, { customerOrgId, salesPersonId }
     device_model: parseProductModelTreeValue(form.device_model),
     customer_org: customerOrgId ?? null,
     sales_person: salesPersonId ?? null,
+    nonstandard_name: form.is_standard_product === false ? (form.nonstandard_name?.trim() || '') : '',
   }
 }
 

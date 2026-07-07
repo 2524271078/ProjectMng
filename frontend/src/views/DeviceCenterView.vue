@@ -221,6 +221,7 @@
           <el-col :span="12"><el-form-item label="服务结束"><el-date-picker v-model="deviceBinding.service_end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务结束日期" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
+          <el-col v-if="!deviceBinding.is_standard_product" :span="12"><el-form-item label="非标名称"><el-input v-model="deviceBinding.nonstandard_name" placeholder="请输入非标名称" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="是否支持远程"><el-switch v-model="deviceBinding.supports_remote" active-text="支持" inactive-text="不支持" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceBinding.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceBinding.license_info_text" type="textarea" placeholder="可填 JSON，也可直接写授权说明" /></el-form-item></el-col>
@@ -259,6 +260,7 @@
           <el-col :span="12"><el-form-item label="服务结束"><el-date-picker v-model="deviceBinding.service_end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务结束日期" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
+          <el-col v-if="!deviceBinding.is_standard_product" :span="12"><el-form-item label="非标名称"><el-input v-model="deviceBinding.nonstandard_name" placeholder="请输入非标名称" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="是否支持远程"><el-switch v-model="deviceBinding.supports_remote" active-text="支持" inactive-text="不支持" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceBinding.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceBinding.license_info_text" type="textarea" placeholder="可填 JSON，也可直接写授权说明" /></el-form-item></el-col>
@@ -290,6 +292,7 @@
         <el-descriptions-item label="保内状态">{{ selectedDevice.service_status || selectedDevice.current_service_status || '-' }}</el-descriptions-item>
         <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
         <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
+        <el-descriptions-item v-if="selectedDevice && !selectedDevice.is_standard_product" label="非标名称">{{ selectedDevice.nonstandard_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
         <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
@@ -762,6 +765,7 @@ function fillDeviceFields(deviceId) {
     version_update_method: device.version_update_method || '',
     license_info_text: device.license_info ? JSON.stringify(device.license_info) : '',
     is_standard_product: device.is_standard_product ?? true,
+    nonstandard_name: device.nonstandard_name || '',
     supports_remote: Boolean(device.supports_remote),
     service_type: binding?.service_type || 'renewal',
     service_start_date: binding?.service_start_date || device.current_service_start_date || '',
@@ -786,6 +790,7 @@ function editProjectDevice(row) {
     version_update_method: row.version_update_method || '',
     license_info_text: row.license_info ? JSON.stringify(row.license_info) : '',
     is_standard_product: row.is_standard_product ?? true,
+    nonstandard_name: row.nonstandard_name || '',
     supports_remote: Boolean(row.supports_remote),
     service_type: row.service_type || 'renewal',
     service_start_date: row.service_start_date || '',
@@ -826,6 +831,7 @@ async function bindDevice() {
       version_update_method: deviceBinding.version_update_method,
       license_info: parseLicenseInfo(),
       is_standard_product: deviceBinding.is_standard_product,
+      nonstandard_name: deviceBinding.is_standard_product ? '' : (deviceBinding.nonstandard_name?.trim() || ''),
       supports_remote: deviceBinding.supports_remote,
       ops_person: deviceBinding.ops_person,
       screenshot_url: deviceBinding.screenshot_url,

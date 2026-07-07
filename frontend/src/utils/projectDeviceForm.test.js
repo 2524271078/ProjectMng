@@ -14,11 +14,10 @@ test('default project device form creates a new device by default', () => {
   assert.equal(form.service_end_date, '')
 })
 
-
 test('buildProjectDevicePayload applies current customer and sales ownership', () => {
   const payload = buildProjectDevicePayload(
     {
-      device_name: '项目设备',
+      device_name: 'Project Device',
       serial_number: 'PJ-SN-001',
       device_model: 7,
     },
@@ -32,19 +31,36 @@ test('buildProjectDevicePayload applies current customer and sales ownership', (
   assert.equal(payload.sales_person, 22)
 })
 
+test('buildProjectDevicePayload keeps optional nonstandard name for nonstandard devices', () => {
+  const payload = buildProjectDevicePayload(
+    {
+      device_name: 'Custom Device',
+      serial_number: 'NONSTANDARD-SN-001',
+      device_model: 7,
+      is_standard_product: false,
+      nonstandard_name: 'Customer Specific Variant',
+    },
+    {
+      customerOrgId: 11,
+      salesPersonId: 22,
+    },
+  )
+
+  assert.equal(payload.nonstandard_name, 'Customer Specific Variant')
+})
 
 test('buildProjectDeviceBindingPayload keeps service cycle fields', () => {
   const payload = buildProjectDeviceBindingPayload({
-    deploy_location: '主机房',
-    device_project_type: '正式设备',
+    deploy_location: 'Main Room',
+    device_project_type: 'Formal Device',
     service_type: 'renewal',
     service_start_date: '2026-07-01',
     service_end_date: '2027-06-30',
   })
 
   assert.equal(payload.quantity, 1)
-  assert.equal(payload.deploy_location, '主机房')
-  assert.equal(payload.device_project_type, '正式设备')
+  assert.equal(payload.deploy_location, 'Main Room')
+  assert.equal(payload.device_project_type, 'Formal Device')
   assert.equal(payload.service_type, 'renewal')
   assert.equal(payload.service_start_date, '2026-07-01')
   assert.equal(payload.service_end_date, '2027-06-30')
