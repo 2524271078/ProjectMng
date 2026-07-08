@@ -657,6 +657,33 @@ onMounted(loadOrganizations)
 </script>
 
 <style scoped>
+.customer-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #e6ebf2;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.customer-info-section + .customer-info-section {
+  margin-top: 24px;
+}
+
+.customer-info-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.customer-info-section__head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2a37;
+}
+
 .tab-toolbar {
   display: flex;
   flex-wrap: wrap;
