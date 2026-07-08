@@ -25,7 +25,7 @@
       <div class="page-table-scroll">
         <el-table v-loading="modelPagination.loading" :data="modelPagination.rows" stripe>
           <el-table-column prop="model_name" label="型号名称" min-width="180" />
-          <el-table-column prop="model_code" label="型号编码" min-width="160" />
+          <el-table-column label="型号编码" min-width="160"><template #default="scope">{{ scope.row.model_code || '-' }}</template></el-table-column>
           <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
           <el-table-column prop="status" label="状态" width="100" />
           <el-table-column label="操作" width="140" fixed="right">
@@ -59,18 +59,18 @@
         <template v-if="dialogType === 'product'">
           <el-form-item label="所属产线" required><el-select v-model="form.product_line" filterable><el-option v-for="line in lines" :key="line.id" :label="line.name" :value="line.id" /></el-select></el-form-item>
           <el-form-item label="产品名称" required><el-input v-model="form.name" /></el-form-item>
-          <el-form-item label="产品编码" required><el-input v-model="form.product_code" /></el-form-item>
+          <el-form-item label="产品编码"><el-input v-model="form.product_code" /></el-form-item>
         </template>
         <template v-if="dialogType === 'version'">
           <el-form-item label="所属产品" required><el-select v-model="form.product" filterable><el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" /></el-select></el-form-item>
           <el-form-item label="版本名称" required><el-input v-model="form.version_name" /></el-form-item>
-          <el-form-item label="版本编码" required><el-input v-model="form.version_code" /></el-form-item>
+          <el-form-item label="版本编码"><el-input v-model="form.version_code" /></el-form-item>
         </template>
         <template v-if="dialogType === 'model'">
           <el-form-item label="所属产品" required><el-select v-model="form.product" filterable @change="form.product_version = null"><el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" /></el-select></el-form-item>
           <el-form-item label="产品版本"><el-select v-model="form.product_version" clearable filterable><el-option v-for="version in modelVersionOptions" :key="version.id" :label="version.version_name" :value="version.id" /></el-select></el-form-item>
           <el-form-item label="型号名称" required><el-input v-model="form.model_name" /></el-form-item>
-          <el-form-item label="型号编码" required><el-input v-model="form.model_code" /></el-form-item>
+          <el-form-item label="型号编码"><el-input v-model="form.model_code" /></el-form-item>
         </template>
       </el-form>
       <template #footer><el-button @click="closeDialog">取消</el-button><el-button type="primary" :loading="saving" @click="saveCatalogItem">{{ editingId ? '保存修改' : '保存' }}</el-button></template>
