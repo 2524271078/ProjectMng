@@ -986,6 +986,55 @@ class ProjectDeviceServiceCycleTests(APITestCase):
         self.assertEqual(response.data["service_end_date"], "2027-06-30")
 
 
+class ProjectDeviceOfflineStateTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="project-device-offline", password="pass123456")
+        self.client.force_authenticate(self.user)
+
+    def test_project_device_stores_offline_type_and_offline_date(self):
+        customer = Organization.objects.create(name="Offline Customer", org_type="customer")
+        project = Project.objects.create(project_no="OFFLINE-PRJ-001", name="Offline Project", customer_org=customer)
+        product = Product.objects.create(name="Offline Product", product_code="OFFLINE-P")
+        model = DeviceModel.objects.create(product=product, model_name="OFFLINE-1000", model_code="OFFLINE-1000")
+        device = Device.objects.create(name="Offline Device", serial_number="OFFLINE-SN-001", device_model=model, customer_org=customer)
+
+        response = self.client.post("/api/project-devices/", {
+            "project": project.id,
+            "device": device.id,
+            "service_type": "offline",
+            "service_start_date": "2026-07-01",
+            "service_end_date": "2027-06-30",
+            "offline_date": "2026-12-31",
+        }, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["service_type"], "offline")
+        self.assertEqual(response.data["offline_date"], "2026-12-31")
+
+    def test_project_overview_device_summary_includes_offline_date(self):
+        customer = Organization.objects.create(name="Offline Overview Customer", org_type="customer")
+        project = Project.objects.create(project_no="OFFLINE-PRJ-002", name="Offline Overview Project", customer_org=customer)
+        product = Product.objects.create(name="Offline Overview Product", product_code="OFFLINE-OV-P")
+        model = DeviceModel.objects.create(product=product, model_name="OFFLINE-OV-1000", model_code="OFFLINE-OV-1000")
+        device = Device.objects.create(name="Offline Overview Device", serial_number="OFFLINE-OV-SN-001", device_model=model, customer_org=customer)
+        ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_type="offline",
+            service_start_date="2026-07-01",
+            service_end_date="2027-06-30",
+            offline_date="2026-12-31",
+        )
+
+        response = self.client.get(f"/api/projects/{project.id}/overview/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["devices"][0]["service_type"], "offline")
+        self.assertEqual(response.data["devices"][0]["offline_date"], "2026-12-31")
+
+
 class DeviceCurrentServiceStatusTests(APITestCase):
     def setUp(self):
         from django.contrib.auth.models import User

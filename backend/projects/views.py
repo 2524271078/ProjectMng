@@ -482,6 +482,7 @@ def project_device_summary(binding):
         "service_type": binding.service_type,
         "service_start_date": binding.service_start_date.isoformat() if binding.service_start_date else None,
         "service_end_date": binding.service_end_date.isoformat() if binding.service_end_date else None,
+        "offline_date": binding.offline_date.isoformat() if binding.offline_date else None,
         "service_status": service_status_from_binding(binding),
     }
 

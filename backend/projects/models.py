@@ -180,9 +180,11 @@ class Project(BaseModel):
 class ProjectDevice(BaseModel):
     SERVICE_NEW_INSTALL = "new_install"
     SERVICE_RENEWAL = "renewal"
+    SERVICE_OFFLINE = "offline"
     SERVICE_TYPE_CHOICES = [
         (SERVICE_NEW_INSTALL, "\u65b0\u4e0a\u8bbe\u5907"),
         (SERVICE_RENEWAL, "\u7eed\u4fdd\u65e7\u8bbe\u5907"),
+        (SERVICE_OFFLINE, "\u4e0b\u67b6"),
     ]
 
     project = models.ForeignKey(Project, related_name="project_devices", on_delete=models.CASCADE)
@@ -194,6 +196,7 @@ class ProjectDevice(BaseModel):
     service_type = models.CharField(max_length=32, default=SERVICE_NEW_INSTALL, choices=SERVICE_TYPE_CHOICES, db_index=True)
     service_start_date = models.DateField(null=True, blank=True)
     service_end_date = models.DateField(null=True, blank=True)
+    offline_date = models.DateField(null=True, blank=True)
 
     class Meta(BaseModel.Meta):
         constraints = [
