@@ -38,34 +38,45 @@
       </div>
 
       <el-tabs v-if="overview" v-model="activeCustomerTab" class="page-tabs-scroll" @tab-change="handleCustomerTabChange">
-        <el-tab-pane label="客户详情" name="base">
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="名称">{{ overview.customer.name }}</el-descriptions-item>
-            <el-descriptions-item label="类型">{{ overview.customer.org_type }}</el-descriptions-item>
-            <el-descriptions-item label="区域">{{ overview.customer.region || '-' }}</el-descriptions-item>
-          </el-descriptions>
-        </el-tab-pane>
+        <el-tab-pane label="客户信息" name="info">
+          <section class="customer-info-section">
+            <div class="customer-info-section__head">
+              <h3>客户详情</h3>
+            </div>
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="名称">{{ overview.customer.name }}</el-descriptions-item>
+              <el-descriptions-item label="类型">{{ overview.customer.org_type }}</el-descriptions-item>
+              <el-descriptions-item label="区域">{{ overview.customer.region || '-' }}</el-descriptions-item>
+            </el-descriptions>
+          </section>
 
-        <el-tab-pane label="联系人" name="contacts">
-          <el-table v-loading="contactPagination.loading" :data="contactPagination.rows">
-            <el-table-column prop="name" label="姓名" />
-            <el-table-column prop="position" label="职位" />
-            <el-table-column prop="phone" label="电话" />
-            <el-table-column prop="email" label="邮箱" />
-          </el-table>
-          <div class="mt-16">
-            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="contactPagination.page" :page-size="contactPagination.pageSize" :page-sizes="[10, 20, 50]" :total="contactPagination.total" @current-change="handleContactPageChange" @size-change="handleContactPageSizeChange" />
-          </div>
-        </el-tab-pane>
+          <section class="customer-info-section">
+            <div class="customer-info-section__head">
+              <h3>联系人</h3>
+            </div>
+            <el-table v-loading="contactPagination.loading" :data="contactPagination.rows">
+              <el-table-column prop="name" label="姓名" />
+              <el-table-column prop="position" label="职位" />
+              <el-table-column prop="phone" label="电话" />
+              <el-table-column prop="email" label="邮箱" />
+            </el-table>
+            <div class="mt-16">
+              <el-pagination background layout="total, sizes, prev, pager, next" :current-page="contactPagination.page" :page-size="contactPagination.pageSize" :page-sizes="[10, 20, 50]" :total="contactPagination.total" @current-change="handleContactPageChange" @size-change="handleContactPageSizeChange" />
+            </div>
+          </section>
 
-        <el-tab-pane label="负责销售" name="sales">
-          <el-table v-loading="salesPagination.loading" :data="salesPagination.rows">
-            <el-table-column prop="name" label="销售" />
-            <el-table-column prop="phone" label="电话" />
-          </el-table>
-          <div class="mt-16">
-            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="salesPagination.page" :page-size="salesPagination.pageSize" :page-sizes="[10, 20, 50]" :total="salesPagination.total" @current-change="handleSalesPageChange" @size-change="handleSalesPageSizeChange" />
-          </div>
+          <section class="customer-info-section">
+            <div class="customer-info-section__head">
+              <h3>负责销售</h3>
+            </div>
+            <el-table v-loading="salesPagination.loading" :data="salesPagination.rows">
+              <el-table-column prop="name" label="销售" />
+              <el-table-column prop="phone" label="电话" />
+            </el-table>
+            <div class="mt-16">
+              <el-pagination background layout="total, sizes, prev, pager, next" :current-page="salesPagination.page" :page-size="salesPagination.pageSize" :page-sizes="[10, 20, 50]" :total="salesPagination.total" @current-change="handleSalesPageChange" @size-change="handleSalesPageSizeChange" />
+            </div>
+          </section>
         </el-tab-pane>
 
         <el-tab-pane label="已购设备" name="devices">
