@@ -269,7 +269,7 @@ import { applyPaginationResponse, buildPaginationState } from '../utils/paginati
 const organizations = ref([])
 const selected = ref(null)
 const overview = ref(null)
-const activeCustomerTab = ref('base')
+const activeCustomerTab = ref('info')
 const contactPagination = buildPaginationState()
 const salesPagination = buildPaginationState()
 const devicePagination = buildPaginationState()
@@ -397,11 +397,17 @@ async function loadCustomerProjectsTab() {
 }
 
 async function loadActiveCustomerTab() {
-  if (activeCustomerTab.value === 'contacts') return loadCustomerContactsTab()
-  if (activeCustomerTab.value === 'sales') return loadCustomerSalesTab()
+  if (activeCustomerTab.value === 'info') return loadCustomerInfoTab()
   if (activeCustomerTab.value === 'devices') return loadCustomerDevicesTab()
   if (activeCustomerTab.value === 'contracts') return loadCustomerContractsTab()
   if (activeCustomerTab.value === 'projects') return loadCustomerProjectsTab()
+}
+
+async function loadCustomerInfoTab() {
+  await Promise.all([
+    loadCustomerContactsTab(),
+    loadCustomerSalesTab(),
+  ])
 }
 
 function handleCustomerTabChange() {
@@ -498,11 +504,12 @@ function resetSearch() {
 
 async function selectCustomer(node) {
   selected.value = node
-  activeCustomerTab.value = 'base'
+  activeCustomerTab.value = 'info'
   deviceSearchKeyword.value = ''
   resetCustomerTabPagination()
   const { data } = await fetchCustomerOverview(node.id)
   overview.value = data
+  await loadCustomerInfoTab()
 }
 
 async function openProjectDetail(row) {
@@ -629,7 +636,7 @@ async function removeOrganization() {
   overview.value = null
   projectOverview.value = null
   projectDrawerVisible.value = false
-  activeCustomerTab.value = 'base'
+  activeCustomerTab.value = 'info'
   deviceSearchKeyword.value = ''
   resetCustomerTabPagination()
   await loadOrganizations()
