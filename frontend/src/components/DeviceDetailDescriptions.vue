@@ -8,7 +8,7 @@
     <el-descriptions-item label="设备硬件码">{{ device.hardware_code || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备系统版本">{{ device.software_version || '-' }}</el-descriptions-item>
     <el-descriptions-item label="版本更新方式">{{ device.version_update_method || '-' }}</el-descriptions-item>
-    <el-descriptions-item v-if="serviceTypeText" label="服务类型">{{ serviceTypeText }}</el-descriptions-item>
+    <el-descriptions-item v-if="serviceTypeText" label="设备状态">{{ serviceTypeText }}</el-descriptions-item>
     <el-descriptions-item label="合同开始">{{ contractStartDate }}</el-descriptions-item>
     <el-descriptions-item label="合同结束">{{ contractEndDate }}</el-descriptions-item>
     <el-descriptions-item label="保内状态">{{ serviceStatus }}</el-descriptions-item>

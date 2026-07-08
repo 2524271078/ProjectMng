@@ -179,7 +179,7 @@
               <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
             </el-table-column>
             <el-table-column prop="device_project_type" label="项目类型" min-width="120" />
-            <el-table-column label="服务类型" min-width="100">
+            <el-table-column label="设备状态" min-width="100">
               <template #default="scope">{{ serviceTypeLabel(scope.row.service_type) }}</template>
             </el-table-column>
             <el-table-column prop="service_start_date" label="服务开始" min-width="120" />
