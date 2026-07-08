@@ -1058,6 +1058,7 @@ class DeviceCurrentServiceStatusTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["device"]["current_service_status"], "保内")
         self.assertEqual(response.data["device"]["current_service_end_date"], "2027-12-31")
+        self.assertEqual(response.data["device"]["service_type"], "renewal")
 
 
 

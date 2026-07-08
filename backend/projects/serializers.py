@@ -49,6 +49,7 @@ class DeviceSerializer(serializers.ModelSerializer):
     current_service_status = serializers.SerializerMethodField()
     current_service_start_date = serializers.SerializerMethodField()
     current_service_end_date = serializers.SerializerMethodField()
+    service_type = serializers.SerializerMethodField()
     customer_org_detail = serializers.SerializerMethodField()
     customer_contact_detail = serializers.SerializerMethodField()
     sales_person_detail = serializers.SerializerMethodField()
@@ -88,6 +89,10 @@ class DeviceSerializer(serializers.ModelSerializer):
     def get_current_service_end_date(self, obj):
         binding = self._latest_binding(obj)
         return binding.service_end_date.isoformat() if binding and binding.service_end_date else None
+
+    def get_service_type(self, obj):
+        binding = self._latest_binding(obj)
+        return binding.service_type if binding else ''
 
     def get_customer_org_detail(self, obj):
         project = self._latest_project(obj)
