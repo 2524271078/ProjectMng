@@ -1071,6 +1071,19 @@ class DeviceDirectoryApiTests(APITestCase):
         self.user = User.objects.create_user(username="device-directory", password="pass123456")
         self.client.force_authenticate(self.user)
 
+    def test_device_list_excludes_devices_only_bound_to_deleted_project_and_customer(self):
+        deleted_customer = Organization.objects.create(name="已删客户", org_type="customer", is_deleted=True)
+        product = Product.objects.create(name="残留设备产品", product_code="DEVICE-DELETED-P")
+        model = DeviceModel.objects.create(product=product, model_name="DEVICE-DELETED-1000", model_code="DEVICE-DELETED-1000")
+        device = Device.objects.create(name="残留设备", serial_number="DEVICE-DELETED-SN-001", device_model=model)
+        deleted_project = Project.objects.create(project_no="DEVICE-DELETED-PRJ-001", name="已删项目", customer_org=deleted_customer, is_deleted=True)
+        ProjectDevice.objects.create(project=deleted_project, device=device, service_type="renewal", service_start_date="2026-07-01", service_end_date="2027-06-30")
+
+        response = self.client.get("/api/devices/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(device.id, [item["id"] for item in api_results(response)])
+
     def test_device_list_includes_customer_contact_customer_org_and_sales_details(self):
         customer = Organization.objects.create(name="设备中心客户", org_type="customer")
         contact = Person.objects.create(name="设备中心联系人", organization=customer, person_type="customer_contact", position="信息主管")

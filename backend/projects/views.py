@@ -293,6 +293,10 @@ class DeviceViewSet(SoftDeleteModelViewSet):
                 "project_devices__project__sales_person__name",
             ],
         )
+        queryset = queryset.filter(
+            Q(customer_org__isnull=False, customer_org__is_deleted=False)
+            | Q(project_devices__is_deleted=False, project_devices__project__is_deleted=False, project_devices__project__customer_org__is_deleted=False)
+        )
         queryset = filter_device_queryset_for_user(queryset, self.request.user)
         return queryset.distinct()
 
