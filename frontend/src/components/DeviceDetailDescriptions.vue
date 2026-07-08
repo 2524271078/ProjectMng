@@ -3,8 +3,6 @@
     <el-descriptions-item label="设备名称">{{ device.name || '-' }}</el-descriptions-item>
     <el-descriptions-item label="序列号">{{ device.serial_number || '-' }}</el-descriptions-item>
     <el-descriptions-item v-if="customerName" label="客户公司">{{ customerName }}</el-descriptions-item>
-    <el-descriptions-item v-if="customerContactName" label="客户联系人">{{ customerContactName }}</el-descriptions-item>
-    <el-descriptions-item v-if="salesPersonName" label="销售">{{ salesPersonName }}</el-descriptions-item>
     <el-descriptions-item label="产品型号">{{ device.device_model_detail?.model_name || '-' }}</el-descriptions-item>
     <el-descriptions-item label="管理地址">{{ device.management_address || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备硬件码">{{ device.hardware_code || '-' }}</el-descriptions-item>
@@ -41,8 +39,6 @@ const props = defineProps({
 })
 
 const customerName = computed(() => props.device?.customer?.name || props.device?.customer_org_detail?.name || '')
-const customerContactName = computed(() => props.device?.customer_contact?.name || props.device?.customer_contact_detail?.name || '')
-const salesPersonName = computed(() => props.device?.sales_person?.name || props.device?.sales_person_detail?.name || '')
 const contractStartDate = computed(() => props.device?.service_start_date || props.device?.current_service_start_date || '-')
 const contractEndDate = computed(() => props.device?.service_end_date || props.device?.current_service_end_date || '-')
 const serviceStatus = computed(() => props.device?.service_status || props.device?.current_service_status || '-')
