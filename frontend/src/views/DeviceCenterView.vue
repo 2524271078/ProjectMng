@@ -276,33 +276,7 @@
     </el-dialog>
 
     <el-dialog v-model="deviceDetailVisible" title="设备详情" width="860px">
-      <el-descriptions v-if="selectedDevice" :column="2" border>
-        <el-descriptions-item label="设备名称">{{ selectedDevice.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="序列号">{{ selectedDevice.serial_number || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="产品型号">{{ selectedDevice.device_model_detail?.model_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="型号编码">{{ selectedDevice.device_model_detail?.model_code || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备项目类型">{{ selectedDevice.device_project_type || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="管理地址">{{ selectedDevice.management_address || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备硬件码">{{ selectedDevice.hardware_code || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="设备系统版本">{{ selectedDevice.software_version || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="版本更新方式">{{ selectedDevice.version_update_method || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="服务类型">{{ serviceTypeLabel(selectedDevice.service_type) }}</el-descriptions-item>
-        <el-descriptions-item label="服务开始">{{ selectedDevice.service_start_date || selectedDevice.current_service_start_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="服务结束">{{ selectedDevice.service_end_date || selectedDevice.current_service_end_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="保内状态">{{ selectedDevice.service_status || selectedDevice.current_service_status || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="上架时间">{{ selectedDevice.rack_install_date || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="是否标品">{{ selectedDevice.is_standard_product ? '是' : '否' }}</el-descriptions-item>
-        <el-descriptions-item v-if="selectedDevice && !selectedDevice.is_standard_product" label="非标名称">{{ selectedDevice.nonstandard_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="是否支持远程">{{ selectedDevice.supports_remote ? '支持' : '不支持' }}</el-descriptions-item>
-        <el-descriptions-item label="现场运维人员">{{ selectedDevice.ops_person?.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="部署位置">{{ selectedDevice.deploy_location || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="截图链接">
-          <a v-if="selectedDevice.screenshot_url" :href="selectedDevice.screenshot_url" target="_blank" rel="noopener noreferrer">预览</a>
-          <span v-else>-</span>
-        </el-descriptions-item>
-        <el-descriptions-item label="授权信息" :span="2">{{ typeof selectedDevice.license_info === 'string' ? selectedDevice.license_info : JSON.stringify(selectedDevice.license_info || {}) }}</el-descriptions-item>
-        <el-descriptions-item label="备注" :span="2">{{ selectedDevice.remark || '-' }}</el-descriptions-item>
-      </el-descriptions>
+      <DeviceDetailDescriptions :device="selectedDevice" />
     </el-dialog>
   </div>
 </template>
@@ -313,6 +287,7 @@ import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import ProductModelTreeSelect from '../components/ProductModelTreeSelect.vue'
+import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
 import { createProjectContract, createResource, deleteProjectContract, deleteResource, fetchCustomerOverview, fetchProjectAttachments, fetchProjectContracts, fetchProjectDevices, fetchProjectOverview, listAllResource, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'
