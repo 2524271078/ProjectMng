@@ -8,6 +8,7 @@ export const PROJECT_STAGE_LABELS = {
 export const SERVICE_TYPE_LABELS = {
   new_install: '新装',
   renewal: '续保',
+  offline: '下架',
 }
 
 export function projectStageLabel(value) {

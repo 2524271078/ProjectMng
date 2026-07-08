@@ -8,10 +8,12 @@
     <el-descriptions-item label="设备硬件码">{{ device.hardware_code || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备系统版本">{{ device.software_version || '-' }}</el-descriptions-item>
     <el-descriptions-item label="版本更新方式">{{ device.version_update_method || '-' }}</el-descriptions-item>
+    <el-descriptions-item v-if="serviceTypeText" label="服务类型">{{ serviceTypeText }}</el-descriptions-item>
     <el-descriptions-item label="合同开始">{{ contractStartDate }}</el-descriptions-item>
     <el-descriptions-item label="合同结束">{{ contractEndDate }}</el-descriptions-item>
     <el-descriptions-item label="保内状态">{{ serviceStatus }}</el-descriptions-item>
     <el-descriptions-item label="上架时间">{{ device.rack_install_date || '-' }}</el-descriptions-item>
+    <el-descriptions-item v-if="device.offline_date" label="下架时间">{{ device.offline_date }}</el-descriptions-item>
     <el-descriptions-item label="是否标品">{{ standardProductLabel }}</el-descriptions-item>
     <el-descriptions-item v-if="showNonstandardName" label="非标名称">{{ device.nonstandard_name || '-' }}</el-descriptions-item>
     <el-descriptions-item label="是否支持远程">{{ supportsRemoteLabel }}</el-descriptions-item>
@@ -26,6 +28,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { serviceTypeLabel } from '../utils/displayMaps'
 
 const props = defineProps({
   device: {
@@ -42,6 +45,7 @@ const customerName = computed(() => props.device?.customer?.name || props.device
 const contractStartDate = computed(() => props.device?.service_start_date || props.device?.current_service_start_date || '-')
 const contractEndDate = computed(() => props.device?.service_end_date || props.device?.current_service_end_date || '-')
 const serviceStatus = computed(() => props.device?.service_status || props.device?.current_service_status || '-')
+const serviceTypeText = computed(() => (props.device?.service_type ? serviceTypeLabel(props.device.service_type) : ''))
 const showNonstandardName = computed(() => props.device && props.device.is_standard_product === false)
 const standardProductLabel = computed(() => (props.device?.is_standard_product ? '是' : '否'))
 const supportsRemoteLabel = computed(() => (props.device?.supports_remote ? '支持' : '不支持'))

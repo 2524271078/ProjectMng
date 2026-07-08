@@ -101,6 +101,7 @@
             </el-table-column>
             <el-table-column prop="service_start_date" label="服务开始" min-width="120" />
             <el-table-column prop="service_end_date" label="服务结束" min-width="120" />
+            <el-table-column label="下架时间" min-width="120"><template #default="scope">{{ scope.row.offline_date || '-' }}</template></el-table-column>
             <el-table-column label="保内状态" min-width="100">
               <template #default="scope">{{ scope.row.service_status || '-' }}</template>
             </el-table-column>
