@@ -19,6 +19,10 @@
           clearable
           @keyup.enter="handleSearch"
         />
+        <el-select v-model="serviceTypeFilter" class="service-type-select" placeholder="设备状态" @change="handleServiceTypeFilterChange">
+          <el-option label="全部状态" value="all" />
+          <el-option v-for="option in serviceTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
+        </el-select>
         <div class="action-row">
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="resetSearch">重置</el-button>
@@ -114,6 +118,8 @@ import { ElMessage } from 'element-plus'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
 import { fetchDeviceOverview, listAllResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
+import { SERVICE_TYPE_LABELS } from '../utils/displayMaps'
+import { filterDevices } from '../utils/deviceFilters'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const devices = ref([])
@@ -121,7 +127,10 @@ const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
 const searchKeyword = ref('')
 const statusFilter = ref('all')
+const serviceTypeFilter = ref('all')
 const devicePagination = buildPaginationState()
+
+const serviceTypeOptions = Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => ({ value, label }))
 
 const warrantyStats = computed(() => {
   const inWarranty = devices.value.filter((item) => item.current_service_status === '保内').length
@@ -131,15 +140,10 @@ const warrantyStats = computed(() => {
   }
 })
 
-const filteredDevices = computed(() => {
-  if (statusFilter.value === 'in') {
-    return devices.value.filter((item) => item.current_service_status === '保内')
-  }
-  if (statusFilter.value === 'out') {
-    return devices.value.filter((item) => item.current_service_status !== '保内')
-  }
-  return devices.value
-})
+const filteredDevices = computed(() => filterDevices(devices.value, {
+  warrantyStatus: statusFilter.value,
+  serviceType: serviceTypeFilter.value,
+}))
 
 function buildSearchParams() {
   const keyword = searchKeyword.value.trim()
@@ -169,6 +173,11 @@ function setStatusFilter(nextFilter) {
   syncDevicePagination()
 }
 
+function handleServiceTypeFilterChange() {
+  devicePagination.page = 1
+  syncDevicePagination()
+}
+
 async function loadDevices() {
   devicePagination.loading = true
   try {
@@ -190,6 +199,7 @@ function handleSearch() {
 function resetSearch() {
   searchKeyword.value = ''
   statusFilter.value = 'all'
+  serviceTypeFilter.value = 'all'
   devicePagination.page = 1
   loadDevices()
 }
@@ -249,6 +259,10 @@ onMounted(loadDevices)
   flex: 1;
   min-width: 320px;
   max-width: 680px;
+}
+
+.service-type-select {
+  width: 160px;
 }
 
 .toolbar-stats {
