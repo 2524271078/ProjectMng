@@ -12,6 +12,7 @@ test('default project device form creates a new device by default', () => {
   assert.equal(form.service_type, 'new_install')
   assert.equal(form.service_start_date, '')
   assert.equal(form.service_end_date, '')
+  assert.equal(form.offline_date, '')
 })
 
 test('buildProjectDevicePayload applies current customer and sales ownership', () => {
@@ -64,4 +65,18 @@ test('buildProjectDeviceBindingPayload keeps service cycle fields', () => {
   assert.equal(payload.service_type, 'renewal')
   assert.equal(payload.service_start_date, '2026-07-01')
   assert.equal(payload.service_end_date, '2027-06-30')
+})
+
+test('buildProjectDeviceBindingPayload keeps offline date for offline devices', () => {
+  const payload = buildProjectDeviceBindingPayload({
+    deploy_location: 'Main Room',
+    device_project_type: 'Formal Device',
+    service_type: 'offline',
+    service_start_date: '2026-07-01',
+    service_end_date: '2027-06-30',
+    offline_date: '2026-12-31',
+  })
+
+  assert.equal(payload.service_type, 'offline')
+  assert.equal(payload.offline_date, '2026-12-31')
 })

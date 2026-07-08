@@ -183,9 +183,10 @@
           <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceBinding.hardware_code" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceBinding.software_version" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceBinding.version_update_method" placeholder="远程升级/现场升级/手动导入" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="服务类型"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务类型"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /><el-option label="下架" value="offline" /></el-select></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="服务开始"><el-date-picker v-model="deviceBinding.service_start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务开始日期" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="服务结束"><el-date-picker v-model="deviceBinding.service_end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务结束日期" /></el-form-item></el-col>
+          <el-col v-if="deviceBinding.service_type === 'offline'" :span="12"><el-form-item label="下架时间"><el-date-picker v-model="deviceBinding.offline_date" type="date" value-format="YYYY-MM-DD" placeholder="选择下架时间" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
           <el-col v-if="!deviceBinding.is_standard_product" :span="12"><el-form-item label="非标名称"><el-input v-model="deviceBinding.nonstandard_name" placeholder="请输入非标名称" /></el-form-item></el-col>
@@ -222,9 +223,10 @@
           <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceBinding.hardware_code" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceBinding.software_version" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceBinding.version_update_method" placeholder="远程升级/现场升级/手动导入" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="服务类型"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务类型"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /><el-option label="下架" value="offline" /></el-select></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="服务开始"><el-date-picker v-model="deviceBinding.service_start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务开始日期" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="服务结束"><el-date-picker v-model="deviceBinding.service_end_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务结束日期" /></el-form-item></el-col>
+          <el-col v-if="deviceBinding.service_type === 'offline'" :span="12"><el-form-item label="下架时间"><el-date-picker v-model="deviceBinding.offline_date" type="date" value-format="YYYY-MM-DD" placeholder="选择下架时间" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceBinding.rack_install_date" type="date" value-format="YYYY-MM-DD" placeholder="选择上架时间" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceBinding.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
           <el-col v-if="!deviceBinding.is_standard_product" :span="12"><el-form-item label="非标名称"><el-input v-model="deviceBinding.nonstandard_name" placeholder="请输入非标名称" /></el-form-item></el-col>
@@ -712,6 +714,7 @@ function fillDeviceFields(deviceId) {
     service_type: binding?.service_type || 'renewal',
     service_start_date: binding?.service_start_date || device.current_service_start_date || '',
     service_end_date: binding?.service_end_date || device.current_service_end_date || '',
+    offline_date: binding?.offline_date || '',
     ops_person: device.ops_person || null,
     screenshot_url: device.screenshot_url || '',
     rack_install_date: device.rack_install_date || '',
@@ -737,6 +740,7 @@ function editProjectDevice(row) {
     service_type: row.service_type || 'renewal',
     service_start_date: row.service_start_date || '',
     service_end_date: row.service_end_date || '',
+    offline_date: row.offline_date || '',
     ops_person: row.ops_person?.id || row.ops_person || null,
     screenshot_url: row.screenshot_url || '',
     rack_install_date: row.rack_install_date || '',
@@ -765,6 +769,7 @@ async function bindDevice() {
     if (!deviceBinding.service_start_date) throw new Error('请选择服务开始日期')
     if (!deviceBinding.service_end_date) throw new Error('请选择服务结束日期')
     if (deviceBinding.service_end_date < deviceBinding.service_start_date) throw new Error('服务结束日期不能早于开始日期')
+    if (deviceBinding.service_type === 'offline' && !deviceBinding.offline_date) throw new Error('请选择下架时间')
     const deviceId = await ensureDevice()
     await updateResource('devices', deviceId, {
       management_address: deviceBinding.management_address,

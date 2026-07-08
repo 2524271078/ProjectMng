@@ -21,6 +21,7 @@ export function createDefaultProjectDeviceForm() {
     service_type: 'new_install',
     service_start_date: '',
     service_end_date: '',
+    offline_date: '',
     ops_person: null,
     screenshot_url: '',
     rack_install_date: '',
@@ -47,5 +48,6 @@ export function buildProjectDeviceBindingPayload(form) {
     service_type: form.service_type,
     service_start_date: form.service_start_date || null,
     service_end_date: form.service_end_date || null,
+    offline_date: form.offline_date || null,
   }
 }
