@@ -66,10 +66,19 @@ class ProductLine(BaseModel):
 class Product(BaseModel):
     product_line = models.ForeignKey(ProductLine, null=True, blank=True, related_name="products", on_delete=models.SET_NULL)
     name = models.CharField(max_length=200, db_index=True)
-    product_code = models.CharField(max_length=100, unique=True)
+    product_code = models.CharField(max_length=100, blank=True, default='')
     category = models.CharField(max_length=100, blank=True, default="")
     manufacturer = models.ForeignKey(Organization, null=True, blank=True, related_name="products", on_delete=models.SET_NULL)
     description = models.TextField(blank=True, default="")
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=['product_code'],
+                condition=models.Q(is_deleted=False) & ~models.Q(product_code=''),
+                name='uniq_active_product_code',
+            )
+        ]
 
     def __str__(self):
         return self.name
@@ -78,15 +87,15 @@ class Product(BaseModel):
 class ProductVersion(BaseModel):
     product = models.ForeignKey(Product, related_name="versions", on_delete=models.CASCADE)
     version_name = models.CharField(max_length=100, db_index=True)
-    version_code = models.CharField(max_length=100)
+    version_code = models.CharField(max_length=100, blank=True, default='')
     release_date = models.DateField(null=True, blank=True)
     description = models.TextField(blank=True, default="")
 
     class Meta(BaseModel.Meta):
         constraints = [
             models.UniqueConstraint(
-                fields=["product", "version_code"],
-                condition=models.Q(is_deleted=False),
+                fields=['product', 'version_code'],
+                condition=models.Q(is_deleted=False) & ~models.Q(version_code=''),
                 name="uniq_active_product_version",
             )
         ]
@@ -99,9 +108,18 @@ class DeviceModel(BaseModel):
     product = models.ForeignKey(Product, related_name="device_models", on_delete=models.PROTECT)
     product_version = models.ForeignKey(ProductVersion, null=True, blank=True, related_name="device_models", on_delete=models.SET_NULL)
     model_name = models.CharField(max_length=200, db_index=True)
-    model_code = models.CharField(max_length=100, unique=True)
+    model_code = models.CharField(max_length=100, blank=True, default='')
     manufacturer = models.ForeignKey(Organization, null=True, blank=True, related_name="device_models", on_delete=models.SET_NULL)
     description = models.TextField(blank=True, default="")
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=['model_code'],
+                condition=models.Q(is_deleted=False) & ~models.Q(model_code=''),
+                name='uniq_active_model_code',
+            )
+        ]
 
     def __str__(self):
         return self.model_name

@@ -529,6 +529,75 @@ class ProductProjectModelTests(TestCase):
         self.assertEqual(Attachment.objects.filter(object_type="project", object_id=project.id).count(), 1)
 
 
+class ProductCatalogOptionalCodeTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="catalog-optional-code", password="pass123456")
+        self.client.force_authenticate(self.user)
+        self.vendor = Organization.objects.create(name="Catalog Vendor", org_type="vendor")
+        self.line = ProductLine.objects.create(name="Catalog Line", code="CAT-LINE")
+        self.product = Product.objects.create(name="Catalog Product", product_code="CAT-PRODUCT", product_line=self.line, manufacturer=self.vendor)
+
+    def test_product_can_be_created_without_product_code(self):
+        response = self.client.post(
+            "/api/products/",
+            {
+                "product_line": self.line.id,
+                "name": "Product Without Code",
+                "product_code": "",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["product_code"], "")
+
+    def test_product_version_can_be_created_without_version_code(self):
+        response = self.client.post(
+            "/api/product-versions/",
+            {
+                "product": self.product.id,
+                "version_name": "Version Without Code",
+                "version_code": "",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["version_code"], "")
+
+    def test_device_model_can_be_created_without_model_code(self):
+        response = self.client.post(
+            "/api/device-models/",
+            {
+                "product": self.product.id,
+                "model_name": "Model Without Code",
+                "model_code": "",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["model_code"], "")
+
+    def test_device_model_still_rejects_duplicate_nonempty_model_code(self):
+        DeviceModel.objects.create(product=self.product, model_name="Existing Model", model_code="DUPLICATE-CODE")
+
+        response = self.client.post(
+            "/api/device-models/",
+            {
+                "product": self.product.id,
+                "model_name": "Another Model",
+                "model_code": "DUPLICATE-CODE",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("model_code", response.data)
+
+
 class ProjectApiTests(APITestCase):
     def setUp(self):
         from django.contrib.auth.models import User
