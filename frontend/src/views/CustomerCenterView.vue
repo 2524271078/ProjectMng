@@ -110,17 +110,6 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="关联合同" name="contracts">
-          <el-table v-loading="contractPagination.loading" :data="contractPagination.rows">
-            <el-table-column prop="contract_no" label="合同编号" />
-            <el-table-column prop="contract_name" label="合同名称" />
-            <el-table-column prop="amount" label="金额" />
-          </el-table>
-          <div class="mt-16">
-            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="contractPagination.page" :page-size="contractPagination.pageSize" :page-sizes="[10, 20, 50]" :total="contractPagination.total" @current-change="handleContractPageChange" @size-change="handleContractPageSizeChange" />
-          </div>
-        </el-tab-pane>
-
         <el-tab-pane label="关联项目" name="projects">
           <el-table v-loading="projectPagination.loading" :data="projectPagination.rows" @row-click="openProjectDetail">
             <el-table-column prop="project_no" label="项目编号" min-width="150" />
@@ -209,20 +198,6 @@
           </div>
           <div class="mt-16">
             <el-pagination background layout="total, sizes, prev, pager, next" :current-page="projectDeviceDrawerPagination.page" :page-size="projectDeviceDrawerPagination.pageSize" :page-sizes="[5, 10, 20]" :total="projectDeviceDrawerPagination.total" @current-change="handleProjectDeviceDrawerPageChange" @size-change="handleProjectDeviceDrawerPageSizeChange" />
-          </div>
-        </el-tab-pane>
-
-        <el-tab-pane label="关联合同" name="contracts">
-          <div class="drawer-table-scroll">
-            <el-table :data="projectContractRows" stripe>
-            <el-table-column prop="contract_no" label="合同编号" min-width="150" />
-            <el-table-column prop="contract_name" label="合同名称" min-width="220" />
-            <el-table-column prop="amount" label="金额" min-width="120" />
-            <el-table-column prop="status" label="状态" min-width="120" />
-          </el-table>
-          </div>
-          <div class="mt-16">
-            <el-pagination background layout="total, sizes, prev, pager, next" :current-page="projectContractDrawerPagination.page" :page-size="projectContractDrawerPagination.pageSize" :page-sizes="[5, 10, 20]" :total="projectContractDrawerPagination.total" @current-change="handleProjectContractDrawerPageChange" @size-change="handleProjectContractDrawerPageSizeChange" />
           </div>
         </el-tab-pane>
 

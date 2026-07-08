@@ -130,39 +130,6 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="关联合同" name="contracts">
-          <el-form inline class="mb-16">
-            <el-form-item label="选择合同">
-              <el-select v-model="selectedContractId" filterable clearable placeholder="选择该客户相关合同">
-                <el-option v-for="contract in customerScopedContracts" :key="contract.id" :label="`${contract.contract_no} / ${contract.contract_name}`" :value="contract.id" />
-              </el-select>
-            </el-form-item>
-            <el-button type="primary" @click="bindContract">关联合同</el-button>
-          </el-form>
-          <el-table v-loading="projectContractPagination.loading" :data="projectContractPagination.rows" stripe>
-            <el-table-column prop="contract_no" label="合同编号" min-width="150" />
-            <el-table-column prop="contract_name" label="合同名称" min-width="220" />
-            <el-table-column prop="amount" label="金额" min-width="120" />
-            <el-table-column label="操作" width="100">
-              <template #default="scope">
-                <el-button link type="danger" @click.stop="removeProjectContract(scope.row)">解除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <div class="mt-16">
-            <el-pagination
-              background
-              layout="total, sizes, prev, pager, next"
-              :current-page="projectContractPagination.page"
-              :page-size="projectContractPagination.pageSize"
-              :page-sizes="[10, 20, 50]"
-              :total="projectContractPagination.total"
-              @current-change="handleProjectContractPageChange"
-              @size-change="handleProjectContractPageSizeChange"
-            />
-          </div>
-        </el-tab-pane>
-
         <el-tab-pane label="项目附件" name="attachments">
           <el-upload drag action="#" :auto-upload="false" :on-change="uploadProjectAttachment" :show-file-list="false">
             <el-icon><UploadFilled /></el-icon>
