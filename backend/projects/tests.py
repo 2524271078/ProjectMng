@@ -1051,7 +1051,7 @@ class DeviceCurrentServiceStatusTests(APITestCase):
         device = Device.objects.create(name="状态设备", serial_number="STATUS-SN-001", device_model=model, customer_org=customer)
 
         ProjectDevice.objects.create(project=project_old, device=device, service_type="new_install", service_start_date="2025-01-01", service_end_date="2025-12-31")
-        ProjectDevice.objects.create(project=project_new, device=device, service_type="renewal", service_start_date="2026-01-01", service_end_date="2027-12-31")
+        ProjectDevice.objects.create(project=project_new, device=device, service_type="renewal", service_start_date="2026-01-01", service_end_date="2027-12-31", deploy_location="A区机房", offline_date="2027-01-15")
 
         response = self.client.get(f"/api/devices/{device.id}/overview/")
 
@@ -1059,6 +1059,8 @@ class DeviceCurrentServiceStatusTests(APITestCase):
         self.assertEqual(response.data["device"]["current_service_status"], "保内")
         self.assertEqual(response.data["device"]["current_service_end_date"], "2027-12-31")
         self.assertEqual(response.data["device"]["service_type"], "renewal")
+        self.assertEqual(response.data["device"]["deploy_location"], "A区机房")
+        self.assertEqual(response.data["device"]["offline_date"], "2027-01-15")
 
 
 
