@@ -65,10 +65,10 @@
         <el-table-column label="当前保内状态" min-width="120">
           <template #default="scope">{{ scope.row.current_service_status || '-' }}</template>
         </el-table-column>
-        <el-table-column label="服务开始" min-width="140">
+        <el-table-column label="合同开始" min-width="140">
           <template #default="scope">{{ scope.row.current_service_start_date || '-' }}</template>
         </el-table-column>
-        <el-table-column label="服务结束" min-width="140">
+        <el-table-column label="合同结束" min-width="140">
           <template #default="scope">{{ scope.row.current_service_end_date || '-' }}</template>
         </el-table-column>
         <el-table-column label="客户公司" min-width="200">
