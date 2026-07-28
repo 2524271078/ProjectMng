@@ -186,7 +186,11 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
             is_deleted=False,
         ).distinct()
         queryset = filter_device_queryset_for_user(queryset, request.user)
-        return build_paginated_response(request, queryset, lambda page_items: [device_summary(item) for item in page_items])
+        return build_paginated_response(
+            request,
+            queryset,
+            lambda page_items: [device_summary(item, latest_project_device_service(item, customer)) for item in page_items],
+        )
 
     @action(detail=True, methods=["get"], url_path="projects")
     def projects(self, request, pk=None):
@@ -410,8 +414,9 @@ def device_model_summary(model):
     }
 
 
-def device_summary(device):
-    latest_binding = latest_project_device_service(device)
+def device_summary(device, latest_binding=None):
+    latest_binding = latest_binding or latest_project_device_service(device)
+    latest_project = latest_binding.project if latest_binding else None
     return {
         "id": device.id,
         "name": device.name,
@@ -431,6 +436,11 @@ def device_summary(device):
         "current_service_status": service_status_from_binding(latest_binding),
         "current_service_start_date": latest_binding.service_start_date.isoformat() if latest_binding and latest_binding.service_start_date else None,
         "current_service_end_date": latest_binding.service_end_date.isoformat() if latest_binding and latest_binding.service_end_date else None,
+        "latest_project": {
+            "id": latest_project.id,
+            "project_no": latest_project.project_no,
+            "name": latest_project.name,
+        } if latest_project else None,
         "screenshot_url": device.screenshot_url,
         "rack_install_date": device.rack_install_date.isoformat() if device.rack_install_date else None,
         "ops_person": person_summary(device.ops_person),
@@ -443,9 +453,12 @@ def contract_summary(contract):
     return {"id": contract.id, "contract_no": contract.contract_no, "contract_name": contract.contract_name, "amount": str(contract.amount), "status": contract.status}
 
 
-def latest_project_device_service(device):
+def latest_project_device_service(device, customer=None):
+    queryset = device.project_devices.filter(is_deleted=False, project__is_deleted=False).select_related("project")
+    if customer:
+        queryset = queryset.filter(project__customer_org=customer)
     return (
-        device.project_devices.filter(is_deleted=False)
+        queryset
         .order_by("-service_end_date", "-updated_at", "-id")
         .first()
     )

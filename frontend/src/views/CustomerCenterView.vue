@@ -85,23 +85,27 @@
             <el-input
               v-model="deviceSearchKeyword"
               class="tab-search"
-              placeholder="搜索设备名称 / 序列号 / 保内状态"
+              placeholder="搜索产品型号 / 设备名称 / 序列号 / 保内状态"
               clearable
               @input="handleDeviceSearch"
             />
           </div>
           <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe>
-            <el-table-column prop="name" label="设备" min-width="180" />
+            <el-table-column prop="name" label="产品型号" min-width="180" />
             <el-table-column prop="serial_number" label="序列号" min-width="160" />
-            <el-table-column label="产品型号" min-width="180" show-overflow-tooltip>
+            <el-table-column label="设备名称" min-width="180" show-overflow-tooltip>
               <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
             </el-table-column>
             <el-table-column prop="current_service_status" label="当前保内状态" min-width="120" />
             <el-table-column prop="current_service_start_date" label="合同开始" min-width="140" />
             <el-table-column prop="current_service_end_date" label="合同结束" min-width="140" />
-            <el-table-column label="操作" width="100" fixed="right">
+            <el-table-column label="最新服务项目" min-width="200" show-overflow-tooltip>
+              <template #default="scope">{{ scope.row.latest_project?.name || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="160" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
+                <el-button v-if="scope.row.latest_project" link type="primary" @click.stop="openLatestDeviceProject(scope.row)">查看项目</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -173,9 +177,9 @@
         <el-tab-pane label="项目设备" name="devices">
           <div class="drawer-table-scroll">
           <el-table :data="projectDeviceRows" stripe>
-            <el-table-column prop="name" label="设备" min-width="160" />
+            <el-table-column prop="name" label="产品型号" min-width="160" />
             <el-table-column prop="serial_number" label="序列号" min-width="160" />
-            <el-table-column label="产品型号" min-width="180" show-overflow-tooltip>
+            <el-table-column label="设备名称" min-width="180" show-overflow-tooltip>
               <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
             </el-table-column>
             <el-table-column prop="device_project_type" label="项目类型" min-width="120" />
@@ -504,6 +508,14 @@ async function openProjectDetail(row) {
   projectDetailTab.value = 'base'
   resetProjectDrawerPagination()
   projectDrawerVisible.value = true
+}
+
+function openLatestDeviceProject(device) {
+  if (!device.latest_project?.id) {
+    ElMessage.info('该设备尚未关联项目')
+    return
+  }
+  openProjectDetail(device.latest_project)
 }
 
 async function openDeviceDetail(device) {
