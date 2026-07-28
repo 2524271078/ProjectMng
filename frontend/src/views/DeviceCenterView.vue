@@ -264,12 +264,13 @@
     </el-dialog>
 
     <el-dialog v-model="projectDeviceServiceVisible" title="项目设备服务" width="920px" destroy-on-close>
-      <div class="service-dialog-head">
+      <DeviceServiceWorkspace v-if="serviceDevice" :device-id="serviceDevice.device_id" :project-device-id="serviceDevice.id" :project-devices="[serviceDevice]" />
+      <div v-if="false" class="service-dialog-head">
         <span>{{ serviceDevice?.name || '-' }} / {{ serviceDevice?.serial_number || '-' }}</span>
         <el-button v-if="!projectDeviceServicePlans.length" type="primary" @click="openProjectServicePlanForm">配置服务计划</el-button>
         <el-button v-else type="primary" @click="openProjectServiceScheduleForm">新增服务项</el-button>
       </div>
-      <el-tabs v-model="projectDeviceServiceTab">
+      <el-tabs v-if="false" v-model="projectDeviceServiceTab">
         <el-tab-pane label="服务计划" name="plan">
           <el-empty v-if="!projectDeviceServicePlans.length" description="尚未配置服务计划" :image-size="64" />
           <el-descriptions v-else :column="2" border>
@@ -337,6 +338,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import ProductModelTreeSelect from '../components/ProductModelTreeSelect.vue'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
+import DeviceServiceWorkspace from '../components/DeviceServiceWorkspace.vue'
 import { createProjectContract, createResource, deleteProjectContract, deleteResource, fetchCustomerOverview, fetchProjectAttachments, fetchProjectContracts, fetchProjectDevices, fetchProjectOverview, listAllResource, listResource, updateResource, uploadAttachment } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { formatDeviceOptionLabel } from '../utils/deviceOptions'

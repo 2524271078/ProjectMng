@@ -257,9 +257,11 @@
           <el-descriptions-item label="服务项目">{{ selectedDevice?.latest_project?.name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="下次巡检">{{ selectedDevice?.service_overview?.next_inspection_task?.planned_date || '-' }}</el-descriptions-item>
           <el-descriptions-item label="巡检状态">{{ inspectionTaskStatusLabel(selectedDevice?.service_overview?.next_inspection_task?.status) }}</el-descriptions-item>
-          <el-descriptions-item label="巡检频率">{{ inspectionFrequencyLabel(selectedDevice?.service_overview?.inspection_frequency) }}</el-descriptions-item>
-        </el-descriptions>
-      </div>
+            <el-descriptions-item label="巡检频率">{{ inspectionFrequencyLabel(selectedDevice?.service_overview?.inspection_frequency) }}</el-descriptions-item>
+          </el-descriptions>
+          <el-divider content-position="left">设备服务</el-divider>
+          <DeviceServiceWorkspace v-if="selectedDevice?.id" :device-id="selectedDevice.id" :project-devices="selectedDevice.project_devices || []" />
+        </div>
     </el-dialog>
   </div>
 </template>
@@ -269,6 +271,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
+import DeviceServiceWorkspace from '../components/DeviceServiceWorkspace.vue'
 import {
   createResource,
   deleteResource,
@@ -575,9 +578,10 @@ async function openDeviceDetail(device) {
     ...data.device,
     customer: data.customer,
     customer_contact: data.customer_contact,
-    sales_person: data.sales_person,
-    ops_person: data.ops_person,
-  }
+      sales_person: data.sales_person,
+      ops_person: data.ops_person,
+      project_devices: data.project_devices || [],
+    }
   deviceDetailVisible.value = true
 }
 
