@@ -30,7 +30,7 @@ from projects.models import (
     SalesCustomerRelation,
     ServiceStandardTemplate,
 )
-from projects.serializers import DeviceOperationRecordSerializer, DeviceServicePlanSerializer
+from projects.serializers import DeviceOperationRecordSerializer, DeviceServicePlanSerializer, DeviceServiceScheduleSerializer
 from projects.services import generate_inspection_tasks, generate_service_tasks, refresh_inspection_task_statuses
 
 
@@ -1587,3 +1587,50 @@ class DeviceServicePlanTests(TestCase):
 
         self.assertEqual(summary["service_overview"]["plan_id"], plan.id)
         self.assertEqual(summary["service_overview"]["next_inspection_task"]["id"], task.id)
+
+    def test_edit_service_plan_syncs_service_items(self):
+        plan = DeviceServicePlan.objects.create(
+            project_device=self.project_device,
+            service_contents=["inspection"],
+        )
+        inspection_schedule = DeviceServiceSchedule.objects.create(
+            service_plan=plan,
+            service_type=DeviceServiceSchedule.TYPE_INSPECTION,
+            frequency=ServiceStandardTemplate.INSPECTION_QUARTERLY,
+        )
+        generate_service_tasks(inspection_schedule)
+
+        serializer = DeviceServicePlanSerializer(
+            plan,
+            data={"service_contents": ["system_upgrade"]},
+            partial=True,
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        inspection_schedule.refresh_from_db()
+        self.assertTrue(inspection_schedule.is_deleted)
+        upgrade_schedule = DeviceServiceSchedule.objects.get(service_plan=plan, service_type=DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE)
+        self.assertTrue(upgrade_schedule.tasks.exists())
+
+    def test_edit_service_schedule_regenerates_pending_tasks(self):
+        plan = DeviceServicePlan.objects.create(project_device=self.project_device)
+        schedule = DeviceServiceSchedule.objects.create(
+            service_plan=plan,
+            service_type=DeviceServiceSchedule.TYPE_INSPECTION,
+            frequency=ServiceStandardTemplate.INSPECTION_QUARTERLY,
+            first_service_date=date(2026, 1, 1),
+        )
+        generate_service_tasks(schedule)
+        old_task_ids = list(schedule.tasks.values_list("id", flat=True))
+
+        serializer = DeviceServiceScheduleSerializer(
+            schedule,
+            data={"frequency": ServiceStandardTemplate.INSPECTION_SEMIANNUAL},
+            partial=True,
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        self.assertEqual(InspectionTask.objects.filter(id__in=old_task_ids).count(), 0)
+        self.assertEqual(schedule.tasks.count(), 2)

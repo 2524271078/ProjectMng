@@ -41,7 +41,7 @@ def generate_service_tasks(schedule):
     created_count = 0
     while planned_date and planned_date <= binding.service_end_date:
         reminder_date = planned_date - timedelta(days=schedule.reminder_days)
-        _, created = InspectionTask.all_objects.get_or_create(
+        _, created = InspectionTask.objects.get_or_create(
             service_schedule=schedule,
             planned_date=planned_date,
             defaults={

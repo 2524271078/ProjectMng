@@ -258,6 +258,42 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
             generate_service_tasks(schedule)
         return plan
 
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        """同步服务内容，避免计划内容与实际服务项、任务不一致。"""
+        supported_service_types = {
+            DeviceServiceSchedule.TYPE_INSPECTION,
+            DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE,
+            DeviceServiceSchedule.TYPE_RULE_LIBRARY_UPGRADE,
+        }
+        old_contents = set(instance.service_contents or [])
+        plan = super().update(instance, validated_data)
+        new_contents = set(plan.service_contents or [])
+        if old_contents == new_contents:
+            return plan
+
+        from projects.services import generate_service_tasks
+
+        removed_types = (old_contents - new_contents) & supported_service_types
+        for schedule in plan.service_schedules.filter(service_type__in=removed_types, is_deleted=False):
+            schedule.tasks.filter(status__in=[InspectionTask.STATUS_PENDING, InspectionTask.STATUS_OVERDUE]).update(is_deleted=True)
+            schedule.is_deleted = True
+            schedule.save(update_fields=["is_deleted", "updated_at"])
+
+        active_types = set(plan.service_schedules.filter(is_deleted=False).values_list("service_type", flat=True))
+        for service_type in (new_contents & supported_service_types) - active_types:
+            schedule = DeviceServiceSchedule.objects.create(
+                service_plan=plan,
+                service_type=service_type,
+                frequency=plan.inspection_frequency,
+                interval_days=plan.inspection_interval_days,
+                first_service_date=plan.first_inspection_date,
+                reminder_days=plan.reminder_days,
+                auto_generate_tasks=plan.auto_generate_tasks,
+            )
+            generate_service_tasks(schedule)
+        return plan
+
 
 class DeviceServiceScheduleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -267,14 +303,34 @@ class DeviceServiceScheduleSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         frequency = attrs.get("frequency", getattr(self.instance, "frequency", ""))
         interval_days = attrs.get("interval_days", getattr(self.instance, "interval_days", None))
+        service_plan = attrs.get("service_plan", getattr(self.instance, "service_plan", None))
+        service_type = attrs.get("service_type", getattr(self.instance, "service_type", None))
         if frequency == ServiceStandardTemplate.INSPECTION_CUSTOM and not interval_days:
             raise serializers.ValidationError({"interval_days": "自定义频率必须填写间隔天数"})
+        if service_plan and service_type:
+            duplicates = DeviceServiceSchedule.objects.filter(service_plan=service_plan, service_type=service_type)
+            if self.instance:
+                duplicates = duplicates.exclude(pk=self.instance.pk)
+            if duplicates.exists():
+                raise serializers.ValidationError({"service_type": "该服务计划已存在相同服务项"})
         return attrs
 
     def create(self, validated_data):
         schedule = super().create(validated_data)
         from projects.services import generate_service_tasks
         generate_service_tasks(schedule)
+        return schedule
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        task_rule_fields = {"service_type", "frequency", "interval_days", "first_service_date", "reminder_days", "auto_generate_tasks"}
+        should_regenerate = any(field in validated_data for field in task_rule_fields)
+        if should_regenerate:
+            instance.tasks.filter(status__in=[InspectionTask.STATUS_PENDING, InspectionTask.STATUS_OVERDUE]).update(is_deleted=True)
+        schedule = super().update(instance, validated_data)
+        if should_regenerate:
+            from projects.services import generate_service_tasks
+            generate_service_tasks(schedule)
         return schedule
 
 
@@ -338,6 +394,29 @@ class DeviceOperationRecordSerializer(serializers.ModelSerializer):
             record.inspection_task.status = InspectionTask.STATUS_COMPLETED
             record.inspection_task.completed_at = record.performed_at or timezone.now()
             record.inspection_task.save(update_fields=["status", "completed_at", "updated_at"])
+        return record
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        old_task = instance.inspection_task
+        record = super().update(instance, validated_data)
+        update_fields = []
+        if record.software_version_after:
+            record.device.software_version = record.software_version_after
+            update_fields.append("software_version")
+        if record.rule_library_version_after:
+            record.device.rule_library_version = record.rule_library_version_after
+            update_fields.append("rule_library_version")
+        if update_fields:
+            record.device.save(update_fields=update_fields + ["updated_at"])
+        if record.inspection_task_id:
+            record.inspection_task.status = InspectionTask.STATUS_COMPLETED
+            record.inspection_task.completed_at = record.performed_at or timezone.now()
+            record.inspection_task.save(update_fields=["status", "completed_at", "updated_at"])
+        if old_task and old_task.pk != record.inspection_task_id:
+            old_task.status = InspectionTask.STATUS_PENDING if old_task.planned_date >= timezone.localdate() else InspectionTask.STATUS_OVERDUE
+            old_task.completed_at = None
+            old_task.save(update_fields=["status", "completed_at", "updated_at"])
         return record
 
 

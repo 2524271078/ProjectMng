@@ -1,5 +1,6 @@
 from math import ceil
 
+from django.db import transaction
 from django.db.models import OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -414,6 +415,18 @@ class DeviceServicePlanViewSet(SoftDeleteModelViewSet):
             queryset = queryset.filter(project_device__device_id=device_id)
         return queryset
 
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        now = timezone.now()
+        instance.service_schedules.filter(is_deleted=False).update(is_deleted=True, updated_at=now)
+        InspectionTask.objects.filter(service_plan=instance, is_deleted=False).update(is_deleted=True, updated_at=now)
+        instance.is_deleted = True
+        if request.user.is_authenticated:
+            instance.updated_by = request.user
+        instance.save(update_fields=["is_deleted", "updated_at", "updated_by"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class DeviceServiceScheduleViewSet(SoftDeleteModelViewSet):
     queryset = DeviceServiceSchedule.objects.select_related(
@@ -429,6 +442,16 @@ class DeviceServiceScheduleViewSet(SoftDeleteModelViewSet):
         if service_plan_id is not None:
             queryset = queryset.filter(service_plan_id=service_plan_id)
         return queryset
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.tasks.filter(is_deleted=False).update(is_deleted=True, updated_at=timezone.now())
+        instance.is_deleted = True
+        if request.user.is_authenticated:
+            instance.updated_by = request.user
+        instance.save(update_fields=["is_deleted", "updated_at", "updated_by"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class InspectionTaskViewSet(SoftDeleteModelViewSet):
@@ -471,6 +494,20 @@ class DeviceOperationRecordViewSet(SoftDeleteModelViewSet):
         if record_type:
             queryset = queryset.filter(record_type=record_type)
         return queryset
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        task = instance.inspection_task
+        instance.is_deleted = True
+        if request.user.is_authenticated:
+            instance.updated_by = request.user
+        instance.save(update_fields=["is_deleted", "updated_at", "updated_by"])
+        if task and not DeviceOperationRecord.objects.filter(inspection_task=task).exists():
+            task.status = InspectionTask.STATUS_PENDING if task.planned_date >= timezone.localdate() else InspectionTask.STATUS_OVERDUE
+            task.completed_at = None
+            task.save(update_fields=["status", "completed_at", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProjectContractViewSet(SoftDeleteModelViewSet):

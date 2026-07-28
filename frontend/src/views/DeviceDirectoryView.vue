@@ -118,6 +118,13 @@
           <el-tab-pane label="基础信息" name="basic">
             <DeviceDetailDescriptions :device="selectedDevice" />
           </el-tab-pane>
+          <el-tab-pane label="服务管理" name="service-management">
+            <DeviceServiceWorkspace
+              v-if="selectedDevice?.id"
+              :device-id="selectedDevice.id"
+              :project-devices="selectedDevice.project_devices || []"
+            />
+          </el-tab-pane>
           <el-tab-pane label="服务计划" name="plans">
             <div class="service-tab-action">
               <el-button v-if="!deviceServicePlans.length" type="primary" @click="openServicePlanDialog">配置服务计划</el-button>
@@ -298,6 +305,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
+import DeviceServiceWorkspace from '../components/DeviceServiceWorkspace.vue'
 import { createResource, fetchDeviceOverview, listAllResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { INSPECTION_TASK_STATUS_LABELS, OPERATION_RECORD_TYPE_LABELS, SERVICE_TYPE_LABELS, signingSubjectLabel } from '../utils/displayMaps'
