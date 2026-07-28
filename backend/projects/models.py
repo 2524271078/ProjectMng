@@ -280,6 +280,91 @@ class DeviceServicePlan(BaseModel):
         ]
 
 
+class InspectionTask(BaseModel):
+    STATUS_PENDING = "pending"
+    STATUS_COMPLETED = "completed"
+    STATUS_OVERDUE = "overdue"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "待巡检"),
+        (STATUS_COMPLETED, "已完成"),
+        (STATUS_OVERDUE, "已逾期"),
+        (STATUS_CANCELLED, "已取消"),
+    ]
+
+    service_plan = models.ForeignKey(DeviceServicePlan, related_name="inspection_tasks", on_delete=models.CASCADE)
+    planned_date = models.DateField(db_index=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    assignee = models.ForeignKey(Person, null=True, blank=True, related_name="inspection_tasks", on_delete=models.SET_NULL)
+    reminder_date = models.DateField(null=True, blank=True, db_index=True)
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    remark = models.TextField(blank=True, default="")
+
+    class Meta(BaseModel.Meta):
+        indexes = [models.Index(fields=["status", "planned_date"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["service_plan", "planned_date"],
+                condition=models.Q(is_deleted=False),
+                name="uniq_active_inspection_task_date",
+            )
+        ]
+
+
+class DeviceOperationRecord(BaseModel):
+    TYPE_INSPECTION = "inspection"
+    TYPE_SYSTEM_UPGRADE = "system_upgrade"
+    TYPE_RULE_LIBRARY_UPGRADE = "rule_library_upgrade"
+    TYPE_FAULT_HANDLING = "fault_handling"
+    TYPE_CONFIGURATION_CHANGE = "configuration_change"
+    TYPE_TECHNICAL_SUPPORT = "technical_support"
+    TYPE_OTHER = "other"
+    RECORD_TYPE_CHOICES = [
+        (TYPE_INSPECTION, "巡检"),
+        (TYPE_SYSTEM_UPGRADE, "系统升级"),
+        (TYPE_RULE_LIBRARY_UPGRADE, "规则库升级"),
+        (TYPE_FAULT_HANDLING, "故障处理"),
+        (TYPE_CONFIGURATION_CHANGE, "配置变更"),
+        (TYPE_TECHNICAL_SUPPORT, "技术支持"),
+        (TYPE_OTHER, "其他"),
+    ]
+    RESULT_NORMAL = "normal"
+    RESULT_ISSUE_FOUND = "issue_found"
+    RESULT_FOLLOW_UP = "follow_up"
+    RESULT_CHOICES = [
+        (RESULT_NORMAL, "正常"),
+        (RESULT_ISSUE_FOUND, "发现问题"),
+        (RESULT_FOLLOW_UP, "需跟进"),
+    ]
+
+    device = models.ForeignKey(Device, related_name="operation_records", on_delete=models.PROTECT)
+    project_device = models.ForeignKey(ProjectDevice, related_name="operation_records", on_delete=models.PROTECT)
+    service_plan = models.ForeignKey(DeviceServicePlan, null=True, blank=True, related_name="operation_records", on_delete=models.SET_NULL)
+    inspection_task = models.OneToOneField(InspectionTask, null=True, blank=True, related_name="operation_record", on_delete=models.SET_NULL)
+    record_type = models.CharField(max_length=32, choices=RECORD_TYPE_CHOICES, db_index=True)
+    performed_at = models.DateTimeField(db_index=True)
+    executor = models.ForeignKey(Person, null=True, blank=True, related_name="operation_records", on_delete=models.SET_NULL)
+    result = models.CharField(max_length=20, choices=RESULT_CHOICES, default=RESULT_NORMAL)
+    check_items = models.JSONField(default=list, blank=True)
+    issue_description = models.TextField(blank=True, default="")
+    resolution = models.TextField(blank=True, default="")
+    follow_up_date = models.DateField(null=True, blank=True)
+    software_version_before = models.CharField(max_length=100, blank=True, default="")
+    software_version_after = models.CharField(max_length=100, blank=True, default="")
+    rule_library_version_before = models.CharField(max_length=100, blank=True, default="")
+    rule_library_version_after = models.CharField(max_length=100, blank=True, default="")
+    attachment_urls = models.JSONField(default=list, blank=True)
+    customer_confirmed_by = models.CharField(max_length=100, blank=True, default="")
+    customer_confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta(BaseModel.Meta):
+        indexes = [
+            models.Index(fields=["device", "performed_at"]),
+            models.Index(fields=["project_device", "record_type", "performed_at"]),
+        ]
+
+
 class Contract(BaseModel):
     contract_no = models.CharField(max_length=100, unique=True)
     contract_name = models.CharField(max_length=200, db_index=True)

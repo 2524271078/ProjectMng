@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import MenuViewSet, PermissionViewSet, RoleViewSet, UserRoleViewSet, UserViewSet, current_user_view, login_view
-from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceServicePlanViewSet, DeviceViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectContractViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, ServiceStandardTemplateViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
+from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, DeviceModelViewSet, DeviceOperationRecordViewSet, DeviceServicePlanViewSet, DeviceViewSet, InspectionTaskViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectContractViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, ServiceStandardTemplateViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
 
 router = DefaultRouter()
 router.register("users", UserViewSet)
@@ -26,6 +26,8 @@ router.register("projects", ProjectViewSet)
 router.register("project-devices", ProjectDeviceViewSet)
 router.register("service-standard-templates", ServiceStandardTemplateViewSet)
 router.register("device-service-plans", DeviceServicePlanViewSet)
+router.register("inspection-tasks", InspectionTaskViewSet)
+router.register("device-operation-records", DeviceOperationRecordViewSet)
 router.register("project-contracts", ProjectContractViewSet)
 router.register("contracts", ContractViewSet)
 router.register("contract-devices", ContractDeviceViewSet)

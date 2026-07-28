@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -15,7 +15,9 @@ from projects.models import (
     ContractParty,
     Device,
     DeviceModel,
+    DeviceOperationRecord,
     DeviceServicePlan,
+    InspectionTask,
     Organization,
     Person,
     Product,
@@ -27,7 +29,8 @@ from projects.models import (
     SalesCustomerRelation,
     ServiceStandardTemplate,
 )
-from projects.serializers import DeviceServicePlanSerializer
+from projects.serializers import DeviceOperationRecordSerializer, DeviceServicePlanSerializer
+from projects.services import generate_inspection_tasks, refresh_inspection_task_statuses
 
 
 def api_results(response):
@@ -1442,7 +1445,12 @@ class DeviceServicePlanTests(TestCase):
         model = DeviceModel.objects.create(product=product, model_name="服务设备名称")
         device = Device.objects.create(name="服务产品型号", serial_number="SERVICE-SN-001", device_model=model)
         project = Project.objects.create(project_no="SERVICE-PROJECT-001", name="服务项目", customer_org=customer)
-        self.project_device = ProjectDevice.objects.create(project=project, device=device)
+        self.project_device = ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_start_date=date(2026, 1, 1),
+            service_end_date=date(2026, 12, 31),
+        )
 
     def test_plan_copies_selected_template_as_effective_snapshot(self):
         template = ServiceStandardTemplate.objects.create(
@@ -1473,3 +1481,38 @@ class DeviceServicePlanTests(TestCase):
         })
         self.assertFalse(serializer.is_valid())
         self.assertIn("inspection_interval_days", serializer.errors)
+
+    def test_quarterly_plan_generates_tasks_and_marks_overdue(self):
+        plan = DeviceServicePlan.objects.create(
+            project_device=self.project_device,
+            inspection_frequency=ServiceStandardTemplate.INSPECTION_QUARTERLY,
+            first_inspection_date=date(2026, 1, 15),
+            reminder_days=7,
+            service_contents=["inspection"],
+        )
+
+        self.assertEqual(generate_inspection_tasks(plan), 4)
+        tasks = plan.inspection_tasks.order_by("planned_date")
+        self.assertEqual([task.planned_date for task in tasks], [date(2026, 1, 15), date(2026, 4, 15), date(2026, 7, 15), date(2026, 10, 15)])
+        reminders = refresh_inspection_task_statuses(date(2026, 1, 16))
+        self.assertEqual(InspectionTask.objects.get(pk=tasks.first().id).status, InspectionTask.STATUS_OVERDUE)
+        self.assertEqual(reminders.count(), 1)
+
+    def test_inspection_record_completes_task_and_updates_versions(self):
+        plan = DeviceServicePlan.objects.create(project_device=self.project_device, service_contents=["inspection"])
+        task = InspectionTask.objects.create(service_plan=plan, planned_date=date(2026, 7, 30))
+        serializer = DeviceOperationRecordSerializer(data={
+            "device": self.project_device.device_id,
+            "project_device": self.project_device.id,
+            "service_plan": plan.id,
+            "inspection_task": task.id,
+            "record_type": DeviceOperationRecord.TYPE_INSPECTION,
+            "performed_at": datetime(2026, 7, 30, 9, 0).isoformat(),
+            "software_version_after": "V2.0",
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        task.refresh_from_db()
+        self.project_device.device.refresh_from_db()
+        self.assertEqual(task.status, InspectionTask.STATUS_COMPLETED)
+        self.assertEqual(self.project_device.device.software_version, "V2.0")

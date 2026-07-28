@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceServicePlan, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
+from django.db import transaction
+from django.utils import timezone
+
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -206,7 +209,57 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
                 "auto_generate_tasks": validated_data["auto_generate_tasks"],
                 "service_contents": validated_data["service_contents"],
             }
-        return super().create(validated_data)
+        plan = super().create(validated_data)
+        from projects.services import generate_inspection_tasks
+        generate_inspection_tasks(plan)
+        return plan
+
+
+class InspectionTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InspectionTask
+        fields = "__all__"
+        read_only_fields = ["reminder_sent_at", "completed_at"]
+
+
+class DeviceOperationRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceOperationRecord
+        fields = "__all__"
+
+    def validate(self, attrs):
+        project_device = attrs.get("project_device", getattr(self.instance, "project_device", None))
+        device = attrs.get("device", getattr(self.instance, "device", None))
+        service_plan = attrs.get("service_plan", getattr(self.instance, "service_plan", None))
+        task = attrs.get("inspection_task", getattr(self.instance, "inspection_task", None))
+        record_type = attrs.get("record_type", getattr(self.instance, "record_type", None))
+        if project_device and device and project_device.device_id != device.id:
+            raise serializers.ValidationError({"device": "设备必须与项目设备一致"})
+        if service_plan and project_device and service_plan.project_device_id != project_device.id:
+            raise serializers.ValidationError({"service_plan": "服务计划必须属于当前项目设备"})
+        if task and service_plan and task.service_plan_id != service_plan.id:
+            raise serializers.ValidationError({"inspection_task": "巡检任务必须属于当前服务计划"})
+        if task and record_type != DeviceOperationRecord.TYPE_INSPECTION:
+            raise serializers.ValidationError({"record_type": "关联巡检任务时记录类型必须为巡检"})
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        record = super().create(validated_data)
+        update_fields = []
+        if record.software_version_after:
+            record.device.software_version = record.software_version_after
+            update_fields.append("software_version")
+        if record.rule_library_version_after:
+            record.device.rule_library_version = record.rule_library_version_after
+            update_fields.append("rule_library_version")
+        if update_fields:
+            record.device.save(update_fields=update_fields + ["updated_at"])
+        if record.inspection_task_id:
+            record.inspection_task.status = InspectionTask.STATUS_COMPLETED
+            record.inspection_task.completed_at = record.performed_at or timezone.now()
+            record.inspection_task.save(update_fields=["status", "completed_at", "updated_at"])
+        return record
 
 
 class ProjectContractSerializer(serializers.ModelSerializer):
