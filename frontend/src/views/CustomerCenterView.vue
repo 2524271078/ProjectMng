@@ -82,18 +82,22 @@
         <el-tab-pane label="已购设备" name="devices">
           <div class="tab-toolbar">
             <div class="tab-summary">共 {{ devicePagination.total }} 台设备</div>
-            <el-select v-model="deviceSigningSubjectFilter" class="tab-signing-subject-filter" placeholder="签约主体" @change="handleDeviceSigningSubjectFilterChange">
-              <el-option label="全部签约主体" value="all" />
-              <el-option label="直签" value="direct" />
-              <el-option label="代理" value="agent" />
-            </el-select>
-            <el-input
-              v-model="deviceSearchKeyword"
-              class="tab-search"
-              placeholder="搜索产品型号 / 设备名称 / 序列号 / 保内状态"
-              clearable
-              @input="handleDeviceSearch"
-            />
+            <div class="tab-toolbar__filters">
+              <el-select v-model="deviceSigningSubjectFilter" class="tab-signing-subject-filter" placeholder="签约主体" @change="handleDeviceSigningSubjectFilterChange">
+                <el-option label="全部签约主体" value="all" />
+                <el-option label="直签" value="direct" />
+                <el-option label="代理" value="agent" />
+              </el-select>
+              <el-input
+                v-model="deviceSearchKeyword"
+                class="tab-search"
+                placeholder="搜索产品型号 / 设备名称 / 序列号 / 保内状态"
+                clearable
+                @keyup.enter="handleDeviceSearch"
+                @clear="handleDeviceSearch"
+              />
+              <el-button type="primary" @click="handleDeviceSearch">搜索</el-button>
+            </div>
           </div>
           <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe>
             <el-table-column prop="name" label="产品型号" min-width="180" />
@@ -709,5 +713,18 @@ onMounted(loadOrganizations)
 
 .tab-search {
   width: min(360px, 100%);
+}
+
+.tab-signing-subject-filter {
+  width: 160px;
+}
+
+.tab-toolbar__filters {
+  display: flex;
+  flex: 1 1 560px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

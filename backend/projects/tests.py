@@ -214,6 +214,7 @@ class CustomerDeviceLatestProjectApiTests(APITestCase):
         device_center_response = self.client.get("/api/devices/?signing_subject=agent")
         self.assertEqual(device_center_response.status_code, 200)
         self.assertEqual(device_center_response.data["count"], 1)
+        self.assertEqual(device_center_response.data["results"][0]["current_signing_subject"], "agent")
 
 
 
