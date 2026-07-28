@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildProjectDeviceBindingPayload, buildProjectDevicePayload, createDefaultProjectDeviceForm } from './projectDeviceForm.js'
+import { buildProjectDeviceBindingPayload, buildProjectDevicePayload, createDefaultProjectDeviceForm, validateProjectDeviceForm } from './projectDeviceForm.js'
 
 test('default project device form creates a new device by default', () => {
   const form = createDefaultProjectDeviceForm()
@@ -79,4 +79,36 @@ test('buildProjectDeviceBindingPayload keeps offline date for offline devices', 
 
   assert.equal(payload.service_type, 'offline')
   assert.equal(payload.offline_date, '2026-12-31')
+})
+
+test('validateProjectDeviceForm requires device identity and service dates for a new device', () => {
+  const form = createDefaultProjectDeviceForm()
+
+  assert.equal(validateProjectDeviceForm(form), '请选择产品型号')
+
+  form.device_model = 7
+  assert.equal(validateProjectDeviceForm(form), '请填写设备名称')
+
+  form.device_name = '项目设备'
+  assert.equal(validateProjectDeviceForm(form), '请填写设备序列号')
+
+  form.serial_number = 'PJ-SN-001'
+  assert.equal(validateProjectDeviceForm(form), '请选择服务开始日期')
+})
+
+test('validateProjectDeviceForm validates dates and nonstandard device fields', () => {
+  const form = {
+    ...createDefaultProjectDeviceForm(),
+    device_model: 7,
+    device_name: '项目设备',
+    serial_number: 'PJ-SN-001',
+    service_start_date: '2026-07-02',
+    service_end_date: '2026-07-01',
+  }
+
+  assert.equal(validateProjectDeviceForm(form), '服务结束日期不能早于开始日期')
+
+  form.service_end_date = '2026-07-31'
+  form.is_standard_product = false
+  assert.equal(validateProjectDeviceForm(form), '请填写非标名称')
 })
