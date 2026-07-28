@@ -82,6 +82,11 @@
         <el-tab-pane label="已购设备" name="devices">
           <div class="tab-toolbar">
             <div class="tab-summary">共 {{ devicePagination.total }} 台设备</div>
+            <el-select v-model="deviceSigningSubjectFilter" class="tab-signing-subject-filter" placeholder="签约主体" @change="handleDeviceSigningSubjectFilterChange">
+              <el-option label="全部签约主体" value="all" />
+              <el-option label="直签" value="direct" />
+              <el-option label="代理" value="agent" />
+            </el-select>
             <el-input
               v-model="deviceSearchKeyword"
               class="tab-search"
@@ -99,6 +104,9 @@
             <el-table-column prop="current_service_status" label="当前保内状态" min-width="120" />
             <el-table-column prop="current_service_start_date" label="合同开始" min-width="140" />
             <el-table-column prop="current_service_end_date" label="合同结束" min-width="140" />
+            <el-table-column label="签约主体" min-width="110">
+              <template #default="scope">{{ signingSubjectLabel(scope.row.current_signing_subject) }}</template>
+            </el-table-column>
             <el-table-column label="最新服务项目" min-width="200" show-overflow-tooltip>
               <template #default="scope">{{ scope.row.latest_project?.name || '-' }}</template>
             </el-table-column>
@@ -257,7 +265,7 @@ import {
   updateResource,
 } from '../api/resources'
 import { buildOrganizationTree } from '../utils/orgTree'
-import { serviceTypeLabel } from '../utils/displayMaps'
+import { serviceTypeLabel, signingSubjectLabel } from '../utils/displayMaps'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const organizations = ref([])
@@ -281,6 +289,7 @@ const selectedDevice = ref(null)
 const dialogVisible = ref(false)
 const searchKeyword = ref('')
 const deviceSearchKeyword = ref('')
+const deviceSigningSubjectFilter = ref('all')
 const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({ parent: null, name: '', org_type: 'customer', short_name: '', region: '', address: '' })
@@ -355,6 +364,7 @@ async function loadCustomerDevicesTab() {
       page: devicePagination.page,
       page_size: devicePagination.pageSize,
       ...(deviceSearchKeyword.value.trim() ? { search: deviceSearchKeyword.value.trim() } : {}),
+      ...(deviceSigningSubjectFilter.value !== 'all' ? { signing_subject: deviceSigningSubjectFilter.value } : {}),
     })
     applyPaginationResponse(devicePagination, data)
   } finally {
@@ -500,6 +510,7 @@ async function selectCustomer(node) {
   selected.value = node
   activeCustomerTab.value = 'info'
   deviceSearchKeyword.value = ''
+  deviceSigningSubjectFilter.value = 'all'
   resetCustomerTabPagination()
   const { data } = await fetchCustomerOverview(node.id)
   overview.value = data
@@ -512,6 +523,13 @@ async function openProjectDetail(row) {
   projectDetailTab.value = 'base'
   resetProjectDrawerPagination()
   projectDrawerVisible.value = true
+}
+
+function handleDeviceSigningSubjectFilterChange() {
+  devicePagination.page = 1
+  if (activeCustomerTab.value === 'devices' && selected.value) {
+    loadCustomerDevicesTab()
+  }
 }
 
 function openLatestDeviceProject(device) {

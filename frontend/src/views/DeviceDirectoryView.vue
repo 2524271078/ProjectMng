@@ -23,6 +23,11 @@
           <el-option label="全部状态" value="all" />
           <el-option v-for="option in serviceTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
         </el-select>
+        <el-select v-model="signingSubjectFilter" class="service-type-select" placeholder="签约主体" @change="handleSigningSubjectFilterChange">
+          <el-option label="全部签约主体" value="all" />
+          <el-option label="直签" value="direct" />
+          <el-option label="代理" value="agent" />
+        </el-select>
         <div class="action-row">
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="resetSearch">重置</el-button>
@@ -75,6 +80,9 @@
         <el-table-column label="合同结束" min-width="140">
           <template #default="scope">{{ scope.row.current_service_end_date || '-' }}</template>
         </el-table-column>
+        <el-table-column label="签约主体" min-width="110">
+          <template #default="scope">{{ signingSubjectLabel(scope.row.current_signing_subject) }}</template>
+        </el-table-column>
         <el-table-column label="客户公司" min-width="200">
           <template #default="scope">{{ scope.row.customer_org_detail?.name || '-' }}</template>
         </el-table-column>
@@ -118,7 +126,7 @@ import { ElMessage } from 'element-plus'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
 import { fetchDeviceOverview, listAllResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
-import { SERVICE_TYPE_LABELS } from '../utils/displayMaps'
+import { SERVICE_TYPE_LABELS, signingSubjectLabel } from '../utils/displayMaps'
 import { filterDevices } from '../utils/deviceFilters'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
@@ -128,6 +136,7 @@ const selectedDevice = ref(null)
 const searchKeyword = ref('')
 const statusFilter = ref('all')
 const serviceTypeFilter = ref('all')
+const signingSubjectFilter = ref('all')
 const devicePagination = buildPaginationState()
 
 const serviceTypeOptions = Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => ({ value, label }))
@@ -143,6 +152,7 @@ const warrantyStats = computed(() => {
 const filteredDevices = computed(() => filterDevices(devices.value, {
   warrantyStatus: statusFilter.value,
   serviceType: serviceTypeFilter.value,
+  signingSubject: signingSubjectFilter.value,
 }))
 
 function buildSearchParams() {
@@ -178,6 +188,11 @@ function handleServiceTypeFilterChange() {
   syncDevicePagination()
 }
 
+function handleSigningSubjectFilterChange() {
+  devicePagination.page = 1
+  syncDevicePagination()
+}
+
 async function loadDevices() {
   devicePagination.loading = true
   try {
@@ -200,6 +215,7 @@ function resetSearch() {
   searchKeyword.value = ''
   statusFilter.value = 'all'
   serviceTypeFilter.value = 'all'
+  signingSubjectFilter.value = 'all'
   devicePagination.page = 1
   loadDevices()
 }

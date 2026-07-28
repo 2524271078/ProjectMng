@@ -182,7 +182,7 @@ class CustomerDeviceLatestProjectApiTests(APITestCase):
         model = DeviceModel.objects.create(product=product, model_name="关联项目设备名称")
         self.device = Device.objects.create(name="关联项目产品型号", serial_number="LATEST-PROJECT-SN", device_model=model, customer_org=self.customer)
         self.first_project = Project.objects.create(project_no="LATEST-001", name="初始交付项目", customer_org=self.customer)
-        self.latest_project = Project.objects.create(project_no="LATEST-002", name="续保项目", customer_org=self.customer)
+        self.latest_project = Project.objects.create(project_no="LATEST-002", name="续保项目", customer_org=self.customer, signing_subject="agent")
         ProjectDevice.objects.create(
             project=self.first_project,
             device=self.device,
@@ -205,6 +205,15 @@ class CustomerDeviceLatestProjectApiTests(APITestCase):
         device = response.data["results"][0]
         self.assertEqual(device["latest_project"]["id"], self.latest_project.id)
         self.assertEqual(device["latest_project"]["name"], "续保项目")
+        self.assertEqual(device["current_signing_subject"], "agent")
+
+        filtered_response = self.client.get(f"/api/organizations/{self.customer.id}/devices/?signing_subject=agent")
+        self.assertEqual(filtered_response.status_code, 200)
+        self.assertEqual(filtered_response.data["count"], 1)
+
+        device_center_response = self.client.get("/api/devices/?signing_subject=agent")
+        self.assertEqual(device_center_response.status_code, 200)
+        self.assertEqual(device_center_response.data["count"], 1)
 
 
 

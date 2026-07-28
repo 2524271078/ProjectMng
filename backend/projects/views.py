@@ -1,6 +1,6 @@
 from math import ceil
 
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action, api_view, parser_classes
@@ -158,6 +158,25 @@ def filter_device_queryset_for_user(queryset, user):
     ).distinct()
 
 
+def filter_devices_by_current_signing_subject(queryset, signing_subject, customer=None):
+    if signing_subject not in {Project.SIGNING_SUBJECT_DIRECT, Project.SIGNING_SUBJECT_AGENT}:
+        return queryset
+
+    latest_bindings = ProjectDevice.objects.filter(
+        device_id=OuterRef("pk"),
+        is_deleted=False,
+        project__is_deleted=False,
+    )
+    if customer:
+        latest_bindings = latest_bindings.filter(project__customer_org=customer)
+
+    return queryset.annotate(
+        current_project_signing_subject=Subquery(
+            latest_bindings.order_by("-service_end_date", "-updated_at", "-id").values("project__signing_subject")[:1]
+        )
+    ).filter(current_project_signing_subject=signing_subject)
+
+
 def generate_project_no():
     prefix = f"PRJ-{timezone.localdate():%Y%m%d}-"
     sequence_numbers = []
@@ -196,6 +215,7 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
             is_deleted=False,
         ).distinct()
         queryset = filter_device_queryset_for_user(queryset, request.user)
+        queryset = filter_devices_by_current_signing_subject(queryset, request.query_params.get("signing_subject", ""), customer)
         return build_paginated_response(
             request,
             queryset,
@@ -312,6 +332,7 @@ class DeviceViewSet(SoftDeleteModelViewSet):
             | Q(project_devices__is_deleted=False, project_devices__project__is_deleted=False, project_devices__project__customer_org__is_deleted=False)
         )
         queryset = filter_device_queryset_for_user(queryset, self.request.user)
+        queryset = filter_devices_by_current_signing_subject(queryset, self.request.query_params.get("signing_subject", ""))
         return queryset.distinct()
 
 
