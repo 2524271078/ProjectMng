@@ -319,7 +319,7 @@
 
     <el-dialog v-model="projectServiceScheduleFormVisible" title="新增服务项计划" width="560px" append-to-body>
       <el-form label-width="110px">
-        <el-form-item label="服务项" required><el-select v-model="projectServiceScheduleForm.serviceType" class="service-form-control"><el-option label="系统升级" value="system_upgrade" /><el-option label="规则库升级" value="rule_library_upgrade" /></el-select></el-form-item>
+        <el-form-item label="服务项" required><el-select v-model="projectServiceScheduleForm.serviceType" class="service-form-control"><el-option label="巡检" value="inspection" /><el-option label="系统升级" value="system_upgrade" /><el-option label="规则库升级" value="rule_library_upgrade" /></el-select></el-form-item>
         <el-form-item label="首次执行日期"><el-date-picker v-model="projectServiceScheduleForm.firstServiceDate" type="date" value-format="YYYY-MM-DD" class="service-form-control" /></el-form-item>
         <el-form-item label="执行频率" required><el-select v-model="projectServiceScheduleForm.frequency" class="service-form-control"><el-option label="每月" value="monthly" /><el-option label="每季度" value="quarterly" /><el-option label="每半年" value="semiannual" /><el-option label="每年" value="annual" /><el-option label="自定义天数" value="custom" /></el-select></el-form-item>
         <el-form-item v-if="projectServiceScheduleForm.frequency === 'custom'" label="执行间隔" required><el-input-number v-model="projectServiceScheduleForm.intervalDays" :min="1" /></el-form-item>
