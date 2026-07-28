@@ -239,6 +239,23 @@
         <el-form-item label="首次巡检日期">
           <el-date-picker v-model="servicePlanForm.firstInspectionDate" type="date" value-format="YYYY-MM-DD" placeholder="未填则以服务开始日为准" class="form-select" />
         </el-form-item>
+        <el-form-item label="巡检频率" required>
+          <el-select v-model="servicePlanForm.inspectionFrequency" class="form-select">
+            <el-option label="每月" value="monthly" />
+            <el-option label="每季度" value="quarterly" />
+            <el-option label="每半年" value="semiannual" />
+            <el-option label="每年" value="annual" />
+            <el-option label="自定义天数" value="custom" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="servicePlanForm.inspectionFrequency === 'custom'" label="巡检间隔" required>
+          <el-input-number v-model="servicePlanForm.inspectionIntervalDays" :min="1" class="form-select" />
+          <span class="form-suffix">天</span>
+        </el-form-item>
+        <el-form-item label="提前提醒" required>
+          <el-input-number v-model="servicePlanForm.reminderDays" :min="0" class="form-select" />
+          <span class="form-suffix">天</span>
+        </el-form-item>
         <el-form-item label="服务内容">
           <el-checkbox-group v-model="servicePlanForm.serviceContents">
             <el-checkbox label="inspection">巡检</el-checkbox>
@@ -276,7 +293,7 @@ const deviceOperationRecords = ref([])
 const servicePlanDialogVisible = ref(false)
 const servicePlanSaving = ref(false)
 const serviceStandardTemplates = ref([])
-const servicePlanForm = reactive({ projectDeviceId: null, templateId: null, firstInspectionDate: '', serviceContents: ['inspection'] })
+const servicePlanForm = reactive({ projectDeviceId: null, templateId: null, firstInspectionDate: '', inspectionFrequency: 'quarterly', inspectionIntervalDays: null, reminderDays: 7, serviceContents: ['inspection'] })
 const operationRecordDialogVisible = ref(false)
 const operationRecordSaving = ref(false)
 const operationRecordForm = reactive({ servicePlanId: null, projectDeviceId: null, inspectionTaskId: null, recordType: 'inspection', performedAt: '', result: 'normal', issueDescription: '', resolution: '', softwareVersionAfter: '', ruleLibraryVersionAfter: '' })
@@ -420,6 +437,9 @@ async function openServicePlanDialog() {
   servicePlanForm.projectDeviceId = selectedDevice.value.project_devices[0].id
   servicePlanForm.templateId = null
   servicePlanForm.firstInspectionDate = ''
+  servicePlanForm.inspectionFrequency = 'quarterly'
+  servicePlanForm.inspectionIntervalDays = null
+  servicePlanForm.reminderDays = 7
   servicePlanForm.serviceContents = ['inspection']
   try {
     const { data } = await listAllResource('service-standard-templates')
@@ -435,12 +455,19 @@ async function saveServicePlan() {
     ElMessage.warning('请选择项目服务周期')
     return
   }
+  if (servicePlanForm.inspectionFrequency === 'custom' && !servicePlanForm.inspectionIntervalDays) {
+    ElMessage.warning('请填写自定义巡检间隔天数')
+    return
+  }
   servicePlanSaving.value = true
   try {
     const payload = {
       project_device: servicePlanForm.projectDeviceId,
       ...(servicePlanForm.templateId ? { template: servicePlanForm.templateId } : {}),
       ...(servicePlanForm.firstInspectionDate ? { first_inspection_date: servicePlanForm.firstInspectionDate } : {}),
+      inspection_frequency: servicePlanForm.inspectionFrequency,
+      ...(servicePlanForm.inspectionFrequency === 'custom' ? { inspection_interval_days: servicePlanForm.inspectionIntervalDays } : {}),
+      reminder_days: servicePlanForm.reminderDays,
       service_contents: servicePlanForm.serviceContents,
     }
     await createResource('device-service-plans', payload)
@@ -620,5 +647,11 @@ onMounted(loadDevices)
 
 .form-select {
   width: 100%;
+}
+
+.form-suffix {
+  margin-left: 8px;
+  white-space: nowrap;
+  color: #606266;
 }
 </style>
