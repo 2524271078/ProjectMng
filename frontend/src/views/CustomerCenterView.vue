@@ -109,6 +109,12 @@
             <el-table-column prop="current_service_status" label="当前保内状态" min-width="120" />
             <el-table-column prop="current_service_start_date" label="合同开始" min-width="140" />
             <el-table-column prop="current_service_end_date" label="合同结束" min-width="140" />
+            <el-table-column label="下次巡检" min-width="120">
+              <template #default="scope">{{ scope.row.service_overview?.next_inspection_task?.planned_date || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="巡检状态" min-width="100">
+              <template #default="scope">{{ inspectionTaskStatusLabel(scope.row.service_overview?.next_inspection_task?.status) }}</template>
+            </el-table-column>
             <el-table-column label="签约主体" min-width="110">
               <template #default="scope">{{ signingSubjectLabel(scope.row.current_signing_subject) }}</template>
             </el-table-column>
@@ -118,6 +124,7 @@
             <el-table-column label="操作" width="160" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
+                <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">服务</el-button>
                 <el-button v-if="scope.row.latest_project" link type="primary" @click.stop="openLatestDeviceProject(scope.row)">查看项目</el-button>
               </template>
             </el-table-column>
@@ -245,6 +252,13 @@
     <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(860px, calc(100vw - 32px))" top="4vh">
       <div class="device-detail-scroll">
         <DeviceDetailDescriptions :device="selectedDevice" />
+        <el-divider content-position="left">当前服务</el-divider>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="服务项目">{{ selectedDevice?.latest_project?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="下次巡检">{{ selectedDevice?.service_overview?.next_inspection_task?.planned_date || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="巡检状态">{{ inspectionTaskStatusLabel(selectedDevice?.service_overview?.next_inspection_task?.status) }}</el-descriptions-item>
+          <el-descriptions-item label="巡检频率">{{ inspectionFrequencyLabel(selectedDevice?.service_overview?.inspection_frequency) }}</el-descriptions-item>
+        </el-descriptions>
       </div>
     </el-dialog>
   </div>
@@ -270,7 +284,7 @@ import {
   updateResource,
 } from '../api/resources'
 import { buildOrganizationTree } from '../utils/orgTree'
-import { serviceTypeLabel, signingSubjectLabel } from '../utils/displayMaps'
+import { INSPECTION_TASK_STATUS_LABELS, serviceTypeLabel, signingSubjectLabel } from '../utils/displayMaps'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const organizations = ref([])
@@ -565,6 +579,14 @@ async function openDeviceDetail(device) {
     ops_person: data.ops_person,
   }
   deviceDetailVisible.value = true
+}
+
+function inspectionTaskStatusLabel(value) {
+  return INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
+}
+
+function inspectionFrequencyLabel(value) {
+  return ({ monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' })[value] || value || '-'
 }
 
 function handleProjectDeviceDrawerPageChange(page) {

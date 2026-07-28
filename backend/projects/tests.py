@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from django.test import TestCase
 from rest_framework.test import APITestCase
 
-from projects.views import paginate_queryset
+from projects.views import paginate_queryset, project_device_summary
 
 from projects.models import (
     Attachment,
@@ -1516,3 +1516,16 @@ class DeviceServicePlanTests(TestCase):
         self.project_device.device.refresh_from_db()
         self.assertEqual(task.status, InspectionTask.STATUS_COMPLETED)
         self.assertEqual(self.project_device.device.software_version, "V2.0")
+
+    def test_project_device_summary_includes_next_inspection_overview(self):
+        plan = DeviceServicePlan.objects.create(
+            project_device=self.project_device,
+            inspection_frequency=ServiceStandardTemplate.INSPECTION_QUARTERLY,
+            service_contents=["inspection"],
+        )
+        task = InspectionTask.objects.create(service_plan=plan, planned_date=date(2026, 8, 1))
+
+        summary = project_device_summary(self.project_device)
+
+        self.assertEqual(summary["service_overview"]["plan_id"], plan.id)
+        self.assertEqual(summary["service_overview"]["next_inspection_task"]["id"], task.id)

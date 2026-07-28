@@ -550,6 +550,7 @@ def device_summary(device, latest_binding=None):
         "current_service_status": service_status_from_binding(latest_binding),
         "current_service_start_date": latest_binding.service_start_date.isoformat() if latest_binding and latest_binding.service_start_date else None,
         "current_service_end_date": latest_binding.service_end_date.isoformat() if latest_binding and latest_binding.service_end_date else None,
+        "service_overview": service_overview_for_binding(latest_binding),
         "current_signing_subject": latest_project.signing_subject if latest_project else "",
         "latest_project": {
             "id": latest_project.id,
@@ -601,6 +602,30 @@ def service_status_from_binding(binding):
     return "\u4fdd\u5185" if binding.service_start_date <= today <= binding.service_end_date else "\u4fdd\u5916"
 
 
+def service_overview_for_binding(binding):
+    if not binding:
+        return None
+    plan = binding.service_plans.filter(is_deleted=False).select_related("ops_person").order_by("-updated_at", "-id").first()
+    if not plan:
+        return None
+    next_task = plan.inspection_tasks.filter(
+        is_deleted=False,
+        status__in=[InspectionTask.STATUS_PENDING, InspectionTask.STATUS_OVERDUE],
+    ).order_by("planned_date", "id").first()
+    return {
+        "plan_id": plan.id,
+        "inspection_frequency": plan.inspection_frequency,
+        "reminder_days": plan.reminder_days,
+        "service_contents": plan.service_contents,
+        "ops_person": person_summary(plan.ops_person),
+        "next_inspection_task": {
+            "id": next_task.id,
+            "planned_date": next_task.planned_date.isoformat(),
+            "status": next_task.status,
+        } if next_task else None,
+    }
+
+
 def project_device_summary(binding):
     return {
         **device_summary(binding.device),
@@ -616,6 +641,7 @@ def project_device_summary(binding):
         "service_end_date": binding.service_end_date.isoformat() if binding.service_end_date else None,
         "offline_date": binding.offline_date.isoformat() if binding.offline_date else None,
         "service_status": service_status_from_binding(binding),
+        "service_overview": service_overview_for_binding(binding),
     }
 
 
