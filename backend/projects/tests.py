@@ -652,6 +652,16 @@ class ProjectApiTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["project_no"], "CUSTOM-PRJ-001")
 
+    def test_project_api_saves_signing_subject(self):
+        response = self.client.post(
+            "/api/projects/",
+            {"project_no": "SIGNING-SUBJECT-001", "name": "代理签约项目", "signing_subject": "agent"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["signing_subject"], "agent")
+
     def test_project_crud_and_overview_api(self):
         from projects.models import ProductLine, ProductVersion
 

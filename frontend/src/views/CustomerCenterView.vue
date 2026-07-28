@@ -119,6 +119,9 @@
             <el-table-column prop="project_no" label="项目编号" min-width="150" />
             <el-table-column prop="name" label="项目名称" min-width="220" />
             <el-table-column prop="project_stage" label="阶段" min-width="120" />
+            <el-table-column label="签约主体" min-width="100">
+              <template #default="scope">{{ scope.row.signing_subject === 'agent' ? '代理' : '直签' }}</template>
+            </el-table-column>
             <el-table-column label="销售" min-width="120">
               <template #default="scope">{{ scope.row.sales_person?.name || '-' }}</template>
             </el-table-column>
@@ -168,6 +171,7 @@
             <el-descriptions-item label="联系人职位">{{ projectOverview.customer_contact?.position || '-' }}</el-descriptions-item>
             <el-descriptions-item label="实际中标公司">{{ projectOverview.project.winning_company || '-' }}</el-descriptions-item>
             <el-descriptions-item label="对接公司">{{ projectOverview.project.contact_company || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="签约主体">{{ projectOverview.project.signing_subject === 'agent' ? '代理' : '直签' }}</el-descriptions-item>
             <el-descriptions-item label="销售">{{ projectOverview.sales_person?.name || '-' }}</el-descriptions-item>
             <el-descriptions-item label="阶段">{{ projectOverview.project.project_stage || '-' }}</el-descriptions-item>
             <el-descriptions-item label="金额">{{ projectOverview.project.amount }}</el-descriptions-item>

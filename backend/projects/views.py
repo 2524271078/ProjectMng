@@ -450,6 +450,7 @@ def device_summary(device, latest_binding=None):
         "current_service_status": service_status_from_binding(latest_binding),
         "current_service_start_date": latest_binding.service_start_date.isoformat() if latest_binding and latest_binding.service_start_date else None,
         "current_service_end_date": latest_binding.service_end_date.isoformat() if latest_binding and latest_binding.service_end_date else None,
+        "current_signing_subject": latest_project.signing_subject if latest_project else "",
         "latest_project": {
             "id": latest_project.id,
             "project_no": latest_project.project_no,
@@ -524,6 +525,7 @@ def project_summary(project):
         "project_no": project.project_no,
         "name": project.name,
         "project_stage": project.project_stage,
+        "signing_subject": project.signing_subject,
         "amount": str(project.amount),
         "customer_contact": person_summary(project.customer_contact),
         "sales_person": person_summary(project.sales_person),

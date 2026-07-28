@@ -22,6 +22,9 @@
       <el-table-column label="阶段" min-width="100">
         <template #default="scope">{{ projectStageLabel(scope.row.project_stage) }}</template>
       </el-table-column>
+      <el-table-column label="签约主体" min-width="100">
+        <template #default="scope">{{ scope.row.signing_subject === 'agent' ? '代理' : '直签' }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="scope">
           <el-button link type="primary" @click.stop="openEditDialog(scope.row)">编辑</el-button>
@@ -56,6 +59,7 @@
         </el-form-item>
         <el-form-item label="实际中标公司"><el-input v-model="form.winning_company" /></el-form-item>
         <el-form-item label="对接公司"><el-input v-model="form.contact_company" /></el-form-item>
+        <el-form-item label="签约主体" required><el-select v-model="form.signing_subject"><el-option label="直签" value="direct" /><el-option label="代理" value="agent" /></el-select></el-form-item>
         <el-form-item label="销售人员"><el-select v-model="form.sales_person" clearable filterable><el-option v-for="person in salesPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item>
         <el-form-item label="项目阶段"><el-select v-model="form.project_stage"><el-option label="立项" value="new" /><el-option label="签约" value="signed" /><el-option label="交付" value="delivery" /><el-option label="运维" value="ops" /></el-select></el-form-item>
         <el-form-item label="项目金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item>
@@ -74,6 +78,7 @@
             <el-descriptions-item label="联系人职位">{{ overview.customer_contact?.position || '-' }}</el-descriptions-item>
             <el-descriptions-item label="实际中标公司">{{ overview.project.winning_company || '-' }}</el-descriptions-item>
             <el-descriptions-item label="对接公司">{{ overview.project.contact_company || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="签约主体">{{ overview.project.signing_subject === 'agent' ? '代理' : '直签' }}</el-descriptions-item>
             <el-descriptions-item label="销售">{{ overview.sales_person?.name || '-' }}</el-descriptions-item>
             <el-descriptions-item label="阶段">{{ projectStageLabel(overview.project.project_stage) }}</el-descriptions-item>
             <el-descriptions-item label="金额">{{ overview.project.amount }}</el-descriptions-item>
@@ -292,7 +297,7 @@ const selectedDevice = ref(null)
 const selectedContractId = ref(null)
 const projectSearchKeyword = ref('')
 const activeProjectTab = ref('base')
-const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
+const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', signing_subject: 'direct', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
 
 const customerScopedDevices = computed(() => {
@@ -501,7 +506,7 @@ async function loadOptions() {
 }
 
 function resetProjectForm() {
-  Object.assign(form, { project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', sales_person: null, project_stage: 'new', amount: 0 })
+  Object.assign(form, { project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', signing_subject: 'direct', sales_person: null, project_stage: 'new', amount: 0 })
 }
 
 function openCreateDialog() {
@@ -520,6 +525,7 @@ async function openEditDialog(row) {
     customer_contact: row.customer_contact || null,
     winning_company: row.winning_company || '',
     contact_company: row.contact_company || '',
+    signing_subject: row.signing_subject || 'direct',
     sales_person: row.sales_person || null,
     project_stage: row.project_stage || 'new',
     amount: Number(row.amount || 0),

@@ -157,12 +157,20 @@ class Device(BaseModel):
 
 
 class Project(BaseModel):
+    SIGNING_SUBJECT_DIRECT = "direct"
+    SIGNING_SUBJECT_AGENT = "agent"
+    SIGNING_SUBJECT_CHOICES = [
+        (SIGNING_SUBJECT_DIRECT, "直签"),
+        (SIGNING_SUBJECT_AGENT, "代理"),
+    ]
+
     project_no = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=200, db_index=True)
     customer_org = models.ForeignKey(Organization, null=True, blank=True, related_name="projects", on_delete=models.SET_NULL)
     customer_contact = models.ForeignKey(Person, null=True, blank=True, related_name="customer_projects", on_delete=models.SET_NULL)
     winning_company = models.CharField(max_length=200, blank=True, default="")
     contact_company = models.CharField(max_length=200, blank=True, default="")
+    signing_subject = models.CharField(max_length=16, choices=SIGNING_SUBJECT_CHOICES, default=SIGNING_SUBJECT_DIRECT, db_index=True)
     sales_person = models.ForeignKey(Person, null=True, blank=True, related_name="sales_projects", on_delete=models.SET_NULL)
     ops_person = models.ForeignKey(Person, null=True, blank=True, related_name="ops_projects", on_delete=models.SET_NULL)
     project_stage = models.CharField(max_length=64, blank=True, default="new", db_index=True)
@@ -171,7 +179,7 @@ class Project(BaseModel):
     amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
 
     class Meta(BaseModel.Meta):
-        indexes = [models.Index(fields=["customer_org", "sales_person", "project_stage", "status"])]
+        indexes = [models.Index(fields=["customer_org", "sales_person", "project_stage", "signing_subject", "status"])]
 
     def __str__(self):
         return self.name
