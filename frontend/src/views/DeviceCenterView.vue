@@ -195,6 +195,7 @@
           <el-col :span="12"><el-form-item label="管理地址"><el-input v-model="deviceBinding.management_address" placeholder="IP / URL / 管理平台地址" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceBinding.hardware_code" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceBinding.software_version" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="规则库版本"><el-input v-model="deviceBinding.rule_library_version" placeholder="选填" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceBinding.version_update_method" placeholder="远程升级/现场升级/手动导入" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备状态"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /><el-option label="下架" value="offline" /></el-select></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="服务开始" required><el-date-picker v-model="deviceBinding.service_start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务开始日期" /></el-form-item></el-col>
@@ -235,6 +236,7 @@
           <el-col :span="12"><el-form-item label="管理地址"><el-input v-model="deviceBinding.management_address" placeholder="IP / URL / 管理平台地址" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceBinding.hardware_code" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceBinding.software_version" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="规则库版本"><el-input v-model="deviceBinding.rule_library_version" placeholder="选填" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceBinding.version_update_method" placeholder="远程升级/现场升级/手动导入" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备状态"><el-select v-model="deviceBinding.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /><el-option label="下架" value="offline" /></el-select></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="服务开始" required><el-date-picker v-model="deviceBinding.service_start_date" type="date" value-format="YYYY-MM-DD" placeholder="选择服务开始日期" /></el-form-item></el-col>
@@ -858,6 +860,7 @@ function fillDeviceFields(deviceId) {
     management_address: device.management_address || '',
     hardware_code: device.hardware_code || '',
     software_version: device.software_version || '',
+    rule_library_version: device.rule_library_version || '',
     version_update_method: device.version_update_method || '',
     license_info_text: device.license_info ? JSON.stringify(device.license_info) : '',
     is_standard_product: device.is_standard_product ?? true,
@@ -887,6 +890,7 @@ function editProjectDevice(row) {
     management_address: row.management_address || '',
     hardware_code: row.hardware_code || '',
     software_version: row.software_version || '',
+    rule_library_version: row.rule_library_version || '',
     version_update_method: row.version_update_method || '',
     license_info_text: row.license_info ? JSON.stringify(row.license_info) : '',
     is_standard_product: row.is_standard_product ?? true,
@@ -931,6 +935,7 @@ async function bindDevice() {
       management_address: deviceBinding.management_address,
       hardware_code: deviceBinding.hardware_code,
       software_version: deviceBinding.software_version,
+      rule_library_version: deviceBinding.rule_library_version,
       version_update_method: deviceBinding.version_update_method,
       license_info: parseLicenseInfo(),
       is_standard_product: deviceBinding.is_standard_product,

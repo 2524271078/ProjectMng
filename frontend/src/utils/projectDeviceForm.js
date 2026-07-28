@@ -12,6 +12,7 @@ export function createDefaultProjectDeviceForm() {
     management_address: '',
     hardware_code: '',
     software_version: '',
+    rule_library_version: '',
     version_update_method: '',
     license_info_text: '',
     is_standard_product: true,

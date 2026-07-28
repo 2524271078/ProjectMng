@@ -7,6 +7,7 @@
     <el-descriptions-item label="管理地址">{{ device.management_address || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备硬件码">{{ device.hardware_code || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备系统版本">{{ device.software_version || '-' }}</el-descriptions-item>
+    <el-descriptions-item label="规则库版本">{{ device.rule_library_version || '-' }}</el-descriptions-item>
     <el-descriptions-item label="版本更新方式">{{ device.version_update_method || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备状态">{{ serviceTypeText }}</el-descriptions-item>
     <el-descriptions-item label="合同开始">{{ contractStartDate }}</el-descriptions-item>
