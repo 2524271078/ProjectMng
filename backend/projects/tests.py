@@ -1475,6 +1475,20 @@ class DeviceServicePlanTests(TestCase):
         self.assertEqual(plan.standard_snapshot["template_name"], "季度巡检标准")
         self.assertEqual(plan.standard_snapshot["service_contents"], ["inspection", "system_upgrade"])
 
+    def test_system_upgrade_content_creates_upgrade_schedule_and_tasks(self):
+        serializer = DeviceServicePlanSerializer(data={
+            "project_device": self.project_device.id,
+            "inspection_frequency": ServiceStandardTemplate.INSPECTION_SEMIANNUAL,
+            "first_inspection_date": "2026-02-01",
+            "service_contents": ["system_upgrade"],
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        plan = serializer.save()
+        schedule = plan.service_schedules.get(service_type=DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE)
+        self.assertEqual(schedule.tasks.count(), 2)
+        self.assertTrue(schedule.tasks.filter(task_type=DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE).exists())
+
     def test_custom_frequency_requires_interval_days(self):
         serializer = DeviceServicePlanSerializer(data={
             "project_device": self.project_device.id,

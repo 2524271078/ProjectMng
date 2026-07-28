@@ -239,17 +239,22 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
                 "service_contents": validated_data["service_contents"],
             }
         plan = super().create(validated_data)
-        if "inspection" in plan.service_contents:
+        supported_service_types = {
+            DeviceServiceSchedule.TYPE_INSPECTION,
+            DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE,
+            DeviceServiceSchedule.TYPE_RULE_LIBRARY_UPGRADE,
+        }
+        from projects.services import generate_service_tasks
+        for service_type in set(plan.service_contents) & supported_service_types:
             schedule = DeviceServiceSchedule.objects.create(
                 service_plan=plan,
-                service_type=DeviceServiceSchedule.TYPE_INSPECTION,
+                service_type=service_type,
                 frequency=plan.inspection_frequency,
                 interval_days=plan.inspection_interval_days,
                 first_service_date=plan.first_inspection_date,
                 reminder_days=plan.reminder_days,
                 auto_generate_tasks=plan.auto_generate_tasks,
             )
-            from projects.services import generate_service_tasks
             generate_service_tasks(schedule)
         return plan
 
