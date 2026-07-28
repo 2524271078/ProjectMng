@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceServicePlan, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -163,6 +163,50 @@ class ProjectDeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectDevice
         fields = "__all__"
+
+
+class ServiceStandardTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServiceStandardTemplate
+        fields = "__all__"
+
+    def validate(self, attrs):
+        frequency = attrs.get("inspection_frequency", getattr(self.instance, "inspection_frequency", ""))
+        interval_days = attrs.get("inspection_interval_days", getattr(self.instance, "inspection_interval_days", None))
+        if frequency == ServiceStandardTemplate.INSPECTION_CUSTOM and not interval_days:
+            raise serializers.ValidationError({"inspection_interval_days": "自定义巡检频率必须填写巡检间隔天数"})
+        return attrs
+
+
+class DeviceServicePlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceServicePlan
+        fields = "__all__"
+        read_only_fields = ["standard_snapshot"]
+
+    def validate(self, attrs):
+        template = attrs.get("template")
+        frequency = attrs.get("inspection_frequency", getattr(self.instance, "inspection_frequency", template.inspection_frequency if template else ""))
+        interval_days = attrs.get("inspection_interval_days", getattr(self.instance, "inspection_interval_days", template.inspection_interval_days if template else None))
+        if frequency == ServiceStandardTemplate.INSPECTION_CUSTOM and not interval_days:
+            raise serializers.ValidationError({"inspection_interval_days": "自定义巡检频率必须填写巡检间隔天数"})
+        return attrs
+
+    def create(self, validated_data):
+        template = validated_data.get("template")
+        if template:
+            for field in ("inspection_frequency", "inspection_interval_days", "reminder_days", "auto_generate_tasks", "service_contents"):
+                validated_data.setdefault(field, getattr(template, field))
+            validated_data["standard_snapshot"] = {
+                "template_id": template.id,
+                "template_name": template.name,
+                "inspection_frequency": validated_data["inspection_frequency"],
+                "inspection_interval_days": validated_data["inspection_interval_days"],
+                "reminder_days": validated_data["reminder_days"],
+                "auto_generate_tasks": validated_data["auto_generate_tasks"],
+                "service_contents": validated_data["service_contents"],
+            }
+        return super().create(validated_data)
 
 
 class ProjectContractSerializer(serializers.ModelSerializer):

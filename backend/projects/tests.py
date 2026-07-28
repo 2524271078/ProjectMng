@@ -15,6 +15,7 @@ from projects.models import (
     ContractParty,
     Device,
     DeviceModel,
+    DeviceServicePlan,
     Organization,
     Person,
     Product,
@@ -24,7 +25,9 @@ from projects.models import (
     ProductLine,
     ProductVersion,
     SalesCustomerRelation,
+    ServiceStandardTemplate,
 )
+from projects.serializers import DeviceServicePlanSerializer
 
 
 def api_results(response):
@@ -1430,3 +1433,43 @@ class DataScopeFilteringTests(APITestCase):
         self.assertEqual(blocked_project.status_code, 404)
         self.assertEqual(allowed_contract.status_code, 200)
         self.assertEqual(blocked_contract.status_code, 404)
+
+
+class DeviceServicePlanTests(TestCase):
+    def setUp(self):
+        customer = Organization.objects.create(name="服务客户", org_type="customer")
+        product = Product.objects.create(name="服务产品")
+        model = DeviceModel.objects.create(product=product, model_name="服务设备名称")
+        device = Device.objects.create(name="服务产品型号", serial_number="SERVICE-SN-001", device_model=model)
+        project = Project.objects.create(project_no="SERVICE-PROJECT-001", name="服务项目", customer_org=customer)
+        self.project_device = ProjectDevice.objects.create(project=project, device=device)
+
+    def test_plan_copies_selected_template_as_effective_snapshot(self):
+        template = ServiceStandardTemplate.objects.create(
+            name="季度巡检标准",
+            code="QUARTERLY-INSPECTION",
+            inspection_frequency=ServiceStandardTemplate.INSPECTION_QUARTERLY,
+            reminder_days=10,
+            service_contents=["inspection", "system_upgrade"],
+        )
+
+        serializer = DeviceServicePlanSerializer(data={
+            "project_device": self.project_device.id,
+            "template": template.id,
+            "first_inspection_date": "2026-08-01",
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        plan = serializer.save()
+        self.assertEqual(plan.inspection_frequency, ServiceStandardTemplate.INSPECTION_QUARTERLY)
+        self.assertEqual(plan.reminder_days, 10)
+        self.assertEqual(plan.standard_snapshot["template_name"], "季度巡检标准")
+        self.assertEqual(plan.standard_snapshot["service_contents"], ["inspection", "system_upgrade"])
+
+    def test_custom_frequency_requires_interval_days(self):
+        serializer = DeviceServicePlanSerializer(data={
+            "project_device": self.project_device.id,
+            "inspection_frequency": ServiceStandardTemplate.INSPECTION_CUSTOM,
+        })
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("inspection_interval_days", serializer.errors)

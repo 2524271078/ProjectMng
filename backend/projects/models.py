@@ -216,6 +216,70 @@ class ProjectDevice(BaseModel):
         ]
 
 
+class ServiceStandardTemplate(BaseModel):
+    """可复用的设备服务标准，例如“标准维保（季度巡检）”。"""
+
+    INSPECTION_MONTHLY = "monthly"
+    INSPECTION_QUARTERLY = "quarterly"
+    INSPECTION_SEMIANNUAL = "semiannual"
+    INSPECTION_ANNUAL = "annual"
+    INSPECTION_CUSTOM = "custom"
+    INSPECTION_FREQUENCY_CHOICES = [
+        (INSPECTION_MONTHLY, "每月"),
+        (INSPECTION_QUARTERLY, "每季度"),
+        (INSPECTION_SEMIANNUAL, "每半年"),
+        (INSPECTION_ANNUAL, "每年"),
+        (INSPECTION_CUSTOM, "自定义天数"),
+    ]
+
+    name = models.CharField(max_length=100, db_index=True)
+    code = models.CharField(max_length=50, blank=True, default="")
+    inspection_frequency = models.CharField(max_length=20, choices=INSPECTION_FREQUENCY_CHOICES, default=INSPECTION_QUARTERLY)
+    inspection_interval_days = models.PositiveIntegerField(null=True, blank=True)
+    reminder_days = models.PositiveIntegerField(default=7)
+    auto_generate_tasks = models.BooleanField(default=True)
+    service_contents = models.JSONField(default=list, blank=True)
+    description = models.TextField(blank=True, default="")
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=["code"],
+                condition=models.Q(is_deleted=False) & ~models.Q(code=""),
+                name="uniq_active_service_standard_code",
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class DeviceServicePlan(BaseModel):
+    """设备在一段项目服务周期内生效的服务标准快照。"""
+
+    project_device = models.ForeignKey(ProjectDevice, related_name="service_plans", on_delete=models.CASCADE)
+    template = models.ForeignKey(ServiceStandardTemplate, null=True, blank=True, related_name="device_service_plans", on_delete=models.SET_NULL)
+    inspection_frequency = models.CharField(max_length=20, choices=ServiceStandardTemplate.INSPECTION_FREQUENCY_CHOICES, default=ServiceStandardTemplate.INSPECTION_QUARTERLY)
+    inspection_interval_days = models.PositiveIntegerField(null=True, blank=True)
+    first_inspection_date = models.DateField(null=True, blank=True)
+    reminder_days = models.PositiveIntegerField(default=7)
+    auto_generate_tasks = models.BooleanField(default=True)
+    service_contents = models.JSONField(default=list, blank=True)
+    standard_snapshot = models.JSONField(default=dict, blank=True)
+    ops_person = models.ForeignKey(Person, null=True, blank=True, related_name="device_service_plans", on_delete=models.SET_NULL)
+    remark = models.TextField(blank=True, default="")
+
+    class Meta(BaseModel.Meta):
+        indexes = [models.Index(fields=["project_device", "status"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project_device"],
+                condition=models.Q(is_deleted=False),
+                name="uniq_active_project_device_service_plan",
+            )
+        ]
+
+
 class Contract(BaseModel):
     contract_no = models.CharField(max_length=100, unique=True)
     contract_name = models.CharField(max_length=200, db_index=True)

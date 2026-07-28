@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 
 from accounts.services import filter_queryset_by_sales_scope, get_user_sales_scope
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation
-from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceServicePlan, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
+from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceSerializer, DeviceServicePlanSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer, ServiceStandardTemplateSerializer
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
@@ -383,6 +383,33 @@ class ProjectViewSet(SoftDeleteModelViewSet):
 class ProjectDeviceViewSet(SoftDeleteModelViewSet):
     queryset = ProjectDevice.objects.select_related("project", "device", "device__device_model", "device__device_model__product", "device__device_model__product_version").all().order_by("id")
     serializer_class = ProjectDeviceSerializer
+
+
+class ServiceStandardTemplateViewSet(SoftDeleteModelViewSet):
+    queryset = ServiceStandardTemplate.objects.all().order_by("id")
+    serializer_class = ServiceStandardTemplateSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return apply_search(queryset, self.request.query_params.get("search", "").strip(), ["name", "code"])
+
+
+class DeviceServicePlanViewSet(SoftDeleteModelViewSet):
+    queryset = DeviceServicePlan.objects.select_related(
+        "project_device__project",
+        "project_device__device",
+        "template",
+        "ops_person",
+    ).all().order_by("id")
+    serializer_class = DeviceServicePlanSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = filter_queryset_by_sales_scope(queryset, self.request.user, "project_device__project__sales_person_id")
+        project_device_id = parse_query_int(self.request.query_params.get("project_device"))
+        if project_device_id is not None:
+            queryset = queryset.filter(project_device_id=project_device_id)
+        return queryset
 
 
 class ProjectContractViewSet(SoftDeleteModelViewSet):
