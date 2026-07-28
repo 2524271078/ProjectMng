@@ -212,6 +212,13 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
         template = attrs.get("template")
         frequency = attrs.get("inspection_frequency", getattr(self.instance, "inspection_frequency", template.inspection_frequency if template else ""))
         interval_days = attrs.get("inspection_interval_days", getattr(self.instance, "inspection_interval_days", template.inspection_interval_days if template else None))
+        project_device = attrs.get("project_device", getattr(self.instance, "project_device", None))
+        if project_device:
+            existing_plans = DeviceServicePlan.objects.filter(project_device=project_device)
+            if self.instance:
+                existing_plans = existing_plans.exclude(pk=self.instance.pk)
+            if existing_plans.exists():
+                raise serializers.ValidationError({"project_device": "该项目设备已配置服务计划，请在服务详情中维护现有计划"})
         if frequency == ServiceStandardTemplate.INSPECTION_CUSTOM and not interval_days:
             raise serializers.ValidationError({"inspection_interval_days": "自定义巡检频率必须填写巡检间隔天数"})
         return attrs

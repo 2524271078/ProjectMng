@@ -1482,6 +1482,16 @@ class DeviceServicePlanTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("inspection_interval_days", serializer.errors)
 
+    def test_project_device_allows_only_one_active_service_plan(self):
+        DeviceServicePlan.objects.create(project_device=self.project_device)
+        serializer = DeviceServicePlanSerializer(data={
+            "project_device": self.project_device.id,
+            "inspection_frequency": ServiceStandardTemplate.INSPECTION_QUARTERLY,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("project_device", serializer.errors)
+
     def test_quarterly_plan_generates_tasks_and_marks_overdue(self):
         plan = DeviceServicePlan.objects.create(
             project_device=self.project_device,

@@ -774,27 +774,32 @@ async function saveProjectServicePlan() {
     ElMessage.warning('请填写自定义巡检间隔天数')
     return
   }
-  projectServicePlanSaving.value = true
-  try {
-    await createResource('device-service-plans', {
+    projectServicePlanSaving.value = true
+    try {
+      await createResource('device-service-plans', {
       project_device: serviceDevice.value.id,
       ...(projectServicePlanForm.templateId ? { template: projectServicePlanForm.templateId } : {}),
       ...(projectServicePlanForm.firstInspectionDate ? { first_inspection_date: projectServicePlanForm.firstInspectionDate } : {}),
       inspection_frequency: projectServicePlanForm.inspectionFrequency,
       ...(projectServicePlanForm.inspectionFrequency === 'custom' ? { inspection_interval_days: projectServicePlanForm.inspectionIntervalDays } : {}),
-      reminder_days: projectServicePlanForm.reminderDays,
-      service_contents: projectServicePlanForm.serviceContents,
-    })
-    projectServicePlanFormVisible.value = false
-    ElMessage.success('服务计划已保存，巡检任务已生成')
-    await openProjectDeviceService(serviceDevice.value)
-    await loadProjectDevices()
-  } catch (error) {
-    ElMessage.error(formatApiError(error, '保存服务计划失败'))
-  } finally {
-    projectServicePlanSaving.value = false
+        reminder_days: projectServicePlanForm.reminderDays,
+        service_contents: projectServicePlanForm.serviceContents,
+      })
+      projectServicePlanFormVisible.value = false
+      ElMessage.success('服务计划已保存，巡检任务已生成')
+    } catch (error) {
+      ElMessage.error(formatApiError(error, '保存服务计划失败'))
+      return
+    } finally {
+      projectServicePlanSaving.value = false
+    }
+    try {
+      await openProjectDeviceService(serviceDevice.value)
+      await loadProjectDevices()
+    } catch (error) {
+      ElMessage.warning('服务计划已保存，但列表刷新失败，请关闭后重新打开服务窗口')
+    }
   }
-}
 
 function inspectionFrequencyLabel(value) {
   return ({ monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' })[value] || value || '-'

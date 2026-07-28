@@ -469,18 +469,23 @@ async function saveServicePlan() {
       ...(servicePlanForm.inspectionFrequency === 'custom' ? { inspection_interval_days: servicePlanForm.inspectionIntervalDays } : {}),
       reminder_days: servicePlanForm.reminderDays,
       service_contents: servicePlanForm.serviceContents,
+      }
+      await createResource('device-service-plans', payload)
+      servicePlanDialogVisible.value = false
+      ElMessage.success('服务计划已保存，巡检任务已生成')
+    } catch (error) {
+      ElMessage.error(formatApiError(error, '保存服务计划失败'))
+      return
+    } finally {
+      servicePlanSaving.value = false
     }
-    await createResource('device-service-plans', payload)
-    const { data } = await listAllResource('device-service-plans', { device: selectedDevice.value.id })
-    deviceServicePlans.value = unwrapList(data)
-    servicePlanDialogVisible.value = false
-    ElMessage.success('服务计划已保存，巡检任务已生成')
-  } catch (error) {
-    ElMessage.error(formatApiError(error, '保存服务计划失败'))
-  } finally {
-    servicePlanSaving.value = false
+    try {
+      const { data } = await listAllResource('device-service-plans', { device: selectedDevice.value.id })
+      deviceServicePlans.value = unwrapList(data)
+    } catch (error) {
+      ElMessage.warning('服务计划已保存，但列表刷新失败，请关闭后重新打开设备详情')
+    }
   }
-}
 
 function openOperationRecordDialog() {
   if (!deviceServicePlans.value.length) {
