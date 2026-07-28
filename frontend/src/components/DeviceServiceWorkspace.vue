@@ -6,23 +6,14 @@
         <el-button v-else type="primary" @click="openScheduleDialog">新增服务项</el-button>
       </div>
       <el-empty v-if="!plans.length" description="当前设备暂无服务计划" :image-size="64" />
-      <template v-else>
-        <el-table :data="plans" stripe>
-          <el-table-column label="服务项目" min-width="180"><template #default="scope">{{ scope.row.project_device_detail?.project_name || '-' }}</template></el-table-column>
-          <el-table-column label="巡检频率" min-width="120"><template #default="scope">{{ frequencyLabel(scope.row.inspection_frequency) }}</template></el-table-column>
-          <el-table-column prop="first_inspection_date" label="首次巡检" min-width="120" />
-          <el-table-column prop="reminder_days" label="提前提醒（天）" min-width="130" />
-          <el-table-column label="服务内容" min-width="180"><template #default="scope">{{ contentsLabel(scope.row.service_contents) }}</template></el-table-column>
-          <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" @click="openPlanDialog(scope.row)">编辑</el-button><el-button link type="danger" @click="removePlan(scope.row)">删除</el-button></template></el-table-column>
-        </el-table>
-        <el-table v-if="schedules.length" :data="schedules" stripe class="mt-16">
-          <el-table-column label="服务项" min-width="130"><template #default="scope">{{ operationRecordTypeLabel(scope.row.service_type) }}</template></el-table-column>
-          <el-table-column label="执行频率" min-width="130"><template #default="scope">{{ frequencyLabel(scope.row.frequency) }}</template></el-table-column>
-          <el-table-column prop="first_service_date" label="首次执行" min-width="130" />
-          <el-table-column prop="reminder_days" label="提前提醒（天）" min-width="130" />
-          <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" @click="openScheduleDialog(scope.row)">编辑</el-button><el-button link type="danger" @click="removeSchedule(scope.row)">删除</el-button></template></el-table-column>
-        </el-table>
-      </template>
+      <el-table v-else-if="schedules.length" :data="schedules" stripe>
+        <el-table-column label="服务项" min-width="130"><template #default="scope">{{ operationRecordTypeLabel(scope.row.service_type) }}</template></el-table-column>
+        <el-table-column label="执行频率" min-width="130"><template #default="scope">{{ frequencyLabel(scope.row.frequency) }}</template></el-table-column>
+        <el-table-column prop="first_service_date" label="首次执行" min-width="130" />
+        <el-table-column prop="reminder_days" label="提前提醒（天）" min-width="130" />
+        <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" @click="openScheduleDialog(scope.row)">编辑</el-button><el-button link type="danger" @click="removeSchedule(scope.row)">删除</el-button></template></el-table-column>
+      </el-table>
+      <el-empty v-else description="当前服务计划暂无服务项，请新增服务项" :image-size="64" />
     </el-tab-pane>
     <el-tab-pane :label="`服务任务（${tasks.length}）`" name="tasks">
       <el-empty v-if="!tasks.length" description="暂无服务任务" :image-size="64" />
@@ -107,7 +98,6 @@ const availableTasks = computed(() => tasks.value.filter((task) => task.service_
 const frequencyLabel = (value) => ({ monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' })[value] || value || '-'
 const taskStatusLabel = (value) => INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
 const operationRecordTypeLabel = (value) => OPERATION_RECORD_TYPE_LABELS[value] || value || '-'
-const contentsLabel = (values) => Array.isArray(values) && values.length ? values.map((item) => operationRecordTypeLabel(item)).join('、') : '-'
 
 async function load() {
   if (!props.deviceId) return
@@ -124,7 +114,6 @@ watch(() => [props.deviceId, props.projectDeviceId], () => load().catch((error) 
 
 function openPlanDialog(plan = null) { if (!plan && !props.projectDeviceId && !props.projectDevices.length) return ElMessage.warning('当前设备尚未绑定项目服务周期'); editingPlanId.value = plan?.id || null; Object.assign(planForm, { projectDeviceId: plan?.project_device || props.projectDeviceId || props.projectDevices[0]?.id || null, firstInspectionDate: plan?.first_inspection_date || '', frequency: plan?.inspection_frequency || 'quarterly', intervalDays: plan?.inspection_interval_days || null, reminderDays: plan?.reminder_days ?? 7, contents: plan?.service_contents || ['inspection'] }); planDialogVisible.value = true }
 async function savePlan() { if (!planForm.projectDeviceId) return ElMessage.warning('请选择项目服务周期'); if (planForm.frequency === 'custom' && !planForm.intervalDays) return ElMessage.warning('请填写自定义巡检间隔天数'); saving.value = true; try { const payload = { project_device: planForm.projectDeviceId, inspection_frequency: planForm.frequency, first_inspection_date: planForm.firstInspectionDate || null, inspection_interval_days: planForm.frequency === 'custom' ? planForm.intervalDays : null, reminder_days: planForm.reminderDays, service_contents: planForm.contents }; if (editingPlanId.value) await updateResource('device-service-plans', editingPlanId.value, payload); else await createResource('device-service-plans', payload); planDialogVisible.value = false; ElMessage.success(editingPlanId.value ? '服务计划已更新' : '服务计划已保存，任务已生成'); await load() } catch (error) { ElMessage.error(formatApiError(error, '保存服务计划失败')) } finally { saving.value = false } }
-async function removePlan(plan) { try { await ElMessageBox.confirm('删除服务计划会一并隐藏其服务项和任务，确认继续？', '删除确认', { type: 'warning' }); await deleteResource('device-service-plans', plan.id); ElMessage.success('服务计划已删除'); await load() } catch (error) { if (error !== 'cancel' && error !== 'close') ElMessage.error(formatApiError(error, '删除服务计划失败')) } }
 function openScheduleDialog(schedule = null) { editingScheduleId.value = schedule?.id || null; Object.assign(scheduleForm, { planId: schedule?.service_plan || plans.value[0]?.id || null, serviceType: schedule?.service_type || 'system_upgrade', firstDate: schedule?.first_service_date || '', frequency: schedule?.frequency || 'semiannual', intervalDays: schedule?.interval_days || null, reminderDays: schedule?.reminder_days ?? 7 }); scheduleDialogVisible.value = true }
 async function saveSchedule() { if (!scheduleForm.planId) return ElMessage.warning('请选择服务计划'); if (scheduleForm.frequency === 'custom' && !scheduleForm.intervalDays) return ElMessage.warning('请填写自定义执行间隔天数'); saving.value = true; try { const payload = { service_plan: scheduleForm.planId, service_type: scheduleForm.serviceType, frequency: scheduleForm.frequency, first_service_date: scheduleForm.firstDate || null, interval_days: scheduleForm.frequency === 'custom' ? scheduleForm.intervalDays : null, reminder_days: scheduleForm.reminderDays }; if (editingScheduleId.value) await updateResource('device-service-schedules', editingScheduleId.value, payload); else await createResource('device-service-schedules', payload); scheduleDialogVisible.value = false; ElMessage.success(editingScheduleId.value ? '服务项计划已更新' : '服务项计划已保存，任务已生成'); await load() } catch (error) { ElMessage.error(formatApiError(error, '保存服务项计划失败')) } finally { saving.value = false } }
 async function removeSchedule(schedule) { try { await ElMessageBox.confirm('删除服务项会一并隐藏其未完成任务，确认继续？', '删除确认', { type: 'warning' }); await deleteResource('device-service-schedules', schedule.id); ElMessage.success('服务项已删除'); await load() } catch (error) { if (error !== 'cancel' && error !== 'close') ElMessage.error(formatApiError(error, '删除服务项失败')) } }
