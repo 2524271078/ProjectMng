@@ -112,27 +112,174 @@
       />
     </div>
 
-    <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(860px, calc(100vw - 32px))" top="4vh">
+    <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(1100px, calc(100vw - 32px))" top="4vh">
       <div class="device-detail-scroll">
-        <DeviceDetailDescriptions :device="selectedDevice" />
+        <el-tabs v-model="deviceDetailTab">
+          <el-tab-pane label="基础信息" name="basic">
+            <DeviceDetailDescriptions :device="selectedDevice" />
+          </el-tab-pane>
+          <el-tab-pane label="服务计划" name="plans">
+            <div class="service-tab-action">
+              <el-button type="primary" @click="openServicePlanDialog">配置服务计划</el-button>
+            </div>
+            <el-empty v-if="!deviceServicePlans.length" description="当前设备暂无服务计划" :image-size="72" />
+            <el-table v-else :data="deviceServicePlans" stripe>
+              <el-table-column label="服务项目" min-width="180">
+                <template #default="scope">{{ scope.row.project_device_detail?.project_name || '-' }}</template>
+              </el-table-column>
+              <el-table-column label="巡检频率" min-width="120">
+                <template #default="scope">{{ inspectionFrequencyLabel(scope.row.inspection_frequency) }}</template>
+              </el-table-column>
+              <el-table-column prop="first_inspection_date" label="首次巡检" min-width="120" />
+              <el-table-column prop="reminder_days" label="提前提醒（天）" min-width="130" />
+              <el-table-column label="服务内容" min-width="180">
+                <template #default="scope">{{ serviceContentsLabel(scope.row.service_contents) }}</template>
+              </el-table-column>
+              <el-table-column label="责任运维" min-width="120">
+                <template #default="scope">{{ scope.row.ops_person_detail?.name || '-' }}</template>
+              </el-table-column>
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane :label="`巡检任务（${deviceInspectionTasks.length}）`" name="tasks">
+            <el-empty v-if="!deviceInspectionTasks.length" description="暂无巡检任务" :image-size="72" />
+            <el-table v-else :data="deviceInspectionTasks" stripe>
+              <el-table-column prop="planned_date" label="计划巡检日期" min-width="140" />
+              <el-table-column label="状态" min-width="110">
+                <template #default="scope">{{ inspectionTaskStatusLabel(scope.row.status) }}</template>
+              </el-table-column>
+              <el-table-column label="责任人" min-width="130">
+                <template #default="scope">{{ scope.row.assignee_detail?.name || '-' }}</template>
+              </el-table-column>
+              <el-table-column prop="reminder_date" label="提醒日期" min-width="130" />
+              <el-table-column prop="completed_at" label="完成时间" min-width="180" />
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane :label="`运维记录（${deviceOperationRecords.length}）`" name="records">
+            <div class="service-tab-action">
+              <el-button type="primary" @click="openOperationRecordDialog">新增运维记录</el-button>
+            </div>
+            <el-empty v-if="!deviceOperationRecords.length" description="暂无运维记录" :image-size="72" />
+            <el-table v-else :data="deviceOperationRecords" stripe>
+              <el-table-column label="类型" min-width="120">
+                <template #default="scope">{{ operationRecordTypeLabel(scope.row.record_type) }}</template>
+              </el-table-column>
+              <el-table-column prop="performed_at" label="服务时间" min-width="180" />
+              <el-table-column label="执行人" min-width="120">
+                <template #default="scope">{{ scope.row.executor_detail?.name || '-' }}</template>
+              </el-table-column>
+              <el-table-column prop="result" label="结论" min-width="110" />
+              <el-table-column prop="issue_description" label="问题描述" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="resolution" label="处理措施" min-width="220" show-overflow-tooltip />
+            </el-table>
+          </el-tab-pane>
+        </el-tabs>
       </div>
+    </el-dialog>
+
+    <el-dialog v-model="operationRecordDialogVisible" title="新增设备运维记录" width="680px" append-to-body>
+      <el-form label-width="110px">
+        <el-form-item label="服务计划" required>
+          <el-select v-model="operationRecordForm.servicePlanId" placeholder="请选择服务计划" class="form-select" @change="handleOperationPlanChange">
+            <el-option v-for="item in deviceServicePlans" :key="item.id" :label="item.project_device_detail?.project_name || `服务计划 #${item.id}`" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="服务类型" required>
+          <el-select v-model="operationRecordForm.recordType" class="form-select">
+            <el-option label="巡检" value="inspection" />
+            <el-option label="系统升级" value="system_upgrade" />
+            <el-option label="规则库升级" value="rule_library_upgrade" />
+            <el-option label="故障处理" value="fault_handling" />
+            <el-option label="配置变更" value="configuration_change" />
+            <el-option label="技术支持" value="technical_support" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="operationRecordForm.recordType === 'inspection'" label="关联巡检任务">
+          <el-select v-model="operationRecordForm.inspectionTaskId" clearable placeholder="可选：完成任务后自动闭环" class="form-select">
+            <el-option v-for="item in availableInspectionTasks" :key="item.id" :label="`${item.planned_date}（${inspectionTaskStatusLabel(item.status)}）`" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="服务时间" required>
+          <el-date-picker v-model="operationRecordForm.performedAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" class="form-select" />
+        </el-form-item>
+        <el-form-item label="处理结论">
+          <el-select v-model="operationRecordForm.result" class="form-select">
+            <el-option label="正常" value="normal" />
+            <el-option label="发现问题" value="issue_found" />
+            <el-option label="需跟进" value="follow_up" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="问题描述"><el-input v-model="operationRecordForm.issueDescription" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="处理措施"><el-input v-model="operationRecordForm.resolution" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="升级后系统版本"><el-input v-model="operationRecordForm.softwareVersionAfter" /></el-form-item>
+        <el-form-item label="升级后规则库版本"><el-input v-model="operationRecordForm.ruleLibraryVersionAfter" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="operationRecordDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="operationRecordSaving" @click="saveOperationRecord">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="servicePlanDialogVisible" title="配置设备服务计划" width="620px" append-to-body>
+      <el-form label-width="120px">
+        <el-form-item label="项目服务周期" required>
+          <el-select v-model="servicePlanForm.projectDeviceId" placeholder="请选择项目服务周期" class="form-select">
+            <el-option
+              v-for="item in selectedDevice?.project_devices || []"
+              :key="item.id"
+              :label="`${item.project_name}（${item.service_start_date || '-'} 至 ${item.service_end_date || '-'}）`"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="服务标准模板">
+          <el-select v-model="servicePlanForm.templateId" clearable placeholder="可选：选择后按模板生成规则" class="form-select">
+            <el-option v-for="item in serviceStandardTemplates" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="首次巡检日期">
+          <el-date-picker v-model="servicePlanForm.firstInspectionDate" type="date" value-format="YYYY-MM-DD" placeholder="未填则以服务开始日为准" class="form-select" />
+        </el-form-item>
+        <el-form-item label="服务内容">
+          <el-checkbox-group v-model="servicePlanForm.serviceContents">
+            <el-checkbox label="inspection">巡检</el-checkbox>
+            <el-checkbox label="system_upgrade">系统升级</el-checkbox>
+            <el-checkbox label="rule_library_upgrade">规则库升级</el-checkbox>
+            <el-checkbox label="technical_support">技术支持</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="servicePlanDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="servicePlanSaving" @click="saveServicePlan">保存并生成巡检任务</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
-import { fetchDeviceOverview, listAllResource } from '../api/resources'
+import { createResource, fetchDeviceOverview, listAllResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
-import { SERVICE_TYPE_LABELS, signingSubjectLabel } from '../utils/displayMaps'
+import { INSPECTION_TASK_STATUS_LABELS, OPERATION_RECORD_TYPE_LABELS, SERVICE_TYPE_LABELS, signingSubjectLabel } from '../utils/displayMaps'
 import { filterDevices } from '../utils/deviceFilters'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const devices = ref([])
 const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
+const deviceDetailTab = ref('basic')
+const deviceServicePlans = ref([])
+const deviceInspectionTasks = ref([])
+const deviceOperationRecords = ref([])
+const servicePlanDialogVisible = ref(false)
+const servicePlanSaving = ref(false)
+const serviceStandardTemplates = ref([])
+const servicePlanForm = reactive({ projectDeviceId: null, templateId: null, firstInspectionDate: '', serviceContents: ['inspection'] })
+const operationRecordDialogVisible = ref(false)
+const operationRecordSaving = ref(false)
+const operationRecordForm = reactive({ servicePlanId: null, projectDeviceId: null, inspectionTaskId: null, recordType: 'inspection', performedAt: '', result: 'normal', issueDescription: '', resolution: '', softwareVersionAfter: '', ruleLibraryVersionAfter: '' })
 const searchKeyword = ref('')
 const statusFilter = ref('all')
 const serviceTypeFilter = ref('all')
@@ -140,6 +287,8 @@ const signingSubjectFilter = ref('all')
 const devicePagination = buildPaginationState()
 
 const serviceTypeOptions = Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => ({ value, label }))
+const inspectionFrequencyLabels = { monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' }
+const serviceContentLabels = { inspection: '巡检', system_upgrade: '系统升级', rule_library_upgrade: '规则库升级', technical_support: '技术支持', fault_handling: '故障处理' }
 
 const warrantyStats = computed(() => {
   const inWarranty = devices.value.filter((item) => item.current_service_status === '保内').length
@@ -148,6 +297,11 @@ const warrantyStats = computed(() => {
     outOfWarranty: devices.value.length - inWarranty,
   }
 })
+const availableInspectionTasks = computed(() => deviceInspectionTasks.value.filter((item) => (
+  item.service_plan === operationRecordForm.servicePlanId
+  && item.status !== 'completed'
+  && item.status !== 'cancelled'
+)))
 
 const filteredDevices = computed(() => filterDevices(devices.value, {
   warrantyStatus: statusFilter.value,
@@ -233,7 +387,12 @@ function handlePageSizeChange(pageSize) {
 
 async function openDeviceDetail(row) {
   try {
-    const { data } = await fetchDeviceOverview(row.id)
+    const [{ data }, plansResponse, tasksResponse, recordsResponse] = await Promise.all([
+      fetchDeviceOverview(row.id),
+      listAllResource('device-service-plans', { device: row.id }),
+      listAllResource('inspection-tasks', { device: row.id }),
+      listAllResource('device-operation-records', { device: row.id }),
+    ])
     selectedDevice.value = {
       ...row,
       ...data.device,
@@ -242,10 +401,135 @@ async function openDeviceDetail(row) {
       sales_person: data.sales_person,
       ops_person: data.ops_person,
     }
+    deviceServicePlans.value = unwrapList(plansResponse.data)
+    deviceInspectionTasks.value = unwrapList(tasksResponse.data)
+    deviceOperationRecords.value = unwrapList(recordsResponse.data)
+    selectedDevice.value.project_devices = data.project_devices || []
+    deviceDetailTab.value = 'basic'
     deviceDetailVisible.value = true
   } catch (error) {
     ElMessage.error(formatApiError(error, '加载设备详情失败'))
   }
+}
+
+async function openServicePlanDialog() {
+  if (!(selectedDevice.value?.project_devices || []).length) {
+    ElMessage.warning('当前设备尚未绑定项目服务周期，无法配置服务计划')
+    return
+  }
+  servicePlanForm.projectDeviceId = selectedDevice.value.project_devices[0].id
+  servicePlanForm.templateId = null
+  servicePlanForm.firstInspectionDate = ''
+  servicePlanForm.serviceContents = ['inspection']
+  try {
+    const { data } = await listAllResource('service-standard-templates')
+    serviceStandardTemplates.value = unwrapList(data)
+    servicePlanDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载服务标准模板失败'))
+  }
+}
+
+async function saveServicePlan() {
+  if (!servicePlanForm.projectDeviceId) {
+    ElMessage.warning('请选择项目服务周期')
+    return
+  }
+  servicePlanSaving.value = true
+  try {
+    const payload = {
+      project_device: servicePlanForm.projectDeviceId,
+      ...(servicePlanForm.templateId ? { template: servicePlanForm.templateId } : {}),
+      ...(servicePlanForm.firstInspectionDate ? { first_inspection_date: servicePlanForm.firstInspectionDate } : {}),
+      service_contents: servicePlanForm.serviceContents,
+    }
+    await createResource('device-service-plans', payload)
+    const { data } = await listAllResource('device-service-plans', { device: selectedDevice.value.id })
+    deviceServicePlans.value = unwrapList(data)
+    servicePlanDialogVisible.value = false
+    ElMessage.success('服务计划已保存，巡检任务已生成')
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '保存服务计划失败'))
+  } finally {
+    servicePlanSaving.value = false
+  }
+}
+
+function openOperationRecordDialog() {
+  if (!deviceServicePlans.value.length) {
+    ElMessage.warning('请先配置服务计划')
+    return
+  }
+  operationRecordForm.servicePlanId = deviceServicePlans.value[0].id
+  operationRecordForm.projectDeviceId = deviceServicePlans.value[0].project_device
+  operationRecordForm.inspectionTaskId = null
+  operationRecordForm.recordType = 'inspection'
+  operationRecordForm.performedAt = new Date().toISOString().slice(0, 19)
+  operationRecordForm.result = 'normal'
+  operationRecordForm.issueDescription = ''
+  operationRecordForm.resolution = ''
+  operationRecordForm.softwareVersionAfter = ''
+  operationRecordForm.ruleLibraryVersionAfter = ''
+  operationRecordDialogVisible.value = true
+}
+
+function handleOperationPlanChange(planId) {
+  const plan = deviceServicePlans.value.find((item) => item.id === planId)
+  operationRecordForm.projectDeviceId = plan?.project_device || null
+  operationRecordForm.inspectionTaskId = null
+}
+
+async function saveOperationRecord() {
+  if (!operationRecordForm.servicePlanId || !operationRecordForm.projectDeviceId || !operationRecordForm.performedAt) {
+    ElMessage.warning('请填写服务计划和服务时间')
+    return
+  }
+  operationRecordSaving.value = true
+  try {
+    const payload = {
+      device: selectedDevice.value.id,
+      project_device: operationRecordForm.projectDeviceId,
+      service_plan: operationRecordForm.servicePlanId,
+      record_type: operationRecordForm.recordType,
+      performed_at: operationRecordForm.performedAt,
+      result: operationRecordForm.result,
+      issue_description: operationRecordForm.issueDescription,
+      resolution: operationRecordForm.resolution,
+      software_version_after: operationRecordForm.softwareVersionAfter,
+      rule_library_version_after: operationRecordForm.ruleLibraryVersionAfter,
+      ...(operationRecordForm.inspectionTaskId ? { inspection_task: operationRecordForm.inspectionTaskId } : {}),
+    }
+    await createResource('device-operation-records', payload)
+    const [tasksResponse, recordsResponse] = await Promise.all([
+      listAllResource('inspection-tasks', { device: selectedDevice.value.id }),
+      listAllResource('device-operation-records', { device: selectedDevice.value.id }),
+    ])
+    deviceInspectionTasks.value = unwrapList(tasksResponse.data)
+    deviceOperationRecords.value = unwrapList(recordsResponse.data)
+    operationRecordDialogVisible.value = false
+    ElMessage.success('运维记录已保存')
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '保存运维记录失败'))
+  } finally {
+    operationRecordSaving.value = false
+  }
+}
+
+function inspectionFrequencyLabel(value) {
+  return inspectionFrequencyLabels[value] || value || '-'
+}
+
+function serviceContentsLabel(values) {
+  if (!Array.isArray(values) || !values.length) return '-'
+  return values.map((value) => serviceContentLabels[value] || value).join('、')
+}
+
+function inspectionTaskStatusLabel(value) {
+  return INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
+}
+
+function operationRecordTypeLabel(value) {
+  return OPERATION_RECORD_TYPE_LABELS[value] || value || '-'
 }
 
 onMounted(loadDevices)
@@ -326,5 +610,15 @@ onMounted(loadDevices)
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+
+.service-tab-action {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 12px;
+}
+
+.form-select {
+  width: 100%;
 }
 </style>

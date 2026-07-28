@@ -182,10 +182,31 @@ class ServiceStandardTemplateSerializer(serializers.ModelSerializer):
 
 
 class DeviceServicePlanSerializer(serializers.ModelSerializer):
+    project_device_detail = serializers.SerializerMethodField()
+    template_detail = serializers.SerializerMethodField()
+    ops_person_detail = serializers.SerializerMethodField()
+
     class Meta:
         model = DeviceServicePlan
         fields = "__all__"
         read_only_fields = ["standard_snapshot"]
+
+    def get_project_device_detail(self, obj):
+        binding = obj.project_device
+        return {
+            "id": binding.id,
+            "project_id": binding.project_id,
+            "project_name": binding.project.name,
+            "device_id": binding.device_id,
+            "service_start_date": binding.service_start_date,
+            "service_end_date": binding.service_end_date,
+        }
+
+    def get_template_detail(self, obj):
+        return {"id": obj.template_id, "name": obj.template.name} if obj.template else None
+
+    def get_ops_person_detail(self, obj):
+        return PersonSerializer(obj.ops_person).data if obj.ops_person else None
 
     def validate(self, attrs):
         template = attrs.get("template")
@@ -199,7 +220,8 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
         template = validated_data.get("template")
         if template:
             for field in ("inspection_frequency", "inspection_interval_days", "reminder_days", "auto_generate_tasks", "service_contents"):
-                validated_data.setdefault(field, getattr(template, field))
+                if field not in self.initial_data:
+                    validated_data[field] = getattr(template, field)
             validated_data["standard_snapshot"] = {
                 "template_id": template.id,
                 "template_name": template.name,
@@ -216,13 +238,22 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
 
 
 class InspectionTaskSerializer(serializers.ModelSerializer):
+    service_plan_detail = serializers.SerializerMethodField()
+    assignee_detail = PersonSerializer(source="assignee", read_only=True)
+
     class Meta:
         model = InspectionTask
         fields = "__all__"
         read_only_fields = ["reminder_sent_at", "completed_at"]
 
+    def get_service_plan_detail(self, obj):
+        plan = obj.service_plan
+        return {"id": plan.id, "project_device": plan.project_device_id, "project_name": plan.project_device.project.name}
+
 
 class DeviceOperationRecordSerializer(serializers.ModelSerializer):
+    executor_detail = PersonSerializer(source="executor", read_only=True)
+
     class Meta:
         model = DeviceOperationRecord
         fields = "__all__"

@@ -409,6 +409,9 @@ class DeviceServicePlanViewSet(SoftDeleteModelViewSet):
         project_device_id = parse_query_int(self.request.query_params.get("project_device"))
         if project_device_id is not None:
             queryset = queryset.filter(project_device_id=project_device_id)
+        device_id = parse_query_int(self.request.query_params.get("device"))
+        if device_id is not None:
+            queryset = queryset.filter(project_device__device_id=device_id)
         return queryset
 
 
@@ -689,6 +692,7 @@ def device_overview(request, pk):
     sales_person = device.sales_person or (latest_project.sales_person if latest_project else None)
     customer_contact = latest_project.customer_contact if latest_project else None
     contracts = [binding.contract for binding in device.contract_devices.select_related("contract").all()]
+    project_devices = device.project_devices.filter(is_deleted=False, project__is_deleted=False).select_related("project")
     return Response({
         "device": DeviceSerializer(device).data,
         "customer": organization_summary(customer_org) if customer_org else None,
@@ -696,6 +700,16 @@ def device_overview(request, pk):
         "sales_person": person_summary(sales_person),
         "ops_person": person_summary(device.ops_person),
         "contracts": [contract_summary(contract) for contract in contracts],
+        "project_devices": [
+            {
+                "id": binding.id,
+                "project_id": binding.project_id,
+                "project_name": binding.project.name,
+                "service_start_date": binding.service_start_date,
+                "service_end_date": binding.service_end_date,
+            }
+            for binding in project_devices
+        ],
         "attachments": AttachmentSerializer(Attachment.objects.filter(object_type="device", object_id=device.id), many=True, context={"request": request}).data,
     })
 

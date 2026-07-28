@@ -16,6 +16,23 @@ export const SIGNING_SUBJECT_LABELS = {
   agent: '代理',
 }
 
+export const INSPECTION_TASK_STATUS_LABELS = {
+  pending: '待巡检',
+  completed: '已完成',
+  overdue: '已逾期',
+  cancelled: '已取消',
+}
+
+export const OPERATION_RECORD_TYPE_LABELS = {
+  inspection: '巡检',
+  system_upgrade: '系统升级',
+  rule_library_upgrade: '规则库升级',
+  fault_handling: '故障处理',
+  configuration_change: '配置变更',
+  technical_support: '技术支持',
+  other: '其他',
+}
+
 export function projectStageLabel(value) {
   return PROJECT_STAGE_LABELS[value] || value || '-'
 }
@@ -26,4 +43,12 @@ export function serviceTypeLabel(value) {
 
 export function signingSubjectLabel(value) {
   return SIGNING_SUBJECT_LABELS[value] || value || '-'
+}
+
+export function inspectionTaskStatusLabel(value) {
+  return INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
+}
+
+export function operationRecordTypeLabel(value) {
+  return OPERATION_RECORD_TYPE_LABELS[value] || value || '-'
 }
