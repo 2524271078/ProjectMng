@@ -143,6 +143,9 @@
           <el-tab-pane :label="`巡检任务（${deviceInspectionTasks.length}）`" name="tasks">
             <el-empty v-if="!deviceInspectionTasks.length" description="暂无巡检任务" :image-size="72" />
             <el-table v-else :data="deviceInspectionTasks" stripe>
+              <el-table-column label="任务类型" min-width="110">
+                <template #default="scope">{{ operationRecordTypeLabel(scope.row.task_type) }}</template>
+              </el-table-column>
               <el-table-column prop="planned_date" label="计划巡检日期" min-width="140" />
               <el-table-column label="状态" min-width="110">
                 <template #default="scope">{{ inspectionTaskStatusLabel(scope.row.status) }}</template>
@@ -316,6 +319,7 @@ const warrantyStats = computed(() => {
 })
 const availableInspectionTasks = computed(() => deviceInspectionTasks.value.filter((item) => (
   item.service_plan === operationRecordForm.servicePlanId
+  && item.task_type === operationRecordForm.recordType
   && item.status !== 'completed'
   && item.status !== 'cancelled'
 )))

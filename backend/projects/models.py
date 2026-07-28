@@ -280,6 +280,36 @@ class DeviceServicePlan(BaseModel):
         ]
 
 
+class DeviceServiceSchedule(BaseModel):
+    """服务计划下可独立执行的服务项，例如巡检、系统升级。"""
+
+    TYPE_INSPECTION = "inspection"
+    TYPE_SYSTEM_UPGRADE = "system_upgrade"
+    TYPE_RULE_LIBRARY_UPGRADE = "rule_library_upgrade"
+    SERVICE_TYPE_CHOICES = [
+        (TYPE_INSPECTION, "巡检"),
+        (TYPE_SYSTEM_UPGRADE, "系统升级"),
+        (TYPE_RULE_LIBRARY_UPGRADE, "规则库升级"),
+    ]
+
+    service_plan = models.ForeignKey(DeviceServicePlan, related_name="service_schedules", on_delete=models.CASCADE)
+    service_type = models.CharField(max_length=32, choices=SERVICE_TYPE_CHOICES, db_index=True)
+    frequency = models.CharField(max_length=20, choices=ServiceStandardTemplate.INSPECTION_FREQUENCY_CHOICES, default=ServiceStandardTemplate.INSPECTION_QUARTERLY)
+    interval_days = models.PositiveIntegerField(null=True, blank=True)
+    first_service_date = models.DateField(null=True, blank=True)
+    reminder_days = models.PositiveIntegerField(default=7)
+    auto_generate_tasks = models.BooleanField(default=True)
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=["service_plan", "service_type"],
+                condition=models.Q(is_deleted=False),
+                name="uniq_active_plan_service_schedule_type",
+            )
+        ]
+
+
 class InspectionTask(BaseModel):
     STATUS_PENDING = "pending"
     STATUS_COMPLETED = "completed"
@@ -293,6 +323,8 @@ class InspectionTask(BaseModel):
     ]
 
     service_plan = models.ForeignKey(DeviceServicePlan, related_name="inspection_tasks", on_delete=models.CASCADE)
+    service_schedule = models.ForeignKey(DeviceServiceSchedule, null=True, blank=True, related_name="tasks", on_delete=models.SET_NULL)
+    task_type = models.CharField(max_length=32, choices=DeviceServiceSchedule.SERVICE_TYPE_CHOICES, default=DeviceServiceSchedule.TYPE_INSPECTION, db_index=True)
     planned_date = models.DateField(db_index=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     assignee = models.ForeignKey(Person, null=True, blank=True, related_name="inspection_tasks", on_delete=models.SET_NULL)
@@ -305,9 +337,9 @@ class InspectionTask(BaseModel):
         indexes = [models.Index(fields=["status", "planned_date"])]
         constraints = [
             models.UniqueConstraint(
-                fields=["service_plan", "planned_date"],
+                fields=["service_schedule", "planned_date"],
                 condition=models.Q(is_deleted=False),
-                name="uniq_active_inspection_task_date",
+                name="uniq_active_service_task_date",
             )
         ]
 

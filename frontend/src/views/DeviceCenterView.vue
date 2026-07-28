@@ -267,6 +267,7 @@
       <div class="service-dialog-head">
         <span>{{ serviceDevice?.name || '-' }} / {{ serviceDevice?.serial_number || '-' }}</span>
         <el-button v-if="!projectDeviceServicePlans.length" type="primary" @click="openProjectServicePlanForm">配置服务计划</el-button>
+        <el-button v-else type="primary" @click="openProjectServiceScheduleForm">新增服务项</el-button>
       </div>
       <el-tabs v-model="projectDeviceServiceTab">
         <el-tab-pane label="服务计划" name="plan">
@@ -277,9 +278,16 @@
             <el-descriptions-item label="首次巡检">{{ projectDeviceServicePlans[0].first_inspection_date || '-' }}</el-descriptions-item>
             <el-descriptions-item label="服务内容">{{ serviceContentsLabel(projectDeviceServicePlans[0].service_contents) }}</el-descriptions-item>
           </el-descriptions>
+          <el-table v-if="projectDeviceServiceSchedules.length" :data="projectDeviceServiceSchedules" stripe class="service-schedule-table">
+            <el-table-column label="服务项" min-width="130"><template #default="scope">{{ operationRecordTypeLabel(scope.row.service_type) }}</template></el-table-column>
+            <el-table-column label="执行频率" min-width="130"><template #default="scope">{{ inspectionFrequencyLabel(scope.row.frequency) }}</template></el-table-column>
+            <el-table-column prop="first_service_date" label="首次执行" min-width="130" />
+            <el-table-column prop="reminder_days" label="提前提醒（天）" min-width="130" />
+          </el-table>
         </el-tab-pane>
         <el-tab-pane :label="`巡检任务（${projectDeviceInspectionTasks.length}）`" name="tasks">
           <el-table :data="projectDeviceInspectionTasks" stripe>
+            <el-table-column label="任务类型" min-width="120"><template #default="scope">{{ operationRecordTypeLabel(scope.row.task_type) }}</template></el-table-column>
             <el-table-column prop="planned_date" label="计划日期" min-width="140" />
             <el-table-column label="状态" min-width="120"><template #default="scope">{{ inspectionTaskStatusLabel(scope.row.status) }}</template></el-table-column>
             <el-table-column prop="reminder_date" label="提醒日期" min-width="140" />
@@ -307,6 +315,17 @@
         <el-form-item label="服务内容"><el-checkbox-group v-model="projectServicePlanForm.serviceContents"><el-checkbox label="inspection">巡检</el-checkbox><el-checkbox label="system_upgrade">系统升级</el-checkbox><el-checkbox label="rule_library_upgrade">规则库升级</el-checkbox><el-checkbox label="technical_support">技术支持</el-checkbox></el-checkbox-group></el-form-item>
       </el-form>
       <template #footer><el-button @click="projectServicePlanFormVisible = false">取消</el-button><el-button type="primary" :loading="projectServicePlanSaving" @click="saveProjectServicePlan">保存并生成巡检任务</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="projectServiceScheduleFormVisible" title="新增服务项计划" width="560px" append-to-body>
+      <el-form label-width="110px">
+        <el-form-item label="服务项" required><el-select v-model="projectServiceScheduleForm.serviceType" class="service-form-control"><el-option label="系统升级" value="system_upgrade" /><el-option label="规则库升级" value="rule_library_upgrade" /></el-select></el-form-item>
+        <el-form-item label="首次执行日期"><el-date-picker v-model="projectServiceScheduleForm.firstServiceDate" type="date" value-format="YYYY-MM-DD" class="service-form-control" /></el-form-item>
+        <el-form-item label="执行频率" required><el-select v-model="projectServiceScheduleForm.frequency" class="service-form-control"><el-option label="每月" value="monthly" /><el-option label="每季度" value="quarterly" /><el-option label="每半年" value="semiannual" /><el-option label="每年" value="annual" /><el-option label="自定义天数" value="custom" /></el-select></el-form-item>
+        <el-form-item v-if="projectServiceScheduleForm.frequency === 'custom'" label="执行间隔" required><el-input-number v-model="projectServiceScheduleForm.intervalDays" :min="1" /></el-form-item>
+        <el-form-item label="提前提醒"><el-input-number v-model="projectServiceScheduleForm.reminderDays" :min="0" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="projectServiceScheduleFormVisible = false">取消</el-button><el-button type="primary" :loading="projectServiceScheduleSaving" @click="saveProjectServiceSchedule">保存并生成任务</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -347,9 +366,12 @@ const deviceDetailVisible = ref(false)
 const projectDeviceServiceVisible = ref(false)
 const projectServicePlanFormVisible = ref(false)
 const projectServicePlanSaving = ref(false)
+const projectServiceScheduleFormVisible = ref(false)
+const projectServiceScheduleSaving = ref(false)
 const projectDeviceServiceTab = ref('plan')
 const serviceDevice = ref(null)
 const projectDeviceServicePlans = ref([])
+const projectDeviceServiceSchedules = ref([])
 const projectDeviceInspectionTasks = ref([])
 const projectDeviceOperationRecords = ref([])
 const serviceStandardTemplates = ref([])
@@ -364,6 +386,7 @@ const activeProjectTab = ref('base')
 const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', signing_subject: 'direct', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
 const projectServicePlanForm = reactive({ templateId: null, firstInspectionDate: '', inspectionFrequency: 'quarterly', inspectionIntervalDays: null, reminderDays: 7, serviceContents: ['inspection'] })
+const projectServiceScheduleForm = reactive({ serviceType: 'system_upgrade', firstServiceDate: '', frequency: 'semiannual', intervalDays: null, reminderDays: 7 })
 
 const customerScopedDevices = computed(() => {
   if (customerOverview.value?.devices?.length) return customerOverview.value.devices
@@ -741,6 +764,8 @@ async function openProjectDeviceService(device) {
       listAllResource('device-operation-records', { device: device.device_id }),
     ])
     projectDeviceServicePlans.value = unwrapList(plansResponse.data)
+    const scheduleResponses = await Promise.all(projectDeviceServicePlans.value.map((plan) => listAllResource('device-service-schedules', { service_plan: plan.id })))
+    projectDeviceServiceSchedules.value = scheduleResponses.flatMap((response) => unwrapList(response.data))
     const planIds = new Set(projectDeviceServicePlans.value.map((item) => item.id))
     projectDeviceInspectionTasks.value = unwrapList(tasksResponse.data).filter((item) => planIds.has(item.service_plan))
     projectDeviceOperationRecords.value = unwrapList(recordsResponse.data).filter((item) => planIds.has(item.service_plan))
@@ -803,6 +828,39 @@ async function saveProjectServicePlan() {
 
 function inspectionFrequencyLabel(value) {
   return ({ monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' })[value] || value || '-'
+}
+
+function openProjectServiceScheduleForm() {
+  Object.assign(projectServiceScheduleForm, { serviceType: 'system_upgrade', firstServiceDate: '', frequency: 'semiannual', intervalDays: null, reminderDays: 7 })
+  projectServiceScheduleFormVisible.value = true
+}
+
+async function saveProjectServiceSchedule() {
+  const plan = projectDeviceServicePlans.value[0]
+  if (!plan) return
+  if (projectServiceScheduleForm.frequency === 'custom' && !projectServiceScheduleForm.intervalDays) {
+    ElMessage.warning('请填写自定义执行间隔天数')
+    return
+  }
+  projectServiceScheduleSaving.value = true
+  try {
+    await createResource('device-service-schedules', {
+      service_plan: plan.id,
+      service_type: projectServiceScheduleForm.serviceType,
+      frequency: projectServiceScheduleForm.frequency,
+      ...(projectServiceScheduleForm.firstServiceDate ? { first_service_date: projectServiceScheduleForm.firstServiceDate } : {}),
+      ...(projectServiceScheduleForm.frequency === 'custom' ? { interval_days: projectServiceScheduleForm.intervalDays } : {}),
+      reminder_days: projectServiceScheduleForm.reminderDays,
+    })
+    projectServiceScheduleFormVisible.value = false
+    ElMessage.success('服务项计划已保存，任务已生成')
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '保存服务项计划失败'))
+    return
+  } finally {
+    projectServiceScheduleSaving.value = false
+  }
+  await openProjectDeviceService(serviceDevice.value)
 }
 
 function serviceContentsLabel(values) {

@@ -17,6 +17,7 @@ from projects.models import (
     DeviceModel,
     DeviceOperationRecord,
     DeviceServicePlan,
+    DeviceServiceSchedule,
     InspectionTask,
     Organization,
     Person,
@@ -30,7 +31,7 @@ from projects.models import (
     ServiceStandardTemplate,
 )
 from projects.serializers import DeviceOperationRecordSerializer, DeviceServicePlanSerializer
-from projects.services import generate_inspection_tasks, refresh_inspection_task_statuses
+from projects.services import generate_inspection_tasks, generate_service_tasks, refresh_inspection_task_statuses
 
 
 def api_results(response):
@@ -1500,13 +1501,46 @@ class DeviceServicePlanTests(TestCase):
             reminder_days=7,
             service_contents=["inspection"],
         )
+        schedule = DeviceServiceSchedule.objects.create(
+            service_plan=plan,
+            service_type=DeviceServiceSchedule.TYPE_INSPECTION,
+            frequency=plan.inspection_frequency,
+            first_service_date=plan.first_inspection_date,
+            reminder_days=plan.reminder_days,
+        )
 
-        self.assertEqual(generate_inspection_tasks(plan), 4)
+        self.assertEqual(generate_service_tasks(schedule), 4)
         tasks = plan.inspection_tasks.order_by("planned_date")
         self.assertEqual([task.planned_date for task in tasks], [date(2026, 1, 15), date(2026, 4, 15), date(2026, 7, 15), date(2026, 10, 15)])
         reminders = refresh_inspection_task_statuses(date(2026, 1, 16))
         self.assertEqual(InspectionTask.objects.get(pk=tasks.first().id).status, InspectionTask.STATUS_OVERDUE)
         self.assertEqual(reminders.count(), 1)
+
+    def test_upgrade_schedule_generates_upgrade_tasks_and_upgrade_record_completes_task(self):
+        plan = DeviceServicePlan.objects.create(project_device=self.project_device)
+        schedule = DeviceServiceSchedule.objects.create(
+            service_plan=plan,
+            service_type=DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE,
+            frequency=ServiceStandardTemplate.INSPECTION_SEMIANNUAL,
+            first_service_date=date(2026, 2, 1),
+        )
+
+        self.assertEqual(generate_service_tasks(schedule), 2)
+        task = schedule.tasks.order_by("planned_date").first()
+        serializer = DeviceOperationRecordSerializer(data={
+            "device": self.project_device.device_id,
+            "project_device": self.project_device.id,
+            "service_plan": plan.id,
+            "inspection_task": task.id,
+            "record_type": DeviceOperationRecord.TYPE_SYSTEM_UPGRADE,
+            "performed_at": datetime(2026, 2, 1, 9, 0).isoformat(),
+            "software_version_after": "V3.0",
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        task.refresh_from_db()
+        self.assertEqual(task.task_type, DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE)
+        self.assertEqual(task.status, InspectionTask.STATUS_COMPLETED)
 
     def test_inspection_record_completes_task_and_updates_versions(self):
         plan = DeviceServicePlan.objects.create(project_device=self.project_device, service_contents=["inspection"])

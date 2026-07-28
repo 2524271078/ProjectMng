@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 
 from accounts.services import filter_queryset_by_sales_scope, get_user_sales_scope
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
-from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceOperationRecordSerializer, DeviceSerializer, DeviceServicePlanSerializer, InspectionTaskSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer, ServiceStandardTemplateSerializer
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
+from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceOperationRecordSerializer, DeviceSerializer, DeviceServicePlanSerializer, DeviceServiceScheduleSerializer, InspectionTaskSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer, ServiceStandardTemplateSerializer
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
@@ -415,6 +415,22 @@ class DeviceServicePlanViewSet(SoftDeleteModelViewSet):
         return queryset
 
 
+class DeviceServiceScheduleViewSet(SoftDeleteModelViewSet):
+    queryset = DeviceServiceSchedule.objects.select_related(
+        "service_plan__project_device__project",
+        "service_plan__project_device__device",
+    ).all().order_by("id")
+    serializer_class = DeviceServiceScheduleSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = filter_queryset_by_sales_scope(queryset, self.request.user, "service_plan__project_device__project__sales_person_id")
+        service_plan_id = parse_query_int(self.request.query_params.get("service_plan"))
+        if service_plan_id is not None:
+            queryset = queryset.filter(service_plan_id=service_plan_id)
+        return queryset
+
+
 class InspectionTaskViewSet(SoftDeleteModelViewSet):
     queryset = InspectionTask.objects.select_related(
         "service_plan__project_device__project",
@@ -610,6 +626,7 @@ def service_overview_for_binding(binding):
         return None
     next_task = plan.inspection_tasks.filter(
         is_deleted=False,
+        task_type=DeviceServiceSchedule.TYPE_INSPECTION,
         status__in=[InspectionTask.STATUS_PENDING, InspectionTask.STATUS_OVERDUE],
     ).order_by("planned_date", "id").first()
     return {

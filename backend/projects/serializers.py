@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.db import transaction
 from django.utils import timezone
 
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -239,9 +239,38 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
                 "service_contents": validated_data["service_contents"],
             }
         plan = super().create(validated_data)
-        from projects.services import generate_inspection_tasks
-        generate_inspection_tasks(plan)
+        if "inspection" in plan.service_contents:
+            schedule = DeviceServiceSchedule.objects.create(
+                service_plan=plan,
+                service_type=DeviceServiceSchedule.TYPE_INSPECTION,
+                frequency=plan.inspection_frequency,
+                interval_days=plan.inspection_interval_days,
+                first_service_date=plan.first_inspection_date,
+                reminder_days=plan.reminder_days,
+                auto_generate_tasks=plan.auto_generate_tasks,
+            )
+            from projects.services import generate_service_tasks
+            generate_service_tasks(schedule)
         return plan
+
+
+class DeviceServiceScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceServiceSchedule
+        fields = "__all__"
+
+    def validate(self, attrs):
+        frequency = attrs.get("frequency", getattr(self.instance, "frequency", ""))
+        interval_days = attrs.get("interval_days", getattr(self.instance, "interval_days", None))
+        if frequency == ServiceStandardTemplate.INSPECTION_CUSTOM and not interval_days:
+            raise serializers.ValidationError({"interval_days": "自定义频率必须填写间隔天数"})
+        return attrs
+
+    def create(self, validated_data):
+        schedule = super().create(validated_data)
+        from projects.services import generate_service_tasks
+        generate_service_tasks(schedule)
+        return schedule
 
 
 class InspectionTaskSerializer(serializers.ModelSerializer):
@@ -277,8 +306,15 @@ class DeviceOperationRecordSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"service_plan": "服务计划必须属于当前项目设备"})
         if task and service_plan and task.service_plan_id != service_plan.id:
             raise serializers.ValidationError({"inspection_task": "巡检任务必须属于当前服务计划"})
-        if task and record_type != DeviceOperationRecord.TYPE_INSPECTION:
-            raise serializers.ValidationError({"record_type": "关联巡检任务时记录类型必须为巡检"})
+        if task:
+            task_record_type_map = {
+                DeviceServiceSchedule.TYPE_INSPECTION: DeviceOperationRecord.TYPE_INSPECTION,
+                DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE: DeviceOperationRecord.TYPE_SYSTEM_UPGRADE,
+                DeviceServiceSchedule.TYPE_RULE_LIBRARY_UPGRADE: DeviceOperationRecord.TYPE_RULE_LIBRARY_UPGRADE,
+            }
+            expected_record_type = task_record_type_map.get(task.task_type)
+            if expected_record_type and record_type != expected_record_type:
+                raise serializers.ValidationError({"record_type": "记录类型必须与关联服务任务的类型一致"})
         return attrs
 
     @transaction.atomic

@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from projects.models import InspectionTask, ServiceStandardTemplate
+from projects.models import DeviceServiceSchedule, InspectionTask, ServiceStandardTemplate
 
 
 def add_months(value, months):
@@ -13,45 +13,59 @@ def add_months(value, months):
     return value.replace(year=target_year, month=target_month, day=min(value.day, monthrange(target_year, target_month)[1]))
 
 
-def next_inspection_date(value, plan):
+def next_service_date(value, schedule):
     frequency_months = {
         ServiceStandardTemplate.INSPECTION_MONTHLY: 1,
         ServiceStandardTemplate.INSPECTION_QUARTERLY: 3,
         ServiceStandardTemplate.INSPECTION_SEMIANNUAL: 6,
         ServiceStandardTemplate.INSPECTION_ANNUAL: 12,
     }
-    months = frequency_months.get(plan.inspection_frequency)
+    months = frequency_months.get(schedule.frequency)
     if months:
         return add_months(value, months)
-    if plan.inspection_frequency == ServiceStandardTemplate.INSPECTION_CUSTOM and plan.inspection_interval_days:
-        return value + timedelta(days=plan.inspection_interval_days)
+    if schedule.frequency == ServiceStandardTemplate.INSPECTION_CUSTOM and schedule.interval_days:
+        return value + timedelta(days=schedule.interval_days)
     return None
 
 
-def generate_inspection_tasks(plan):
-    """按已生效的服务规则补齐巡检任务；重复运行不会重复创建。"""
+def generate_service_tasks(schedule):
+    """按服务项规则补齐待办任务；重复运行不会重复创建。"""
+    plan = schedule.service_plan
     binding = plan.project_device
-    if not plan.auto_generate_tasks or "inspection" not in plan.service_contents:
+    if not schedule.auto_generate_tasks:
         return 0
     if not binding.service_start_date or not binding.service_end_date:
         return 0
 
-    planned_date = plan.first_inspection_date or binding.service_start_date
+    planned_date = schedule.first_service_date or binding.service_start_date
     created_count = 0
     while planned_date and planned_date <= binding.service_end_date:
-        reminder_date = planned_date - timedelta(days=plan.reminder_days)
+        reminder_date = planned_date - timedelta(days=schedule.reminder_days)
         _, created = InspectionTask.all_objects.get_or_create(
-            service_plan=plan,
+            service_schedule=schedule,
             planned_date=planned_date,
             defaults={
+                "service_plan": plan,
+                "task_type": schedule.service_type,
                 "assignee": plan.ops_person,
                 "reminder_date": reminder_date,
                 "status": InspectionTask.STATUS_PENDING,
             },
         )
         created_count += int(created)
-        planned_date = next_inspection_date(planned_date, plan)
+        planned_date = next_service_date(planned_date, schedule)
     return created_count
+
+
+def generate_inspection_tasks(plan):
+    """兼容历史调用：优先按巡检服务项生成任务。"""
+    schedule = plan.service_schedules.filter(
+        is_deleted=False,
+        service_type=DeviceServiceSchedule.TYPE_INSPECTION,
+    ).first()
+    if schedule:
+        return generate_service_tasks(schedule)
+    return 0
 
 
 def refresh_inspection_task_statuses(today=None):
