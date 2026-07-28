@@ -97,6 +97,7 @@
                 @clear="handleDeviceSearch"
               />
               <el-button type="primary" @click="handleDeviceSearch">搜索</el-button>
+              <el-button @click="resetDeviceFilters">重置</el-button>
             </div>
           </div>
           <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe>
@@ -429,6 +430,15 @@ function handleDeviceSearch() {
   }
 }
 
+function resetDeviceFilters() {
+  deviceSearchKeyword.value = ''
+  deviceSigningSubjectFilter.value = 'all'
+  devicePagination.page = 1
+  if (activeCustomerTab.value === 'devices' && selected.value) {
+    loadCustomerDevicesTab()
+  }
+}
+
 function handleContactPageChange(page) {
   contactPagination.page = page
   loadCustomerContactsTab()
@@ -662,6 +672,7 @@ async function removeOrganization() {
   projectDrawerVisible.value = false
   activeCustomerTab.value = 'info'
   deviceSearchKeyword.value = ''
+  deviceSigningSubjectFilter.value = 'all'
   resetCustomerTabPagination()
   await loadOrganizations()
 }
