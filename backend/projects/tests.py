@@ -640,6 +640,18 @@ class ProjectApiTests(APITestCase):
         self.user = User.objects.create_user(username="project-api", password="pass123456")
         self.client.force_authenticate(self.user)
 
+    def test_project_api_generates_number_when_project_number_is_blank(self):
+        response = self.client.post("/api/projects/", {"project_no": "", "name": "自动编号项目"}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertRegex(response.data["project_no"], r"^PRJ-\d{8}-0001$")
+
+    def test_project_api_keeps_manually_entered_project_number(self):
+        response = self.client.post("/api/projects/", {"project_no": "CUSTOM-PRJ-001", "name": "手工编号项目"}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["project_no"], "CUSTOM-PRJ-001")
+
     def test_project_crud_and_overview_api(self):
         from projects.models import ProductLine, ProductVersion
 

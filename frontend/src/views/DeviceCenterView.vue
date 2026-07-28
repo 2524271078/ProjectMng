@@ -46,7 +46,7 @@
 
     <el-dialog v-model="dialogVisible" :title="editingProjectId ? '编辑项目' : '新增项目'" width="620px">
       <el-form :model="form" label-width="110px">
-        <el-form-item label="项目编号"><el-input v-model="form.project_no" /></el-form-item>
+        <el-form-item label="项目编号"><el-input v-model="form.project_no" placeholder="留空自动生成" /></el-form-item>
         <el-form-item label="项目名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="客户公司"><OrganizationTreeSelect v-model="form.customer_org" placeholder="请选择客户公司" /></el-form-item>
         <el-form-item label="客户联系人" required>

@@ -137,6 +137,7 @@ class DeviceSerializer(serializers.ModelSerializer):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    project_no = serializers.CharField(required=False, allow_blank=True)
     customer_org_detail = OrganizationSerializer(source='customer_org', read_only=True)
     customer_contact_detail = PersonSerializer(source='customer_contact', read_only=True)
     sales_person_detail = PersonSerializer(source='sales_person', read_only=True)
@@ -145,6 +146,12 @@ class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
         fields = "__all__"
+
+    def validate_project_no(self, value):
+        project_no = value.strip()
+        if self.instance and not project_no:
+            raise serializers.ValidationError("项目编号不能为空")
+        return project_no
 
 
 class ProjectDeviceSerializer(serializers.ModelSerializer):

@@ -158,6 +158,16 @@ def filter_device_queryset_for_user(queryset, user):
     ).distinct()
 
 
+def generate_project_no():
+    prefix = f"PRJ-{timezone.localdate():%Y%m%d}-"
+    sequence_numbers = []
+    for project_no in Project.all_objects.filter(project_no__startswith=prefix).values_list("project_no", flat=True):
+        suffix = project_no.removeprefix(prefix)
+        if suffix.isdigit():
+            sequence_numbers.append(int(suffix))
+    return f"{prefix}{max(sequence_numbers, default=0) + 1:04d}"
+
+
 class OrganizationViewSet(SoftDeleteModelViewSet):
     queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
@@ -314,6 +324,10 @@ class ProjectViewSet(SoftDeleteModelViewSet):
         search_value = self.request.query_params.get("search", "").strip()
         queryset = filter_queryset_by_sales_scope(queryset, self.request.user, "sales_person_id")
         return apply_search(queryset, search_value, ["name", "customer_org__name", "sales_person__name", "project_stage"])
+
+    def perform_create(self, serializer):
+        project_no = serializer.validated_data.get("project_no", "").strip()
+        serializer.save(project_no=project_no or generate_project_no())
 
     @action(detail=True, methods=["get"], url_path="devices")
     def devices(self, request, pk=None):
