@@ -84,10 +84,10 @@ test('buildProjectDeviceBindingPayload keeps offline date for offline devices', 
 test('validateProjectDeviceForm requires device identity and service dates for a new device', () => {
   const form = createDefaultProjectDeviceForm()
 
-  assert.equal(validateProjectDeviceForm(form), '请选择产品型号')
+  assert.equal(validateProjectDeviceForm(form), '请选择设备名称')
 
   form.device_model = 7
-  assert.equal(validateProjectDeviceForm(form), '请填写设备名称')
+  assert.equal(validateProjectDeviceForm(form), '请填写产品型号')
 
   form.device_name = '项目设备'
   assert.equal(validateProjectDeviceForm(form), '请填写设备序列号')

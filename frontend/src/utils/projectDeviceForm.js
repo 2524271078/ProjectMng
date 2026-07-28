@@ -56,8 +56,8 @@ export function validateProjectDeviceForm(form) {
   if (form.bind_mode === 'existing' && !form.device) return '请选择已有设备'
 
   if (form.bind_mode !== 'existing') {
-    if (!parseProductModelTreeValue(form.device_model)) return '请选择产品型号'
-    if (!form.device_name?.trim()) return '请填写设备名称'
+    if (!parseProductModelTreeValue(form.device_model)) return '请选择设备名称'
+    if (!form.device_name?.trim()) return '请填写产品型号'
     if (!form.serial_number?.trim()) return '请填写设备序列号'
   }
 

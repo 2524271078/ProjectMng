@@ -15,7 +15,7 @@
         <el-input
           v-model="searchKeyword"
           class="search-input"
-          placeholder="搜索设备名称 / 序列号 / 客户公司 / 联系人 / 销售"
+          placeholder="搜索产品型号 / 设备名称 / 序列号 / 客户公司 / 联系人 / 销售"
           clearable
           @keyup.enter="handleSearch"
         />
@@ -61,9 +61,9 @@
 
     <div class="page-table-scroll">
       <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe>
-        <el-table-column prop="name" label="设备" min-width="180" />
+        <el-table-column prop="name" label="产品型号" min-width="180" />
         <el-table-column prop="serial_number" label="序列号" min-width="160" />
-        <el-table-column label="产品型号" min-width="180" show-overflow-tooltip>
+        <el-table-column label="设备名称" min-width="180" show-overflow-tooltip>
           <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
         </el-table-column>
         <el-table-column label="当前保内状态" min-width="120">

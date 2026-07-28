@@ -90,9 +90,9 @@
           </div>
 
           <el-table v-loading="projectDevicePagination.loading" :data="projectDevicePagination.rows" stripe>
-            <el-table-column prop="name" label="设备" min-width="160" />
+            <el-table-column prop="name" label="产品型号" min-width="160" />
             <el-table-column prop="serial_number" label="序列号" min-width="160" />
-            <el-table-column label="产品型号" min-width="180" show-overflow-tooltip>
+            <el-table-column label="设备名称" min-width="180" show-overflow-tooltip>
               <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
             </el-table-column>
             <el-table-column prop="device_project_type" label="项目类型" min-width="120" />
@@ -174,9 +174,9 @@
     >
       <el-form :model="deviceBinding" label-width="130px">
         <el-row :gutter="14">
-          <el-col :span="24"><el-alert :title="editingProjectDeviceId ? '编辑当前设备的资产资料与项目服务信息，不会更换为其他设备。' : '默认流程：选择产品型号，填写这台设备的序列号等信息，保存后会自动创建设备并绑定到当前项目和当前客户。'" type="info" show-icon :closable="false" class="mb-16" /></el-col>
-          <el-col :span="12"><el-form-item label="产品型号" required><ProductModelTreeSelect v-model="deviceBinding.device_model" placeholder="请选择具体型号" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="设备名称" required><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
+          <el-col :span="24"><el-alert :title="editingProjectDeviceId ? '编辑当前设备的资产资料与项目服务信息，不会更换为其他设备。' : '默认流程：选择设备名称，填写这台设备的产品型号和序列号等信息，保存后会自动创建设备并绑定到当前项目和当前客户。'" type="info" show-icon :closable="false" class="mb-16" /></el-col>
+          <el-col :span="12"><el-form-item label="设备名称" required><ProductModelTreeSelect v-model="deviceBinding.device_model" placeholder="请选择设备名称" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="产品型号" required><el-input v-model="deviceBinding.device_name" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="序列号" required><el-input v-model="deviceBinding.serial_number" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备项目类型"><el-input v-model="deviceBinding.device_project_type" placeholder="如：正式设备/试点设备/备机" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="部署位置"><el-input v-model="deviceBinding.deploy_location" /></el-form-item></el-col>
@@ -607,8 +607,8 @@ async function ensureDevice() {
     return deviceBinding.device
   }
   if (deviceBinding.device) return deviceBinding.device
-  if (!deviceBinding.device_model) throw new Error('请选择产品型号')
-  if (!deviceBinding.device_name?.trim()) throw new Error('请填写设备名称')
+  if (!deviceBinding.device_model) throw new Error('请选择设备名称')
+  if (!deviceBinding.device_name?.trim()) throw new Error('请填写产品型号')
   if (!deviceBinding.serial_number?.trim()) throw new Error('请填写设备序列号')
   const { data } = await createResource('devices', buildProjectDevicePayload(deviceBinding, currentDeviceOwner()))
   deviceBinding.device = data.id

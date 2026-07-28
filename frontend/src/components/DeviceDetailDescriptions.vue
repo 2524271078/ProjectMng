@@ -1,9 +1,9 @@
 <template>
   <el-descriptions v-if="device" :column="column" border>
-    <el-descriptions-item label="设备名称">{{ device.name || '-' }}</el-descriptions-item>
+    <el-descriptions-item label="产品型号">{{ device.name || '-' }}</el-descriptions-item>
     <el-descriptions-item label="序列号">{{ device.serial_number || '-' }}</el-descriptions-item>
     <el-descriptions-item label="客户公司">{{ customerName }}</el-descriptions-item>
-    <el-descriptions-item label="产品型号">{{ device.device_model_detail?.model_name || '-' }}</el-descriptions-item>
+    <el-descriptions-item label="设备名称">{{ device.device_model_detail?.model_name || '-' }}</el-descriptions-item>
     <el-descriptions-item label="管理地址">{{ device.management_address || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备硬件码">{{ device.hardware_code || '-' }}</el-descriptions-item>
     <el-descriptions-item label="设备系统版本">{{ device.software_version || '-' }}</el-descriptions-item>
