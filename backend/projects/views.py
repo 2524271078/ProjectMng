@@ -208,13 +208,19 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="devices")
     def devices(self, request, pk=None):
-        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
+        customer_queryset = filter_customer_queryset_for_user(Organization.objects.filter(org_type="customer"), request.user)
+        customer = get_object_or_404(customer_queryset, pk=pk)
         queryset = Device.objects.select_related("device_model", "device_model__product", "device_model__product_version", "customer_org", "sales_person", "ops_person").filter(
             Q(customer_org=customer) |
             Q(project_devices__project__customer_org=customer, project_devices__is_deleted=False),
             is_deleted=False,
         ).distinct()
         queryset = filter_device_queryset_for_user(queryset, request.user)
+        queryset = apply_search(queryset, request.query_params.get("search", "").strip(), [
+            "name",
+            "serial_number",
+            "device_model__model_name",
+        ])
         queryset = filter_devices_by_current_signing_subject(queryset, request.query_params.get("signing_subject", ""), customer)
         return build_paginated_response(
             request,
@@ -321,6 +327,7 @@ class DeviceViewSet(SoftDeleteModelViewSet):
             [
                 "name",
                 "serial_number",
+                "device_model__model_name",
                 "customer_org__name",
                 "sales_person__name",
                 "project_devices__project__customer_contact__name",

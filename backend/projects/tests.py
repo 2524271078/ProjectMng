@@ -216,6 +216,14 @@ class CustomerDeviceLatestProjectApiTests(APITestCase):
         self.assertEqual(device_center_response.data["count"], 1)
         self.assertEqual(device_center_response.data["results"][0]["current_signing_subject"], "agent")
 
+        search_by_serial = self.client.get(f"/api/organizations/{self.customer.id}/devices/?search=LATEST-PROJECT-SN")
+        self.assertEqual(search_by_serial.status_code, 200)
+        self.assertEqual(search_by_serial.data["count"], 1)
+
+        search_by_device_name = self.client.get(f"/api/organizations/{self.customer.id}/devices/?search=关联项目设备名称")
+        self.assertEqual(search_by_device_name.status_code, 200)
+        self.assertEqual(search_by_device_name.data["count"], 1)
+
 
 
 class PaginationHelperTests(TestCase):

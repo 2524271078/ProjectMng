@@ -91,7 +91,7 @@
               <el-input
                 v-model="deviceSearchKeyword"
                 class="tab-search"
-                placeholder="搜索产品型号 / 设备名称 / 序列号 / 保内状态"
+                placeholder="搜索产品型号 / 设备名称 / 序列号"
                 clearable
                 @keyup.enter="handleDeviceSearch"
                 @clear="handleDeviceSearch"
