@@ -6,29 +6,33 @@
         <el-button v-else type="primary" @click="openScheduleDialog">新增服务项</el-button>
       </div>
       <el-empty v-if="!plans.length" description="当前设备暂无服务计划" :image-size="64" />
-      <el-table v-else-if="schedules.length" :data="schedules" stripe>
-        <el-table-column label="服务项" min-width="130"><template #default="scope">{{ operationRecordTypeLabel(scope.row.service_type) }}</template></el-table-column>
-        <el-table-column label="执行频率" min-width="130"><template #default="scope">{{ frequencyLabel(scope.row.frequency) }}</template></el-table-column>
-        <el-table-column prop="first_service_date" label="首次执行" min-width="130" />
-        <el-table-column prop="reminder_days" label="提前提醒（天）" min-width="130" />
-        <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" @click="openScheduleDialog(scope.row)">编辑</el-button><el-button link type="danger" @click="removeSchedule(scope.row)">删除</el-button></template></el-table-column>
-      </el-table>
+      <template v-else-if="schedules.length">
+        <el-table :data="paginatedSchedules" stripe>
+          <el-table-column label="服务项" min-width="130"><template #default="scope">{{ operationRecordTypeLabel(scope.row.service_type) }}</template></el-table-column>
+          <el-table-column label="执行频率" min-width="130"><template #default="scope">{{ frequencyLabel(scope.row.frequency) }}</template></el-table-column>
+          <el-table-column prop="first_service_date" label="首次执行" min-width="130" />
+          <el-table-column prop="reminder_days" label="提前提醒（天）" min-width="130" />
+          <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" @click="openScheduleDialog(scope.row)">编辑</el-button><el-button link type="danger" @click="removeSchedule(scope.row)">删除</el-button></template></el-table-column>
+        </el-table>
+        <div v-if="schedules.length > servicePageSize" class="service-pagination"><el-pagination small background layout="total, prev, pager, next" :current-page="schedulePage" :page-size="servicePageSize" :total="schedules.length" @current-change="schedulePage = $event" /></div>
+      </template>
       <el-empty v-else description="当前服务计划暂无服务项，请新增服务项" :image-size="64" />
     </el-tab-pane>
     <el-tab-pane :label="`服务任务（${tasks.length}）`" name="tasks">
       <el-empty v-if="!tasks.length" description="暂无服务任务" :image-size="64" />
-      <el-table v-else :data="tasks" stripe>
+      <el-table v-else :data="paginatedTasks" stripe>
         <el-table-column label="任务类型" min-width="110"><template #default="scope">{{ operationRecordTypeLabel(scope.row.task_type) }}</template></el-table-column>
         <el-table-column prop="planned_date" label="计划日期" min-width="140" />
         <el-table-column label="状态" min-width="110"><template #default="scope">{{ taskStatusLabel(scope.row.status) }}</template></el-table-column>
         <el-table-column prop="reminder_date" label="提醒日期" min-width="130" />
         <el-table-column prop="completed_at" label="完成时间" min-width="180" />
       </el-table>
+      <div v-if="tasks.length > servicePageSize" class="service-pagination"><el-pagination small background layout="total, prev, pager, next" :current-page="taskPage" :page-size="servicePageSize" :total="tasks.length" @current-change="taskPage = $event" /></div>
     </el-tab-pane>
     <el-tab-pane :label="`运维记录（${records.length}）`" name="records">
       <div class="service-actions"><el-button type="primary" @click="openRecordDialog">新增运维记录</el-button></div>
       <el-empty v-if="!records.length" description="暂无运维记录" :image-size="64" />
-      <el-table v-else :data="records" stripe>
+      <el-table v-else :data="paginatedRecords" stripe>
         <el-table-column label="类型" min-width="120"><template #default="scope">{{ operationRecordTypeLabel(scope.row.record_type) }}</template></el-table-column>
         <el-table-column prop="performed_at" label="服务时间" min-width="180" />
         <el-table-column prop="result" label="结论" min-width="110" />
@@ -36,6 +40,7 @@
         <el-table-column prop="resolution" label="处理措施" min-width="200" show-overflow-tooltip />
         <el-table-column label="操作" width="130"><template #default="scope"><el-button link type="primary" @click="openRecordDialog(scope.row)">编辑</el-button><el-button link type="danger" @click="removeRecord(scope.row)">删除</el-button></template></el-table-column>
       </el-table>
+      <div v-if="records.length > servicePageSize" class="service-pagination"><el-pagination small background layout="total, prev, pager, next" :current-page="recordPage" :page-size="servicePageSize" :total="records.length" @current-change="recordPage = $event" /></div>
     </el-tab-pane>
   </el-tabs>
 
@@ -91,10 +96,16 @@ const activeTab = ref('plans')
 const plans = ref([]); const schedules = ref([]); const tasks = ref([]); const records = ref([])
 const planDialogVisible = ref(false); const scheduleDialogVisible = ref(false); const recordDialogVisible = ref(false); const saving = ref(false)
 const editingPlanId = ref(null); const editingScheduleId = ref(null); const editingRecordId = ref(null)
+const servicePageSize = 10
+const schedulePage = ref(1); const taskPage = ref(1); const recordPage = ref(1)
 const planForm = reactive({ projectDeviceId: null, firstInspectionDate: '', frequency: 'quarterly', intervalDays: null, reminderDays: 7, contents: ['inspection'] })
 const scheduleForm = reactive({ planId: null, serviceType: 'system_upgrade', firstDate: '', frequency: 'semiannual', intervalDays: null, reminderDays: 7 })
 const recordForm = reactive({ planId: null, projectDeviceId: null, taskId: null, type: 'inspection', performedAt: '', result: 'normal', issue: '', resolution: '', softwareVersion: '', ruleLibraryVersion: '' })
 const availableTasks = computed(() => tasks.value.filter((task) => task.service_plan === recordForm.planId && task.task_type === recordForm.type && !['completed', 'cancelled'].includes(task.status)))
+const paginate = (rows, page) => rows.slice((page.value - 1) * servicePageSize, page.value * servicePageSize)
+const paginatedSchedules = computed(() => paginate(schedules.value, schedulePage))
+const paginatedTasks = computed(() => paginate(tasks.value, taskPage))
+const paginatedRecords = computed(() => paginate(records.value, recordPage))
 const frequencyLabel = (value) => ({ monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' })[value] || value || '-'
 const taskStatusLabel = (value) => INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
 const operationRecordTypeLabel = (value) => OPERATION_RECORD_TYPE_LABELS[value] || value || '-'
@@ -109,6 +120,9 @@ async function load() {
   records.value = unwrapList(recordsResponse.data).filter((item) => planIds.has(item.service_plan))
   const scheduleResponses = await Promise.all(plans.value.map((plan) => listAllResource('device-service-schedules', { service_plan: plan.id })))
   schedules.value = scheduleResponses.flatMap((response) => unwrapList(response.data))
+  schedulePage.value = 1
+  taskPage.value = 1
+  recordPage.value = 1
 }
 watch(() => [props.deviceId, props.projectDeviceId], () => load().catch((error) => ElMessage.error(formatApiError(error, '加载设备服务失败'))), { immediate: true })
 
@@ -125,5 +139,6 @@ async function removeRecord(record) { try { await ElMessageBox.confirm('确认�
 
 <style scoped>
 .service-actions { display: flex; justify-content: flex-end; margin: 0 0 12px; }
+.service-pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
 .form-control { width: 100%; }
 </style>
