@@ -30,4 +30,5 @@ test('客户中心将设备详情、服务和编辑入口分开', () => {
   ]
   requiredSnippets.forEach((snippet) => assert.equal(source.includes(snippet), true, snippet))
   assert.equal(source.includes('<el-divider content-position="left">当前服务</el-divider>'), false)
+  assert.equal(source.includes('function inspectionTaskStatusLabel(value)'), true)
 })

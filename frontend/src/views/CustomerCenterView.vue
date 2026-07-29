@@ -311,7 +311,7 @@ import {
 } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { buildOrganizationTree } from '../utils/orgTree'
-import { serviceTypeLabel, signingSubjectLabel } from '../utils/displayMaps'
+import { INSPECTION_TASK_STATUS_LABELS, serviceTypeLabel, signingSubjectLabel } from '../utils/displayMaps'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const organizations = ref([])
@@ -672,6 +672,10 @@ async function openDeviceEdit(device) {
     remark: detail.remark || '',
   })
   deviceEditVisible.value = true
+}
+
+function inspectionTaskStatusLabel(value) {
+  return INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
 }
 
 function parseDeviceLicenseInfo() {
