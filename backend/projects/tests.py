@@ -300,7 +300,8 @@ class PaginationApiTests(APITestCase):
     def test_device_list_returns_pagination_envelope(self):
         product = Product.objects.create(name="Envelope Product", product_code="ENV-P")
         model = DeviceModel.objects.create(product=product, model_name="ENV-1000", model_code="ENV-1000")
-        Device.objects.create(name="Device A", serial_number="ENV-SN-001", device_model=model)
+        customer = Organization.objects.create(name="Envelope Customer", org_type="customer")
+        Device.objects.create(name="Device A", serial_number="ENV-SN-001", device_model=model, customer_org=customer)
 
         response = self.client.get("/api/devices/")
 

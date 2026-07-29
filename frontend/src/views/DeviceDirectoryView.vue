@@ -246,6 +246,7 @@ import { createResource, fetchDeviceOverview, listAllResource } from '../api/res
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { INSPECTION_TASK_STATUS_LABELS, OPERATION_RECORD_TYPE_LABELS, SERVICE_TYPE_LABELS, signingSubjectLabel } from '../utils/displayMaps'
 import { filterDevices } from '../utils/deviceFilters'
+import { formatLocalDateTime } from '../utils/localDateTime'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const devices = ref([])
@@ -470,7 +471,7 @@ function openOperationRecordDialog() {
   operationRecordForm.projectDeviceId = deviceServicePlans.value[0].project_device
   operationRecordForm.inspectionTaskId = null
   operationRecordForm.recordType = 'inspection'
-  operationRecordForm.performedAt = new Date().toISOString().slice(0, 19)
+  operationRecordForm.performedAt = formatLocalDateTime()
   operationRecordForm.result = 'normal'
   operationRecordForm.issueDescription = ''
   operationRecordForm.resolution = ''

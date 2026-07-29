@@ -121,10 +121,11 @@
             <el-table-column label="最新服务项目" min-width="200" show-overflow-tooltip>
               <template #default="scope">{{ scope.row.latest_project?.name || '-' }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="160" fixed="right">
+            <el-table-column label="操作" width="220" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
-                <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">服务</el-button>
+                <el-button link type="primary" @click.stop="openDeviceService(scope.row)">服务</el-button>
+                <el-button link type="primary" @click.stop="openDeviceEdit(scope.row)">编辑</el-button>
                 <el-button v-if="scope.row.latest_project" link type="primary" @click.stop="openLatestDeviceProject(scope.row)">查看项目</el-button>
               </template>
             </el-table-column>
@@ -250,18 +251,38 @@
     </el-drawer>
 
     <el-dialog v-model="deviceDetailVisible" title="设备详情" width="min(860px, calc(100vw - 32px))" top="4vh">
-      <div class="device-detail-scroll">
-        <DeviceDetailDescriptions :device="selectedDevice" />
-        <el-divider content-position="left">当前服务</el-divider>
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="服务项目">{{ selectedDevice?.latest_project?.name || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="下次巡检">{{ selectedDevice?.service_overview?.next_inspection_task?.planned_date || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="巡检状态">{{ inspectionTaskStatusLabel(selectedDevice?.service_overview?.next_inspection_task?.status) }}</el-descriptions-item>
-            <el-descriptions-item label="巡检频率">{{ inspectionFrequencyLabel(selectedDevice?.service_overview?.inspection_frequency) }}</el-descriptions-item>
-          </el-descriptions>
-          <el-divider content-position="left">设备服务</el-divider>
-          <DeviceServiceWorkspace v-if="selectedDevice?.id" :device-id="selectedDevice.id" :project-devices="selectedDevice.project_devices || []" />
-        </div>
+      <DeviceDetailDescriptions :device="selectedDevice" />
+    </el-dialog>
+
+    <el-dialog v-model="deviceServiceVisible" title="设备服务" width="min(920px, calc(100vw - 32px))" top="4vh" destroy-on-close>
+      <DeviceServiceWorkspace v-if="selectedDevice?.id" :device-id="selectedDevice.id" :project-devices="selectedDevice.project_devices || []" />
+    </el-dialog>
+
+    <el-dialog v-model="deviceEditVisible" title="编辑设备" width="min(920px, calc(100vw - 32px))" destroy-on-close>
+      <el-form :model="deviceForm" label-width="130px">
+        <el-row :gutter="14">
+          <el-col :span="12"><el-form-item label="设备名称" required><ProductModelTreeSelect v-model="deviceForm.device_model" placeholder="请选择设备名称" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="产品型号" required><el-input v-model="deviceForm.name" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="序列号" required><el-input v-model="deviceForm.serial_number" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="管理地址"><el-input v-model="deviceForm.management_address" placeholder="IP / URL / 管理平台地址" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备硬件码"><el-input v-model="deviceForm.hardware_code" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备系统版本"><el-input v-model="deviceForm.software_version" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="规则库版本"><el-input v-model="deviceForm.rule_library_version" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="版本更新方式"><el-input v-model="deviceForm.version_update_method" placeholder="远程升级 / 现场升级 / 手动导入" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="上架时间"><el-date-picker v-model="deviceForm.rack_install_date" type="date" value-format="YYYY-MM-DD" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="是否标品"><el-switch v-model="deviceForm.is_standard_product" active-text="标品" inactive-text="非标" /></el-form-item></el-col>
+          <el-col v-if="!deviceForm.is_standard_product" :span="12"><el-form-item label="非标名称" required><el-input v-model="deviceForm.nonstandard_name" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="是否支持远程"><el-switch v-model="deviceForm.supports_remote" active-text="支持" inactive-text="不支持" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceForm.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceForm.license_info_text" type="textarea" placeholder="可填 JSON，也可直接填写授权说明" /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="设备截图链接"><el-input v-model="deviceForm.screenshot_url" placeholder="https://..." /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceForm.remark" type="textarea" /></el-form-item></el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="deviceEditVisible = false">取消</el-button>
+        <el-button type="primary" :loading="deviceSaving" @click="saveDeviceEdit">保存修改</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -272,6 +293,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
 import DeviceServiceWorkspace from '../components/DeviceServiceWorkspace.vue'
+import ProductModelTreeSelect from '../components/ProductModelTreeSelect.vue'
 import {
   createResource,
   deleteResource,
@@ -283,11 +305,13 @@ import {
   fetchCustomerSales,
   fetchDeviceOverview,
   fetchProjectOverview,
+  listAllResource,
   listResource,
   updateResource,
 } from '../api/resources'
+import { formatApiError, unwrapList } from '../utils/apiData'
 import { buildOrganizationTree } from '../utils/orgTree'
-import { INSPECTION_TASK_STATUS_LABELS, serviceTypeLabel, signingSubjectLabel } from '../utils/displayMaps'
+import { serviceTypeLabel, signingSubjectLabel } from '../utils/displayMaps'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
 const organizations = ref([])
@@ -307,7 +331,12 @@ const projectDrawerVisible = ref(false)
 const projectOverview = ref(null)
 const projectDetailTab = ref('base')
 const deviceDetailVisible = ref(false)
+const deviceServiceVisible = ref(false)
+const deviceEditVisible = ref(false)
 const selectedDevice = ref(null)
+const editingDeviceId = ref(null)
+const deviceSaving = ref(false)
+const opsPeople = ref([])
 const dialogVisible = ref(false)
 const searchKeyword = ref('')
 const deviceSearchKeyword = ref('')
@@ -315,6 +344,7 @@ const deviceSigningSubjectFilter = ref('all')
 const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({ parent: null, name: '', org_type: 'customer', short_name: '', region: '', address: '' })
+const deviceForm = reactive(createDefaultDeviceForm())
 const treeProps = { label: 'name', children: 'children' }
 const treeData = computed(() => buildOrganizationTree(organizations.value))
 const projectDeviceRows = computed(() => paginateProjectDrawerRows(projectOverview.value?.devices || [], projectDeviceDrawerPagination))
@@ -537,6 +567,11 @@ function resetSearch() {
   loadOrganizations()
 }
 
+async function loadOpsPeople() {
+  const response = await listAllResource('people')
+  opsPeople.value = unwrapList(response.data).filter((person) => person.person_type === 'ops' || person.person_type === 'internal')
+}
+
 async function selectCustomer(node) {
   selected.value = node
   activeCustomerTab.value = 'info'
@@ -571,9 +606,30 @@ function openLatestDeviceProject(device) {
   openProjectDetail(device.latest_project)
 }
 
-async function openDeviceDetail(device) {
+function createDefaultDeviceForm() {
+  return {
+    device_model: null,
+    name: '',
+    serial_number: '',
+    management_address: '',
+    hardware_code: '',
+    software_version: '',
+    rule_library_version: '',
+    version_update_method: '',
+    is_standard_product: true,
+    nonstandard_name: '',
+    supports_remote: false,
+    ops_person: null,
+    license_info_text: '',
+    screenshot_url: '',
+    rack_install_date: '',
+    remark: '',
+  }
+}
+
+async function fetchDeviceDetail(device) {
   const { data } = await fetchDeviceOverview(device.device_id || device.id)
-  selectedDevice.value = {
+  return {
     ...device,
     ...data.device,
     customer: data.customer,
@@ -582,15 +638,89 @@ async function openDeviceDetail(device) {
       ops_person: data.ops_person,
       project_devices: data.project_devices || [],
     }
+}
+
+async function openDeviceDetail(device) {
+  selectedDevice.value = await fetchDeviceDetail(device)
   deviceDetailVisible.value = true
 }
 
-function inspectionTaskStatusLabel(value) {
-  return INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
+async function openDeviceService(device) {
+  selectedDevice.value = await fetchDeviceDetail(device)
+  deviceServiceVisible.value = true
 }
 
-function inspectionFrequencyLabel(value) {
-  return ({ monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' })[value] || value || '-'
+async function openDeviceEdit(device) {
+  const detail = await fetchDeviceDetail(device)
+  editingDeviceId.value = detail.id
+  Object.assign(deviceForm, createDefaultDeviceForm(), {
+    device_model: detail.device_model || null,
+    name: detail.name || '',
+    serial_number: detail.serial_number || '',
+    management_address: detail.management_address || '',
+    hardware_code: detail.hardware_code || '',
+    software_version: detail.software_version || '',
+    rule_library_version: detail.rule_library_version || '',
+    version_update_method: detail.version_update_method || '',
+    is_standard_product: detail.is_standard_product ?? true,
+    nonstandard_name: detail.nonstandard_name || '',
+    supports_remote: Boolean(detail.supports_remote),
+    ops_person: detail.ops_person?.id || detail.ops_person || null,
+    license_info_text: detail.license_info ? JSON.stringify(detail.license_info) : '',
+    screenshot_url: detail.screenshot_url || '',
+    rack_install_date: detail.rack_install_date || '',
+    remark: detail.remark || '',
+  })
+  deviceEditVisible.value = true
+}
+
+function parseDeviceLicenseInfo() {
+  const text = deviceForm.license_info_text.trim()
+  if (!text) return {}
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { description: text }
+  }
+}
+
+async function saveDeviceEdit() {
+  if (!deviceForm.device_model || !deviceForm.name.trim() || !deviceForm.serial_number.trim()) {
+    ElMessage.warning('请填写设备名称、产品型号和序列号')
+    return
+  }
+  if (!deviceForm.is_standard_product && !deviceForm.nonstandard_name.trim()) {
+    ElMessage.warning('请填写非标名称')
+    return
+  }
+  deviceSaving.value = true
+  try {
+    await updateResource('devices', editingDeviceId.value, {
+      device_model: deviceForm.device_model,
+      name: deviceForm.name.trim(),
+      serial_number: deviceForm.serial_number.trim(),
+      management_address: deviceForm.management_address,
+      hardware_code: deviceForm.hardware_code,
+      software_version: deviceForm.software_version,
+      rule_library_version: deviceForm.rule_library_version,
+      version_update_method: deviceForm.version_update_method,
+      is_standard_product: deviceForm.is_standard_product,
+      nonstandard_name: deviceForm.is_standard_product ? '' : deviceForm.nonstandard_name.trim(),
+      supports_remote: deviceForm.supports_remote,
+      ops_person: deviceForm.ops_person,
+      license_info: parseDeviceLicenseInfo(),
+      screenshot_url: deviceForm.screenshot_url,
+      rack_install_date: deviceForm.rack_install_date || null,
+      remark: deviceForm.remark,
+    })
+    ElMessage.success('设备已更新')
+    deviceEditVisible.value = false
+    await loadCustomerDevicesTab()
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '保存设备失败'))
+  } finally {
+    deviceSaving.value = false
+  }
 }
 
 function handleProjectDeviceDrawerPageChange(page) {
@@ -703,7 +833,9 @@ async function removeOrganization() {
   await loadOrganizations()
 }
 
-onMounted(loadOrganizations)
+onMounted(async () => {
+  await Promise.all([loadOrganizations(), loadOpsPeople()])
+})
 </script>
 
 <style scoped>

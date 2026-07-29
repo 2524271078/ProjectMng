@@ -18,3 +18,16 @@ test('客户中心项目详情抽屉定义了分页和详情 tab 状态', () => 
   ]
   requiredSnippets.forEach((snippet) => assert.equal(source.includes(snippet), true, snippet))
 })
+
+test('客户中心将设备详情、服务和编辑入口分开', () => {
+  const requiredSnippets = [
+    '@click.stop="openDeviceDetail(scope.row)">详情</el-button>',
+    '@click.stop="openDeviceService(scope.row)">服务</el-button>',
+    '@click.stop="openDeviceEdit(scope.row)">编辑</el-button>',
+    '<el-dialog v-model="deviceServiceVisible" title="设备服务"',
+    '<el-dialog v-model="deviceEditVisible" title="编辑设备"',
+    '<DeviceDetailDescriptions :device="selectedDevice" />',
+  ]
+  requiredSnippets.forEach((snippet) => assert.equal(source.includes(snippet), true, snippet))
+  assert.equal(source.includes('<el-divider content-position="left">当前服务</el-divider>'), false)
+})
