@@ -1145,6 +1145,10 @@ class DeviceCurrentServiceStatusTests(APITestCase):
         self.assertEqual(response.data["device"]["service_type"], "renewal")
         self.assertEqual(response.data["device"]["deploy_location"], "A区机房")
         self.assertEqual(response.data["device"]["offline_date"], "2027-01-15")
+        latest_binding = next(item for item in response.data["project_devices"] if item["project"] == project_new.id)
+        self.assertEqual(latest_binding["deploy_location"], "A区机房")
+        self.assertEqual(latest_binding["service_type"], "renewal")
+        self.assertEqual(latest_binding["service_start_date"], "2026-01-01")
 
 
 

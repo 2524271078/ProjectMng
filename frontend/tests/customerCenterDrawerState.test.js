@@ -27,6 +27,10 @@ test('客户中心将设备详情、服务和编辑入口分开', () => {
     '<el-dialog v-model="deviceServiceVisible" title="设备服务"',
     '<el-dialog v-model="deviceEditVisible" title="编辑设备"',
     '<DeviceDetailDescriptions :device="selectedDevice" />',
+    'v-model="deviceForm.device_project_type"',
+    'v-model="deviceForm.deploy_location"',
+    'v-model="deviceForm.service_start_date"',
+    "updateResource('project-devices', editingProjectDeviceId.value",
   ]
   requiredSnippets.forEach((snippet) => assert.equal(source.includes(snippet), true, snippet))
   assert.equal(source.includes('<el-divider content-position="left">当前服务</el-divider>'), false)

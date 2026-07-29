@@ -261,6 +261,12 @@
     <el-dialog v-model="deviceEditVisible" title="编辑设备" width="min(920px, calc(100vw - 32px))" destroy-on-close>
       <el-form :model="deviceForm" label-width="130px">
         <el-row :gutter="14">
+          <el-col :span="12"><el-form-item label="设备项目类型"><el-input v-model="deviceForm.device_project_type" placeholder="如：正式设备 / 试点设备 / 备机" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="部署位置"><el-input v-model="deviceForm.deploy_location" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="设备状态"><el-select v-model="deviceForm.service_type"><el-option label="新装" value="new_install" /><el-option label="续保" value="renewal" /><el-option label="下架" value="offline" /></el-select></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务开始" :required="Boolean(editingProjectDeviceId)"><el-date-picker v-model="deviceForm.service_start_date" type="date" value-format="YYYY-MM-DD" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="服务结束" :required="Boolean(editingProjectDeviceId)"><el-date-picker v-model="deviceForm.service_end_date" type="date" value-format="YYYY-MM-DD" /></el-form-item></el-col>
+          <el-col v-if="deviceForm.service_type === 'offline'" :span="12"><el-form-item label="下架时间" :required="Boolean(editingProjectDeviceId)"><el-date-picker v-model="deviceForm.offline_date" type="date" value-format="YYYY-MM-DD" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="设备名称" required><ProductModelTreeSelect v-model="deviceForm.device_model" placeholder="请选择设备名称" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="产品型号" required><el-input v-model="deviceForm.name" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="序列号" required><el-input v-model="deviceForm.serial_number" /></el-form-item></el-col>
@@ -276,6 +282,7 @@
           <el-col :span="12"><el-form-item label="现场运维人员"><el-select v-model="deviceForm.ops_person" clearable filterable><el-option v-for="person in opsPeople" :key="person.id" :label="person.name" :value="person.id" /></el-select></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="授权信息"><el-input v-model="deviceForm.license_info_text" type="textarea" placeholder="可填 JSON，也可直接填写授权说明" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="设备截图链接"><el-input v-model="deviceForm.screenshot_url" placeholder="https://..." /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item label="上传截图"><el-upload :auto-upload="false" :on-change="uploadDeviceScreenshot" :show-file-list="false"><el-button>选择并上传截图</el-button></el-upload><div v-if="uploadedScreenshots.length" class="upload-preview"><a v-for="item in uploadedScreenshots" :key="item.id" :href="item.file_url" target="_blank">{{ item.name }}</a></div></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="备注"><el-input v-model="deviceForm.remark" type="textarea" /></el-form-item></el-col>
         </el-row>
       </el-form>
@@ -308,6 +315,7 @@ import {
   listAllResource,
   listResource,
   updateResource,
+  uploadAttachment,
 } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { buildOrganizationTree } from '../utils/orgTree'
@@ -335,8 +343,10 @@ const deviceServiceVisible = ref(false)
 const deviceEditVisible = ref(false)
 const selectedDevice = ref(null)
 const editingDeviceId = ref(null)
+const editingProjectDeviceId = ref(null)
 const deviceSaving = ref(false)
 const opsPeople = ref([])
+const uploadedScreenshots = ref([])
 const dialogVisible = ref(false)
 const searchKeyword = ref('')
 const deviceSearchKeyword = ref('')
@@ -611,6 +621,8 @@ function createDefaultDeviceForm() {
     device_model: null,
     name: '',
     serial_number: '',
+    device_project_type: '',
+    deploy_location: '',
     management_address: '',
     hardware_code: '',
     software_version: '',
@@ -619,6 +631,10 @@ function createDefaultDeviceForm() {
     is_standard_product: true,
     nonstandard_name: '',
     supports_remote: false,
+    service_type: 'renewal',
+    service_start_date: '',
+    service_end_date: '',
+    offline_date: '',
     ops_person: null,
     license_info_text: '',
     screenshot_url: '',
@@ -652,11 +668,16 @@ async function openDeviceService(device) {
 
 async function openDeviceEdit(device) {
   const detail = await fetchDeviceDetail(device)
+  const projectDevice = detail.project_devices.find((item) => item.project === detail.latest_project?.id) || detail.project_devices[0] || null
   editingDeviceId.value = detail.id
+  editingProjectDeviceId.value = projectDevice?.id || null
+  uploadedScreenshots.value = []
   Object.assign(deviceForm, createDefaultDeviceForm(), {
     device_model: detail.device_model || null,
     name: detail.name || '',
     serial_number: detail.serial_number || '',
+    device_project_type: projectDevice?.device_project_type || '',
+    deploy_location: projectDevice?.deploy_location || '',
     management_address: detail.management_address || '',
     hardware_code: detail.hardware_code || '',
     software_version: detail.software_version || '',
@@ -665,6 +686,10 @@ async function openDeviceEdit(device) {
     is_standard_product: detail.is_standard_product ?? true,
     nonstandard_name: detail.nonstandard_name || '',
     supports_remote: Boolean(detail.supports_remote),
+    service_type: projectDevice?.service_type || 'renewal',
+    service_start_date: projectDevice?.service_start_date || '',
+    service_end_date: projectDevice?.service_end_date || '',
+    offline_date: projectDevice?.offline_date || '',
     ops_person: detail.ops_person?.id || detail.ops_person || null,
     license_info_text: detail.license_info ? JSON.stringify(detail.license_info) : '',
     screenshot_url: detail.screenshot_url || '',
@@ -676,6 +701,23 @@ async function openDeviceEdit(device) {
 
 function inspectionTaskStatusLabel(value) {
   return INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
+}
+
+async function uploadDeviceScreenshot(file) {
+  if (!editingDeviceId.value) return
+  try {
+    const payload = new FormData()
+    payload.append('name', file.name)
+    payload.append('object_type', 'device')
+    payload.append('object_id', editingDeviceId.value)
+    payload.append('file', file.raw)
+    const { data } = await uploadAttachment(payload)
+    uploadedScreenshots.value.push(data)
+    deviceForm.screenshot_url = data.file_url
+    ElMessage.success('截图已上传')
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '上传截图失败'))
+  }
 }
 
 function parseDeviceLicenseInfo() {
@@ -695,6 +737,18 @@ async function saveDeviceEdit() {
   }
   if (!deviceForm.is_standard_product && !deviceForm.nonstandard_name.trim()) {
     ElMessage.warning('请填写非标名称')
+    return
+  }
+  if (editingProjectDeviceId.value && (!deviceForm.service_start_date || !deviceForm.service_end_date)) {
+    ElMessage.warning('请填写服务开始和服务结束日期')
+    return
+  }
+  if (editingProjectDeviceId.value && deviceForm.service_end_date < deviceForm.service_start_date) {
+    ElMessage.warning('服务结束日期不能早于服务开始日期')
+    return
+  }
+  if (editingProjectDeviceId.value && deviceForm.service_type === 'offline' && !deviceForm.offline_date) {
+    ElMessage.warning('下架设备请填写下架时间')
     return
   }
   deviceSaving.value = true
@@ -717,6 +771,16 @@ async function saveDeviceEdit() {
       rack_install_date: deviceForm.rack_install_date || null,
       remark: deviceForm.remark,
     })
+    if (editingProjectDeviceId.value) {
+      await updateResource('project-devices', editingProjectDeviceId.value, {
+        device_project_type: deviceForm.device_project_type,
+        deploy_location: deviceForm.deploy_location,
+        service_type: deviceForm.service_type,
+        service_start_date: deviceForm.service_start_date,
+        service_end_date: deviceForm.service_end_date,
+        offline_date: deviceForm.offline_date || null,
+      })
+    }
     ElMessage.success('设备已更新')
     deviceEditVisible.value = false
     await loadCustomerDevicesTab()
