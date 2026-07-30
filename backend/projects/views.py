@@ -335,6 +335,21 @@ class DeviceViewSet(SoftDeleteModelViewSet):
                 "project_devices__project__sales_person__name",
             ],
         )
+        device_name = self.request.query_params.get("device_name", "").strip()
+        if device_name:
+            queryset = queryset.filter(device_model__model_name__icontains=device_name)
+        customer_name = self.request.query_params.get("customer_name", "").strip()
+        if customer_name:
+            queryset = queryset.filter(
+                Q(customer_org__name__icontains=customer_name)
+                | Q(project_devices__project__customer_org__name__icontains=customer_name)
+            )
+        sales_name = self.request.query_params.get("sales_name", "").strip()
+        if sales_name:
+            queryset = queryset.filter(
+                Q(sales_person__name__icontains=sales_name)
+                | Q(project_devices__project__sales_person__name__icontains=sales_name)
+            )
         queryset = queryset.filter(
             Q(customer_org__isnull=False, customer_org__is_deleted=False)
             | Q(project_devices__is_deleted=False, project_devices__project__is_deleted=False, project_devices__project__customer_org__is_deleted=False)

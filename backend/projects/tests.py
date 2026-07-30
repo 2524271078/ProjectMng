@@ -1360,6 +1360,37 @@ class DeviceDirectorySearchApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["id"] for item in api_results(response)], [device.id])
 
+    def test_device_list_supports_combined_device_customer_and_sales_filters(self):
+        customer = Organization.objects.create(name="Target Customer", org_type="customer")
+        sales = Person.objects.create(name="Target Sales", person_type="sales")
+        product = Product.objects.create(name="Target Product", product_code="TARGET-FILTER-P")
+        model = DeviceModel.objects.create(product=product, model_name="Target Device", model_code="TARGET-FILTER-M")
+        target = Device.objects.create(
+            name="Target Asset",
+            serial_number="TARGET-FILTER-SN",
+            device_model=model,
+            customer_org=customer,
+            sales_person=sales,
+        )
+        other_customer = Organization.objects.create(name="Other Customer", org_type="customer")
+        other_sales = Person.objects.create(name="Other Sales", person_type="sales")
+        other_product = Product.objects.create(name="Other Product", product_code="OTHER-FILTER-P")
+        other_model = DeviceModel.objects.create(product=other_product, model_name="Other Device", model_code="OTHER-FILTER-M")
+        Device.objects.create(
+            name="Other Asset",
+            serial_number="OTHER-FILTER-SN",
+            device_model=other_model,
+            customer_org=other_customer,
+            sales_person=other_sales,
+        )
+
+        response = self.client.get(
+            "/api/devices/?device_name=Target%20Device&customer_name=Target%20Customer&sales_name=Target%20Sales"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in api_results(response)], [target.id])
+
 
 class DataScopeFilteringTests(APITestCase):
     def setUp(self):

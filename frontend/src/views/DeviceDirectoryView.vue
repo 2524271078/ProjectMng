@@ -13,9 +13,23 @@
     <section class="device-toolbar">
       <div class="toolbar-main">
         <el-input
-          v-model="searchKeyword"
+          v-model="deviceNameKeyword"
           class="search-input"
-          placeholder="搜索产品型号 / 设备名称 / 序列号 / 客户公司 / 联系人 / 销售"
+          placeholder="设备名称"
+          clearable
+          @keyup.enter="handleSearch"
+        />
+        <el-input
+          v-model="customerNameKeyword"
+          class="search-input"
+          placeholder="客户公司"
+          clearable
+          @keyup.enter="handleSearch"
+        />
+        <el-input
+          v-model="salesNameKeyword"
+          class="search-input"
+          placeholder="销售"
           clearable
           @keyup.enter="handleSearch"
         />
@@ -267,7 +281,9 @@ const serviceScheduleForm = reactive({ serviceType: 'system_upgrade', firstServi
 const operationRecordDialogVisible = ref(false)
 const operationRecordSaving = ref(false)
 const operationRecordForm = reactive({ servicePlanId: null, projectDeviceId: null, inspectionTaskId: null, recordType: 'inspection', performedAt: '', result: 'normal', issueDescription: '', resolution: '', softwareVersionAfter: '', ruleLibraryVersionAfter: '' })
-const searchKeyword = ref('')
+const deviceNameKeyword = ref('')
+const customerNameKeyword = ref('')
+const salesNameKeyword = ref('')
 const statusFilter = ref('all')
 const serviceTypeFilter = ref('all')
 const signingSubjectFilter = ref('all')
@@ -298,8 +314,14 @@ const filteredDevices = computed(() => filterDevices(devices.value, {
 }))
 
 function buildSearchParams() {
-  const keyword = searchKeyword.value.trim()
-  return keyword ? { search: keyword } : undefined
+  const deviceName = deviceNameKeyword.value.trim()
+  const customerName = customerNameKeyword.value.trim()
+  const salesName = salesNameKeyword.value.trim()
+  return {
+    ...(deviceName ? { device_name: deviceName } : {}),
+    ...(customerName ? { customer_name: customerName } : {}),
+    ...(salesName ? { sales_name: salesName } : {}),
+  }
 }
 
 function syncDevicePagination() {
@@ -354,7 +376,9 @@ function handleSearch() {
 }
 
 function resetSearch() {
-  searchKeyword.value = ''
+  deviceNameKeyword.value = ''
+  customerNameKeyword.value = ''
+  salesNameKeyword.value = ''
   statusFilter.value = 'all'
   serviceTypeFilter.value = 'all'
   signingSubjectFilter.value = 'all'
@@ -597,9 +621,9 @@ onMounted(loadDevices)
 }
 
 .search-input {
-  flex: 1;
-  min-width: 320px;
-  max-width: 680px;
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 320px;
 }
 
 .service-type-select {
