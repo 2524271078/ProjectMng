@@ -31,9 +31,9 @@
           <h2>{{ selected?.name || '选择左侧客户' }}</h2>
         </div>
         <div class="action-row">
-          <el-button @click="openEditDialog" :disabled="!selected">编辑组织</el-button>
-          <el-button type="danger" plain @click="removeOrganization" :disabled="!selected">删除组织</el-button>
-          <el-button type="primary" @click="openCreateDialog">新增组织</el-button>
+          <el-button v-can="['customers', 'edit']" @click="openEditDialog" :disabled="!selected">编辑组织</el-button>
+          <el-button v-can="['customers', 'delete']" type="danger" plain @click="removeOrganization" :disabled="!selected">删除组织</el-button>
+          <el-button v-can="['customers', 'create']" type="primary" @click="openCreateDialog">新增组织</el-button>
         </div>
       </div>
 
@@ -124,8 +124,8 @@
             <el-table-column label="操作" width="220" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
-                <el-button link type="primary" @click.stop="openDeviceService(scope.row)">服务</el-button>
-                <el-button link type="primary" @click.stop="openDeviceEdit(scope.row)">编辑</el-button>
+                <el-button v-can="['customers', 'edit']" link type="primary" @click.stop="openDeviceService(scope.row)">服务</el-button>
+                <el-button v-can="['customers', 'edit']" link type="primary" @click.stop="openDeviceEdit(scope.row)">编辑</el-button>
                 <el-button v-if="scope.row.latest_project" link type="primary" @click.stop="openLatestDeviceProject(scope.row)">查看项目</el-button>
               </template>
             </el-table-column>
@@ -288,7 +288,7 @@
       </el-form>
       <template #footer>
         <el-button @click="deviceEditVisible = false">取消</el-button>
-        <el-button type="primary" :loading="deviceSaving" @click="saveDeviceEdit">保存修改</el-button>
+        <el-button v-can="['customers', 'edit']" type="primary" :loading="deviceSaving" @click="saveDeviceEdit">保存修改</el-button>
       </template>
     </el-dialog>
   </div>

@@ -13,12 +13,12 @@
           <el-input v-model="searchKeyword" placeholder="搜索型号 / 编码 / 产品 / 版本" clearable @keyup.enter="handleSearch" />
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="resetSearch">重置</el-button>
-          <el-button @click="openDialog('line')">新增产线</el-button>
-          <el-button @click="openDialog('product')">新增产品</el-button>
-          <el-button @click="openDialog('version')">新增版本</el-button>
-          <el-button type="primary" @click="openDialog('model')">新增型号</el-button>
-          <el-button :disabled="!selectedNode" @click="editSelectedNode">编辑当前节点</el-button>
-          <el-button :disabled="!selectedNode" type="danger" plain @click="removeSelectedNode">删除当前节点</el-button>
+          <el-button v-can="['products', 'create']" @click="openDialog('line')">新增产线</el-button>
+          <el-button v-can="['products', 'create']" @click="openDialog('product')">新增产品</el-button>
+          <el-button v-can="['products', 'create']" @click="openDialog('version')">新增版本</el-button>
+          <el-button v-can="['products', 'create']" type="primary" @click="openDialog('model')">新增型号</el-button>
+          <el-button v-can="['products', 'edit']" :disabled="!selectedNode" @click="editSelectedNode">编辑当前节点</el-button>
+          <el-button v-can="['products', 'delete']" :disabled="!selectedNode" type="danger" plain @click="removeSelectedNode">删除当前节点</el-button>
         </div>
       </div>
       <el-alert v-if="!lines.length" title="请先新增产线，再在产线下新增产品、版本和型号。" type="info" show-icon :closable="false" class="mb-16" />
@@ -30,8 +30,8 @@
           <el-table-column prop="status" label="状态" width="100" />
           <el-table-column label="操作" width="140" fixed="right">
             <template #default="scope">
-              <el-button link type="primary" @click.stop="editModel(scope.row)">编辑</el-button>
-              <el-button link type="danger" @click.stop="removeModel(scope.row)">删除</el-button>
+              <el-button v-can="['products', 'edit']" link type="primary" @click.stop="editModel(scope.row)">编辑</el-button>
+              <el-button v-can="['products', 'delete']" link type="danger" @click.stop="removeModel(scope.row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>

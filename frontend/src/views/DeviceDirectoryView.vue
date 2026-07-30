@@ -33,6 +33,13 @@
           clearable
           @keyup.enter="handleSearch"
         />
+        <el-input
+          v-model="softwareVersionKeyword"
+          class="search-input"
+          placeholder="系统版本"
+          clearable
+          @keyup.enter="handleSearch"
+        />
         <el-select v-model="serviceTypeFilter" class="service-type-select" placeholder="设备状态" @change="handleServiceTypeFilterChange">
           <el-option label="全部状态" value="all" />
           <el-option v-for="option in serviceTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
@@ -284,6 +291,7 @@ const operationRecordForm = reactive({ servicePlanId: null, projectDeviceId: nul
 const deviceNameKeyword = ref('')
 const customerNameKeyword = ref('')
 const salesNameKeyword = ref('')
+const softwareVersionKeyword = ref('')
 const statusFilter = ref('all')
 const serviceTypeFilter = ref('all')
 const signingSubjectFilter = ref('all')
@@ -317,10 +325,12 @@ function buildSearchParams() {
   const deviceName = deviceNameKeyword.value.trim()
   const customerName = customerNameKeyword.value.trim()
   const salesName = salesNameKeyword.value.trim()
+  const softwareVersion = softwareVersionKeyword.value.trim()
   return {
     ...(deviceName ? { device_name: deviceName } : {}),
     ...(customerName ? { customer_name: customerName } : {}),
     ...(salesName ? { sales_name: salesName } : {}),
+    ...(softwareVersion ? { software_version: softwareVersion } : {}),
   }
 }
 
@@ -379,6 +389,7 @@ function resetSearch() {
   deviceNameKeyword.value = ''
   customerNameKeyword.value = ''
   salesNameKeyword.value = ''
+  softwareVersionKeyword.value = ''
   statusFilter.value = 'all'
   serviceTypeFilter.value = 'all'
   signingSubjectFilter.value = 'all'
@@ -613,17 +624,19 @@ onMounted(loadDevices)
 }
 
 .toolbar-main {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr)) 160px 160px auto;
   gap: 12px;
   align-items: center;
-  justify-content: space-between;
 }
 
 .search-input {
-  flex: 1 1 220px;
-  min-width: 180px;
-  max-width: 320px;
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar-main .action-row {
+  flex-wrap: nowrap;
 }
 
 .service-type-select {
@@ -695,5 +708,11 @@ onMounted(loadDevices)
   margin-left: 8px;
   white-space: nowrap;
   color: #606266;
+}
+
+@media (max-width: 1400px) {
+  .toolbar-main {
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+  }
 }
 </style>

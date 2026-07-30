@@ -5,7 +5,7 @@
         <span class="eyebrow-dark">People</span>
         <h2>人员管理</h2>
       </div>
-      <el-button type="primary" @click="openCreateDialog">新增人员</el-button>
+      <el-button v-can="['people', 'create']" type="primary" @click="openCreateDialog">新增人员</el-button>
     </div>
 
     <div class="page-table-scroll">
@@ -19,8 +19,8 @@
         <el-table-column prop="email" label="邮箱" min-width="220" />
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="scope">
-            <el-button link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
-            <el-button link type="danger" @click="removePerson(scope.row)">删除</el-button>
+            <el-button v-can="['people', 'edit']" link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
+            <el-button v-can="['people', 'delete']" link type="danger" @click="removePerson(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

@@ -8,6 +8,12 @@ from rest_framework.response import Response
 from accounts.models import Menu, Permission, Role, UserRole
 from accounts.serializers import MenuSerializer, PermissionSerializer, RoleSerializer, UserRoleSerializer, UserSerializer
 from accounts.services import ensure_default_menus, get_user_menus, get_user_permissions, get_user_role_ids
+from accounts.permissions import MenuActionPermission
+
+
+class SystemModelViewSet(viewsets.ModelViewSet):
+    permission_classes = [MenuActionPermission]
+    menu_code = "system"
 
 
 @api_view(["POST"])
@@ -32,7 +38,7 @@ def current_user_view(request):
     return Response(data)
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(SystemModelViewSet):
     queryset = User.objects.prefetch_related(
         "user_roles__role",
         "access_profile__sales_scopes__sales_person",
@@ -40,12 +46,12 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
 
-class RoleViewSet(viewsets.ModelViewSet):
+class RoleViewSet(SystemModelViewSet):
     queryset = Role.objects.all().order_by("id")
     serializer_class = RoleSerializer
 
 
-class MenuViewSet(viewsets.ModelViewSet):
+class MenuViewSet(SystemModelViewSet):
     queryset = Menu.objects.all().order_by("order_index", "id")
     serializer_class = MenuSerializer
 
@@ -54,11 +60,11 @@ class MenuViewSet(viewsets.ModelViewSet):
         return super().get_queryset()
 
 
-class PermissionViewSet(viewsets.ModelViewSet):
+class PermissionViewSet(SystemModelViewSet):
     queryset = Permission.objects.select_related("role", "menu").all().order_by("id")
     serializer_class = PermissionSerializer
 
 
-class UserRoleViewSet(viewsets.ModelViewSet):
+class UserRoleViewSet(SystemModelViewSet):
     queryset = UserRole.objects.select_related("user", "role").all().order_by("id")
     serializer_class = UserRoleSerializer

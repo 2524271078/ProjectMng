@@ -2,7 +2,7 @@
   <div class="page-scroll-layout">
     <div class="section-head">
       <div><span class="eyebrow-dark">Contract Center</span><h2>合同链路</h2></div>
-      <el-button type="primary" @click="dialogVisible = true">新增合同</el-button>
+      <el-button v-can="['contracts', 'create']" type="primary" @click="dialogVisible = true">新增合同</el-button>
     </div>
 
     <div class="page-table-scroll">
@@ -21,7 +21,7 @@
         <el-form-item label="最终客户 ID"><el-input-number v-model="form.final_customer" :min="1" /></el-form-item>
         <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" /></el-form-item>
       </el-form>
-      <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button type="primary" @click="createContract">保存</el-button></template>
+      <template #footer><el-button @click="dialogVisible = false">取消</el-button><el-button v-can="['contracts', 'create']" type="primary" @click="createContract">保存</el-button></template>
     </el-dialog>
 
     <el-drawer v-model="drawerVisible" size="56%" title="合同详情">

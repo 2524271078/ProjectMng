@@ -2,11 +2,18 @@
   <div class="page-scroll-layout">
     <div class="section-head">
       <div><span class="eyebrow-dark">Project Center</span><h2>项目中心</h2></div>
-      <div class="action-row">
-        <el-input v-model="projectSearchKeyword" placeholder="搜索项目 / 客户公司 / 销售 / 阶段" clearable @keyup.enter="handleProjectSearch" />
+      <div class="action-row project-toolbar">
+        <el-input v-model="projectNameKeyword" class="project-search-input" placeholder="项目名称" clearable @keyup.enter="handleProjectSearch" />
+        <el-input v-model="customerNameKeyword" class="project-search-input" placeholder="客户公司" clearable @keyup.enter="handleProjectSearch" />
+        <el-input v-model="salesNameKeyword" class="project-search-input" placeholder="销售" clearable @keyup.enter="handleProjectSearch" />
+        <el-select v-model="signingSubjectFilter" class="signing-subject-select" placeholder="签约主体" @change="handleProjectSearch">
+          <el-option label="全部签约主体" value="all" />
+          <el-option label="直签" value="direct" />
+          <el-option label="代理" value="agent" />
+        </el-select>
         <el-button type="primary" @click="handleProjectSearch">搜索</el-button>
         <el-button @click="resetProjectSearch">重置</el-button>
-        <el-button type="primary" @click="openCreateDialog">新增项目</el-button>
+        <el-button v-can="['devices', 'create']" type="primary" @click="openCreateDialog">新增项目</el-button>
       </div>
     </div>
 
@@ -27,8 +34,8 @@
       </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="scope">
-          <el-button link type="primary" @click.stop="openEditDialog(scope.row)">编辑</el-button>
-          <el-button link type="danger" @click.stop="removeProject(scope.row)">删除</el-button>
+          <el-button v-can="['devices', 'edit']" link type="primary" @click.stop="openEditDialog(scope.row)">编辑</el-button>
+          <el-button v-can="['devices', 'delete']" link type="danger" @click.stop="removeProject(scope.row)">删除</el-button>
         </template>
       </el-table-column>
       </el-table>
@@ -89,8 +96,8 @@
           <div class="section-head compact mb-16">
             <span>项目设备列表</span>
             <div>
-              <el-button type="primary" plain @click="openNewDeviceDialog">新增项目设备</el-button>
-              <el-button type="primary" @click="openExistingDeviceDialog">选择已有设备</el-button>
+              <el-button v-can="['devices', 'create']" type="primary" plain @click="openNewDeviceDialog">新增项目设备</el-button>
+              <el-button v-can="['devices', 'create']" type="primary" @click="openExistingDeviceDialog">选择已有设备</el-button>
             </div>
           </div>
 
@@ -122,9 +129,9 @@
             </el-table-column>
             <el-table-column label="操作" width="220" fixed="right">
               <template #default="scope">
-                <el-button link type="primary" @click.stop="editProjectDevice(scope.row)">编辑</el-button>
-                <el-button link type="primary" @click.stop="openProjectDeviceService(scope.row)">服务</el-button>
-                <el-button link type="danger" @click.stop="removeProjectDevice(scope.row)">删除</el-button>
+                <el-button v-can="['devices', 'edit']" link type="primary" @click.stop="editProjectDevice(scope.row)">编辑</el-button>
+                <el-button v-can="['devices', 'edit']" link type="primary" @click.stop="openProjectDeviceService(scope.row)">服务</el-button>
+                <el-button v-can="['devices', 'delete']" link type="danger" @click.stop="removeProjectDevice(scope.row)">删除</el-button>
                 <el-button link type="primary" @click.stop="openDeviceDetail(scope.row)">详情</el-button>
               </template>
             </el-table-column>
@@ -156,7 +163,7 @@
                 <el-space wrap size="small">
                   <el-button v-if="scope.row.file_url" link type="primary" @click.stop="previewAttachment(scope.row)">预览</el-button>
                   <el-button v-if="scope.row.file_url" link type="primary" @click.stop="downloadAttachment(scope.row)">下载</el-button>
-                  <el-button link type="danger" @click.stop="removeAttachment(scope.row)">删除</el-button>
+                  <el-button v-can="['devices', 'delete']" link type="danger" @click.stop="removeAttachment(scope.row)">删除</el-button>
                 </el-space>
               </template>
             </el-table-column>
@@ -383,7 +390,10 @@ const activeProjectId = ref(null)
 const editingProjectDeviceId = ref(null)
 const selectedDevice = ref(null)
 const selectedContractId = ref(null)
-const projectSearchKeyword = ref('')
+const projectNameKeyword = ref('')
+const customerNameKeyword = ref('')
+const salesNameKeyword = ref('')
+const signingSubjectFilter = ref('all')
 const activeProjectTab = ref('base')
 const form = reactive({ project_no: '', name: '', customer_org: null, customer_contact: null, winning_company: '', contact_company: '', signing_subject: 'direct', sales_person: null, project_stage: 'new', amount: 0 })
 const deviceBinding = reactive(defaultDeviceBinding())
@@ -451,7 +461,10 @@ async function loadProjects() {
     const params = {
       page: projectPagination.page,
       page_size: projectPagination.pageSize,
-      ...(projectSearchKeyword.value.trim() ? { search: projectSearchKeyword.value.trim() } : {}),
+      ...(projectNameKeyword.value.trim() ? { project_name: projectNameKeyword.value.trim() } : {}),
+      ...(customerNameKeyword.value.trim() ? { customer_name: customerNameKeyword.value.trim() } : {}),
+      ...(salesNameKeyword.value.trim() ? { sales_name: salesNameKeyword.value.trim() } : {}),
+      ...(signingSubjectFilter.value !== 'all' ? { signing_subject: signingSubjectFilter.value } : {}),
     }
     const { data } = await listResource('projects', params)
     applyPaginationResponse(projectPagination, data)
@@ -468,7 +481,10 @@ function handleProjectSearch() {
 }
 
 function resetProjectSearch() {
-  projectSearchKeyword.value = ''
+  projectNameKeyword.value = ''
+  customerNameKeyword.value = ''
+  salesNameKeyword.value = ''
+  signingSubjectFilter.value = 'all'
   projectPagination.page = 1
   loadProjects()
 }
@@ -1074,6 +1090,18 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.project-toolbar {
+  justify-content: flex-end;
+}
+
+.project-search-input {
+  width: 180px;
+}
+
+.signing-subject-select {
+  width: 140px;
+}
+
 .service-dialog-head {
   display: flex;
   align-items: center;

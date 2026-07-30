@@ -10,11 +10,13 @@ from rest_framework.response import Response
 from rest_framework import status, viewsets
 
 from accounts.services import filter_queryset_by_sales_scope, get_user_sales_scope
+from accounts.permissions import MenuActionPermission
 from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
 from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceOperationRecordSerializer, DeviceSerializer, DeviceServicePlanSerializer, DeviceServiceScheduleSerializer, InspectionTaskSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer, ServiceStandardTemplateSerializer
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
+    permission_classes = [MenuActionPermission]
     def get_queryset(self):
         queryset = super().get_queryset()
         model = queryset.model
@@ -189,6 +191,7 @@ def generate_project_no():
 
 
 class OrganizationViewSet(SoftDeleteModelViewSet):
+    menu_code = "customers"
     queryset = Organization.objects.all().order_by("id")
     serializer_class = OrganizationSerializer
 
@@ -260,6 +263,7 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
 
 
 class PersonViewSet(SoftDeleteModelViewSet):
+    menu_code = "people"
     queryset = Person.objects.select_related("organization", "user").all()
     serializer_class = PersonSerializer
 
@@ -277,16 +281,19 @@ class PersonViewSet(SoftDeleteModelViewSet):
 
 
 class SalesCustomerRelationViewSet(SoftDeleteModelViewSet):
+    menu_code = "people"
     queryset = SalesCustomerRelation.objects.select_related("sales_person", "customer_org").all()
     serializer_class = SalesCustomerRelationSerializer
 
 
 class ProductLineViewSet(SoftDeleteModelViewSet):
+    menu_code = "products"
     queryset = ProductLine.objects.all().order_by("id")
     serializer_class = ProductLineSerializer
 
 
 class ProductViewSet(SoftDeleteModelViewSet):
+    menu_code = "products"
     queryset = Product.objects.select_related("product_line", "manufacturer").all().order_by("id")
     serializer_class = ProductSerializer
 
@@ -296,11 +303,13 @@ class ProductViewSet(SoftDeleteModelViewSet):
 
 
 class ProductVersionViewSet(SoftDeleteModelViewSet):
+    menu_code = "products"
     queryset = ProductVersion.objects.select_related("product").all().order_by("id")
     serializer_class = ProductVersionSerializer
 
 
 class DeviceModelViewSet(SoftDeleteModelViewSet):
+    menu_code = "products"
     queryset = DeviceModel.objects.select_related("product", "product_version", "manufacturer").all().order_by("id")
     serializer_class = DeviceModelSerializer
 
@@ -312,6 +321,7 @@ class DeviceModelViewSet(SoftDeleteModelViewSet):
 
 
 class DeviceViewSet(SoftDeleteModelViewSet):
+    menu_code = ["device-center", "customers", "devices"]
     queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").prefetch_related(
         "project_devices__project__customer_org",
         "project_devices__project__customer_contact",
@@ -350,6 +360,9 @@ class DeviceViewSet(SoftDeleteModelViewSet):
                 Q(sales_person__name__icontains=sales_name)
                 | Q(project_devices__project__sales_person__name__icontains=sales_name)
             )
+        software_version = self.request.query_params.get("software_version", "").strip()
+        if software_version:
+            queryset = queryset.filter(software_version__icontains=software_version)
         queryset = queryset.filter(
             Q(customer_org__isnull=False, customer_org__is_deleted=False)
             | Q(project_devices__is_deleted=False, project_devices__project__is_deleted=False, project_devices__project__customer_org__is_deleted=False)
@@ -360,6 +373,7 @@ class DeviceViewSet(SoftDeleteModelViewSet):
 
 
 class ProjectViewSet(SoftDeleteModelViewSet):
+    menu_code = "devices"
     queryset = Project.objects.select_related("customer_org", "sales_person", "ops_person").all().order_by("id")
     serializer_class = ProjectSerializer
 
@@ -367,7 +381,20 @@ class ProjectViewSet(SoftDeleteModelViewSet):
         queryset = super().get_queryset()
         search_value = self.request.query_params.get("search", "").strip()
         queryset = filter_queryset_by_sales_scope(queryset, self.request.user, "sales_person_id")
-        return apply_search(queryset, search_value, ["name", "customer_org__name", "sales_person__name", "project_stage"])
+        queryset = apply_search(queryset, search_value, ["name", "customer_org__name", "sales_person__name", "project_stage"])
+        project_name = self.request.query_params.get("project_name", "").strip()
+        if project_name:
+            queryset = queryset.filter(name__icontains=project_name)
+        customer_name = self.request.query_params.get("customer_name", "").strip()
+        if customer_name:
+            queryset = queryset.filter(customer_org__name__icontains=customer_name)
+        sales_name = self.request.query_params.get("sales_name", "").strip()
+        if sales_name:
+            queryset = queryset.filter(sales_person__name__icontains=sales_name)
+        signing_subject = self.request.query_params.get("signing_subject", "").strip()
+        if signing_subject in {"direct", "agent"}:
+            queryset = queryset.filter(signing_subject=signing_subject)
+        return queryset
 
     def perform_create(self, serializer):
         project_no = serializer.validated_data.get("project_no", "").strip()
@@ -397,11 +424,13 @@ class ProjectViewSet(SoftDeleteModelViewSet):
 
 
 class ProjectDeviceViewSet(SoftDeleteModelViewSet):
+    menu_code = ["devices", "customers"]
     queryset = ProjectDevice.objects.select_related("project", "device", "device__device_model", "device__device_model__product", "device__device_model__product_version").all().order_by("id")
     serializer_class = ProjectDeviceSerializer
 
 
 class ServiceStandardTemplateViewSet(SoftDeleteModelViewSet):
+    menu_code = "devices"
     queryset = ServiceStandardTemplate.objects.all().order_by("id")
     serializer_class = ServiceStandardTemplateSerializer
 
@@ -411,6 +440,8 @@ class ServiceStandardTemplateViewSet(SoftDeleteModelViewSet):
 
 
 class DeviceServicePlanViewSet(SoftDeleteModelViewSet):
+    menu_code = ["devices", "customers"]
+    permission_action_overrides = {"create": "edit", "update": "edit", "partial_update": "edit"}
     queryset = DeviceServicePlan.objects.select_related(
         "project_device__project",
         "project_device__device",
@@ -444,6 +475,8 @@ class DeviceServicePlanViewSet(SoftDeleteModelViewSet):
 
 
 class DeviceServiceScheduleViewSet(SoftDeleteModelViewSet):
+    menu_code = ["devices", "customers"]
+    permission_action_overrides = {"create": "edit", "update": "edit", "partial_update": "edit"}
     queryset = DeviceServiceSchedule.objects.select_related(
         "service_plan__project_device__project",
         "service_plan__project_device__device",
@@ -470,6 +503,8 @@ class DeviceServiceScheduleViewSet(SoftDeleteModelViewSet):
 
 
 class InspectionTaskViewSet(SoftDeleteModelViewSet):
+    menu_code = ["devices", "customers"]
+    permission_action_overrides = {"create": "edit", "update": "edit", "partial_update": "edit"}
     queryset = InspectionTask.objects.select_related(
         "service_plan__project_device__project",
         "service_plan__project_device__device",
@@ -490,6 +525,8 @@ class InspectionTaskViewSet(SoftDeleteModelViewSet):
 
 
 class DeviceOperationRecordViewSet(SoftDeleteModelViewSet):
+    menu_code = ["devices", "customers"]
+    permission_action_overrides = {"create": "edit", "update": "edit", "partial_update": "edit"}
     queryset = DeviceOperationRecord.objects.select_related(
         "device",
         "project_device__project",
@@ -526,11 +563,13 @@ class DeviceOperationRecordViewSet(SoftDeleteModelViewSet):
 
 
 class ProjectContractViewSet(SoftDeleteModelViewSet):
+    menu_code = ["contracts", "devices", "customers"]
     queryset = ProjectContract.objects.select_related("project", "contract").all().order_by("id")
     serializer_class = ProjectContractSerializer
 
 
 class ContractViewSet(SoftDeleteModelViewSet):
+    menu_code = "contracts"
     queryset = Contract.objects.select_related("final_customer", "direct_buyer", "sales_person").all()
     serializer_class = ContractSerializer
 
@@ -542,16 +581,20 @@ class ContractViewSet(SoftDeleteModelViewSet):
 
 
 class ContractDeviceViewSet(SoftDeleteModelViewSet):
+    menu_code = "contracts"
     queryset = ContractDevice.objects.select_related("contract", "device").all()
     serializer_class = ContractDeviceSerializer
 
 
 class ContractPartyViewSet(SoftDeleteModelViewSet):
+    menu_code = "contracts"
     queryset = ContractParty.objects.select_related("contract", "organization").all()
     serializer_class = ContractPartySerializer
 
 
 class AttachmentViewSet(viewsets.ModelViewSet):
+    permission_classes = [MenuActionPermission]
+    menu_code = ["devices", "customers", "contracts"]
     queryset = Attachment.objects.all()
     serializer_class = AttachmentSerializer
 

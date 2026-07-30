@@ -9,6 +9,36 @@ from projects.models import Contract, ContractDevice, ContractParty, Device, Dev
 
 
 class AccountApiTests(APITestCase):
+    def test_role_permissions_block_unauthorized_mutations(self):
+        user = User.objects.create_user(username="limited-user", password="pass123456")
+        role = Role.objects.create(name="只读客户", code="customer-reader")
+        menu = Menu.objects.create(name="客户中心", code="customers", path="/customers", order_index=1)
+        Permission.objects.create(role=role, menu=menu, action="view")
+        UserRole.objects.create(user=user, role=role)
+        self.client.force_authenticate(user)
+
+        denied = self.client.post("/api/organizations/", {"name": "无权新增", "org_type": "customer"}, format="json")
+
+        self.assertEqual(denied.status_code, 403)
+        Permission.objects.create(role=role, menu=menu, action="create")
+        allowed = self.client.post("/api/organizations/", {"name": "允许新增", "org_type": "customer"}, format="json")
+        self.assertEqual(allowed.status_code, 201)
+
+    def test_unsupported_device_center_actions_do_not_grant_device_mutation_access(self):
+        user = User.objects.create_user(username="device-reader", password="pass123456")
+        role = Role.objects.create(name="设备查看", code="device-reader")
+        menu = Menu.objects.create(name="设备中心", code="device-center", path="/device-center", order_index=1)
+        Permission.objects.create(role=role, menu=menu, action="view")
+        # Existing roles may still contain this historical record. It must not
+        # enable a write because the device-center menu is view-only.
+        Permission.objects.create(role=role, menu=menu, action="create")
+        UserRole.objects.create(user=user, role=role)
+        self.client.force_authenticate(user)
+
+        response = self.client.post("/api/devices/", {}, format="json")
+
+        self.assertEqual(response.status_code, 403)
+
     def test_login_returns_token_and_current_user_permissions_and_scope(self):
         user = User.objects.create_user(username="admin", password="pass123456")
         role = Role.objects.create(name="管理员", code="admin")

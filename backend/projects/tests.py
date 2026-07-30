@@ -447,6 +447,31 @@ class SearchApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["project_no"] for item in api_results(response)], ["PRJ-SEARCH-005"])
 
+    def test_project_list_supports_combined_name_customer_sales_and_signing_subject_filters(self):
+        customer = Organization.objects.create(name="Target Customer", org_type="customer")
+        sales = Person.objects.create(name="Target Sales", organization=self.internal_org, person_type="sales")
+        target = Project.objects.create(
+            project_no="PROJECT-FILTER-001",
+            name="Target Project",
+            customer_org=customer,
+            sales_person=sales,
+            signing_subject="agent",
+        )
+        Project.objects.create(
+            project_no="PROJECT-FILTER-002",
+            name="Other Project",
+            customer_org=customer,
+            sales_person=sales,
+            signing_subject="direct",
+        )
+
+        response = self.client.get(
+            "/api/projects/?project_name=Target%20Project&customer_name=Target%20Customer&sales_name=Target%20Sales&signing_subject=agent"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in api_results(response)], [target.id])
+
     def test_device_model_search_matches_model_code(self):
         product = Product.objects.create(name="边界防护平台", product_code="EDGE-P", manufacturer=self.vendor)
         DeviceModel.objects.create(product=product, model_name="边界一体机 3000", model_code="SG3000", manufacturer=self.vendor)
@@ -1371,6 +1396,7 @@ class DeviceDirectorySearchApiTests(APITestCase):
             device_model=model,
             customer_org=customer,
             sales_person=sales,
+            software_version="V2.5.1",
         )
         other_customer = Organization.objects.create(name="Other Customer", org_type="customer")
         other_sales = Person.objects.create(name="Other Sales", person_type="sales")
@@ -1382,10 +1408,11 @@ class DeviceDirectorySearchApiTests(APITestCase):
             device_model=other_model,
             customer_org=other_customer,
             sales_person=other_sales,
+            software_version="V3.0.0",
         )
 
         response = self.client.get(
-            "/api/devices/?device_name=Target%20Device&customer_name=Target%20Customer&sales_name=Target%20Sales"
+            "/api/devices/?device_name=Target%20Device&customer_name=Target%20Customer&sales_name=Target%20Sales&software_version=V2.5"
         )
 
         self.assertEqual(response.status_code, 200)

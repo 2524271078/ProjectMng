@@ -12,7 +12,7 @@
       <el-tab-pane label="用户管理" name="users">
         <div class="tab-header-actions">
           <div class="tab-tip">支持账号、绑定人员、菜单角色和销售数据范围配置。</div>
-          <el-button type="primary" @click="openCreateUserDialog">新增用户</el-button>
+          <el-button v-can="['system', 'create']" type="primary" @click="openCreateUserDialog">新增用户</el-button>
         </div>
         <div class="page-table-scroll embedded-table-scroll">
           <el-table v-loading="loading.users" :data="users" stripe>
@@ -47,8 +47,8 @@
             </el-table-column>
             <el-table-column label="操作" width="150" fixed="right">
               <template #default="scope">
-                <el-button link type="primary" @click="openEditUserDialog(scope.row)">编辑</el-button>
-                <el-button v-if="!scope.row.is_superuser" link type="danger" @click="removeUser(scope.row)">删除</el-button>
+                <el-button v-can="['system', 'edit']" link type="primary" @click="openEditUserDialog(scope.row)">编辑</el-button>
+                <el-button v-can="['system', 'delete']" v-if="!scope.row.is_superuser" link type="danger" @click="removeUser(scope.row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -58,7 +58,7 @@
       <el-tab-pane label="角色管理" name="roles">
         <div class="tab-header-actions">
           <div class="tab-tip">角色负责菜单动作授权，用户再叠加个人销售数据范围。</div>
-          <el-button type="primary" @click="openCreateRoleDialog">新增角色</el-button>
+          <el-button v-can="['system', 'create']" type="primary" @click="openCreateRoleDialog">新增角色</el-button>
         </div>
         <div class="page-table-scroll embedded-table-scroll">
           <el-table v-loading="loading.roles" :data="roles" stripe>
@@ -75,8 +75,8 @@
             </el-table-column>
             <el-table-column label="操作" width="150" fixed="right">
               <template #default="scope">
-                <el-button link type="primary" @click="openEditRoleDialog(scope.row)">编辑</el-button>
-                <el-button link type="danger" @click="removeRole(scope.row)">删除</el-button>
+                <el-button v-can="['system', 'edit']" link type="primary" @click="openEditRoleDialog(scope.row)">编辑</el-button>
+                <el-button v-can="['system', 'delete']" link type="danger" @click="removeRole(scope.row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -182,7 +182,7 @@
         <div class="permission-panel">
           <div class="permission-panel-head">
             <strong>菜单动作授权</strong>
-            <span>勾选后表示该角色允许执行对应动作。</span>
+            <span>仅展示该菜单当前实际支持的操作；设备中心、销售中心仅支持查看。</span>
           </div>
           <div class="permission-grid">
             <div v-for="menu in permissionMenus" :key="menu.id" class="permission-row">
@@ -191,7 +191,7 @@
                 <span>{{ menu.code }}</span>
               </div>
               <el-checkbox-group v-model="rolePermissionMap[String(menu.id)]">
-                <el-checkbox v-for="action in actionOptions" :key="action.value" :label="action.value">{{ action.label }}</el-checkbox>
+                <el-checkbox v-for="action in actionsForMenu(menu.code)" :key="action.value" :label="action.value">{{ action.label }}</el-checkbox>
               </el-checkbox-group>
             </div>
           </div>
@@ -254,12 +254,27 @@ const actionOptions = [
   { label: '编辑', value: 'edit' },
   { label: '删除', value: 'delete' },
 ]
+const menuActionCodes = {
+  customers: ['view', 'create', 'edit', 'delete'],
+  devices: ['view', 'create', 'edit', 'delete'],
+  'device-center': ['view'],
+  sales: ['view'],
+  contracts: ['view', 'create'],
+  products: ['view', 'create', 'edit', 'delete'],
+  people: ['view', 'create', 'edit', 'delete'],
+  system: ['view', 'create', 'edit', 'delete'],
+}
 const dataScopeSegmentOptions = dataScopeOptions.map((item) => ({ label: item.label, value: item.value }))
 
 const salesPeople = computed(() => people.value.filter((item) => item.person_type === 'sales'))
 const permissionMenus = computed(() => menus.value.filter((item) => item.code))
 const boundPerson = computed(() => people.value.find((item) => item.id === userForm.bound_person_id) || null)
 const showSelfScopeHint = computed(() => !userForm.is_superuser && userForm.data_scope_type === 'self' && boundPerson.value?.person_type !== 'sales')
+
+function actionsForMenu(menuCode) {
+  const allowed = menuActionCodes[menuCode] || ['view']
+  return actionOptions.filter((item) => allowed.includes(item.value))
+}
 
 function resetUserForm() {
   Object.assign(userForm, {
@@ -290,7 +305,8 @@ function resetRolePermissionMap(selected = {}) {
     delete rolePermissionMap[key]
   })
   permissionMenus.value.forEach((menu) => {
-    rolePermissionMap[String(menu.id)] = [...(selected[String(menu.id)] || [])]
+    const allowed = new Set((menuActionCodes[menu.code] || ['view']))
+    rolePermissionMap[String(menu.id)] = (selected[String(menu.id)] || []).filter((action) => allowed.has(action))
   })
 }
 
