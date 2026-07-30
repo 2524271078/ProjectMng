@@ -1830,3 +1830,14 @@ class DashboardReminderApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
+
+    def test_dashboard_superuser_sees_all_service_reminders(self):
+        from django.contrib.auth.models import User
+
+        superuser = User.objects.create_superuser(username="dashboard-superuser", password="pass123456", email="root@example.com")
+        self.client.force_authenticate(superuser)
+
+        response = self.client.get("/api/dashboard-reminders/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 2)
