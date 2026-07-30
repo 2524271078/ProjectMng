@@ -25,7 +25,7 @@ const routes = [
       { path: 'device-center', component: DeviceDirectoryView, meta: { title: '设备中心', menuCode: 'device-center' } },
       { path: 'sales', component: SalesCenterView, meta: { title: '销售中心', menuCode: 'sales' } },
       { path: 'contracts', component: ContractCenterView, meta: { title: '合同中心', menuCode: 'contracts' } },
-      { path: 'products', component: ProductModelView, meta: { title: '产品型号管理', menuCode: 'products' } },
+      { path: 'products', component: ProductModelView, meta: { title: '设备型号管理', menuCode: 'products' } },
       { path: 'people', component: PersonManageView, meta: { title: '人员管理', menuCode: 'people' } },
       { path: 'system', component: SystemManageView, meta: { title: '系统管理', menuCode: 'system' } },
     ],

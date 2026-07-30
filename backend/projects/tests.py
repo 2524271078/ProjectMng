@@ -1,8 +1,9 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from projects.views import paginate_queryset, project_device_summary
@@ -1697,3 +1698,74 @@ class DeviceServicePlanTests(TestCase):
         serializer.save()
         self.assertEqual(InspectionTask.objects.filter(id__in=old_task_ids).count(), 0)
         self.assertEqual(schedule.tasks.count(), 2)
+
+
+class DashboardReminderApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="reminder-user", password="pass123456")
+        self.client.force_authenticate(self.user)
+        today = timezone.localdate()
+        customer = Organization.objects.create(name="提醒客户", org_type="customer")
+        self.sales = Person.objects.create(name="提醒销售", person_type="sales")
+        product = Product.objects.create(name="提醒产品", product_code="REMINDER-P")
+        model = DeviceModel.objects.create(product=product, model_name="提醒设备", model_code="REMINDER-M")
+        device = Device.objects.create(name="提醒资产", serial_number="REMINDER-SN", device_model=model, customer_org=customer, sales_person=self.sales)
+        project = Project.objects.create(project_no="REMINDER-PRJ", name="提醒项目", customer_org=customer, sales_person=self.sales)
+        self.project_device = ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_start_date=today - timedelta(days=30),
+            service_end_date=today + timedelta(days=60),
+        )
+        plan = DeviceServicePlan.objects.create(project_device=self.project_device)
+        self.task = InspectionTask.objects.create(
+            service_plan=plan,
+            planned_date=today + timedelta(days=3),
+            reminder_date=today,
+        )
+
+    def test_dashboard_lists_expiring_service_and_due_service_task_and_hides_confirmed_item(self):
+        response = self.client.get("/api/dashboard-reminders/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 2)
+        keys = {item["key"] for item in response.data["results"]}
+        expiry_key = f"service-expiring:{self.project_device.id}:{self.project_device.service_end_date.isoformat()}"
+        self.assertIn(expiry_key, keys)
+        self.assertIn(f"service-task:{self.task.id}", keys)
+        task_reminder = next(item for item in response.data["results"] if item["key"] == f"service-task:{self.task.id}")
+        self.assertIn("客户：提醒客户", task_reminder["content"])
+        self.assertIn("设备：提醒设备（REMINDER-SN）", task_reminder["content"])
+
+        confirmed = self.client.post("/api/dashboard-reminders/confirm/", {"reminder_key": expiry_key}, format="json")
+        self.assertEqual(confirmed.status_code, 204)
+
+        response = self.client.get("/api/dashboard-reminders/")
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["key"], f"service-task:{self.task.id}")
+
+    def test_dashboard_uses_the_same_sales_scope_as_device_center(self):
+        from accounts.models import UserAccessProfile, UserSalesScope
+
+        other_sales = Person.objects.create(name="其他销售", person_type="sales")
+        customer = Organization.objects.create(name="无权限客户", org_type="customer")
+        product = Product.objects.create(name="无权限产品", product_code="OUT-OF-SCOPE-P")
+        model = DeviceModel.objects.create(product=product, model_name="无权限设备", model_code="OUT-OF-SCOPE-M")
+        device = Device.objects.create(name="无权限资产", serial_number="OUT-OF-SCOPE-SN", device_model=model, customer_org=customer, sales_person=other_sales)
+        project = Project.objects.create(project_no="OUT-OF-SCOPE-PRJ", name="无权限项目", customer_org=customer, sales_person=other_sales)
+        out_of_scope_binding = ProjectDevice.objects.create(
+            project=project,
+            device=device,
+            service_start_date=timezone.localdate(),
+            service_end_date=timezone.localdate() + timedelta(days=60),
+        )
+        profile = UserAccessProfile.objects.create(user=self.user, data_scope_type=UserAccessProfile.DATA_SCOPE_CUSTOM)
+        UserSalesScope.objects.create(profile=profile, sales_person=self.sales)
+
+        response = self.client.get("/api/dashboard-reminders/")
+
+        keys = {item["key"] for item in response.data["results"]}
+        self.assertIn(f"service-expiring:{self.project_device.id}:{self.project_device.service_end_date.isoformat()}", keys)
+        self.assertNotIn(f"service-expiring:{out_of_scope_binding.id}:{out_of_scope_binding.service_end_date.isoformat()}", keys)

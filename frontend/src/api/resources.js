@@ -44,6 +44,14 @@ export function createResource(resource, payload) {
   return apiClient.post(`/${resource}/`, payload)
 }
 
+export function fetchDashboardReminders() {
+  return apiClient.get('/dashboard-reminders/')
+}
+
+export function confirmDashboardReminder(reminderKey) {
+  return apiClient.post('/dashboard-reminders/confirm/', { reminder_key: reminderKey })
+}
+
 export function fetchCustomerOverview(id) {
   return apiClient.get(`/customers/${id}/overview/`)
 }

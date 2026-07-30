@@ -8,15 +8,15 @@
 
     <section class="detail-panel">
       <div class="section-head">
-        <div><span class="eyebrow-dark">Product Catalog</span><h2>产品型号管理</h2></div>
+        <div><span class="eyebrow-dark">Product Catalog</span><h2>设备型号管理</h2></div>
         <div class="action-row">
-          <el-input v-model="searchKeyword" placeholder="搜索型号 / 编码 / 产品 / 版本" clearable @keyup.enter="handleSearch" />
+          <el-input v-model="searchKeyword" placeholder="搜索设备名称 / 编码 / 产品 / 版本" clearable @keyup.enter="handleSearch" />
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="resetSearch">重置</el-button>
           <el-button v-can="['products', 'create']" @click="openDialog('line')">新增产线</el-button>
           <el-button v-can="['products', 'create']" @click="openDialog('product')">新增产品</el-button>
           <el-button v-can="['products', 'create']" @click="openDialog('version')">新增版本</el-button>
-          <el-button v-can="['products', 'create']" type="primary" @click="openDialog('model')">新增型号</el-button>
+          <el-button v-can="['products', 'create']" type="primary" @click="openDialog('model')">新增设备型号</el-button>
           <el-button v-can="['products', 'edit']" :disabled="!selectedNode" @click="editSelectedNode">编辑当前节点</el-button>
           <el-button v-can="['products', 'delete']" :disabled="!selectedNode" type="danger" plain @click="removeSelectedNode">删除当前节点</el-button>
         </div>
@@ -24,7 +24,7 @@
       <el-alert v-if="!lines.length" title="请先新增产线，再在产线下新增产品、版本和型号。" type="info" show-icon :closable="false" class="mb-16" />
       <div class="page-table-scroll">
         <el-table v-loading="modelPagination.loading" :data="modelPagination.rows" stripe>
-          <el-table-column prop="model_name" label="型号名称" min-width="180" />
+          <el-table-column prop="model_name" label="设备名称" min-width="180" />
           <el-table-column label="型号编码" min-width="160"><template #default="scope">{{ scope.row.model_code || '-' }}</template></el-table-column>
           <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
           <el-table-column prop="status" label="状态" width="100" />
@@ -69,7 +69,7 @@
         <template v-if="dialogType === 'model'">
           <el-form-item label="所属产品" required><el-select v-model="form.product" filterable @change="form.product_version = null"><el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" /></el-select></el-form-item>
           <el-form-item label="产品版本"><el-select v-model="form.product_version" clearable filterable><el-option v-for="version in modelVersionOptions" :key="version.id" :label="version.version_name" :value="version.id" /></el-select></el-form-item>
-          <el-form-item label="型号名称" required><el-input v-model="form.model_name" /></el-form-item>
+          <el-form-item label="设备名称" required><el-input v-model="form.model_name" /></el-form-item>
           <el-form-item label="型号编码"><el-input v-model="form.model_code" /></el-form-item>
         </template>
       </el-form>
@@ -97,7 +97,7 @@ const editingId = ref(null)
 const searchKeyword = ref('')
 const form = reactive({})
 const modelPagination = buildPaginationState()
-const dialogTitle = computed(() => ({ line: editingId.value ? '编辑产线' : '新增产线', product: editingId.value ? '编辑产品' : '新增产品', version: editingId.value ? '编辑版本' : '新增版本', model: editingId.value ? '编辑型号' : '新增型号' }[dialogType.value]))
+const dialogTitle = computed(() => ({ line: editingId.value ? '编辑产线' : '新增产线', product: editingId.value ? '编辑产品' : '新增产品', version: editingId.value ? '编辑版本' : '新增版本', model: editingId.value ? '编辑设备型号' : '新增设备型号' }[dialogType.value]))
 const productTree = computed(() => lines.value.map((line) => ({ key: `line-${line.id}`, type: 'line', id: line.id, label: line.name, children: products.value.filter((p) => p.product_line === line.id).map((product) => ({ key: `product-${product.id}`, type: 'product', id: product.id, label: product.name, children: versions.value.filter((v) => v.product === product.id).map((version) => ({ key: `version-${version.id}`, type: 'version', id: version.id, label: version.version_name })) })) })))
 const modelVersionOptions = computed(() => versions.value.filter((version) => version.product === form.product))
 

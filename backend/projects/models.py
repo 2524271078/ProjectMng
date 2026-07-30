@@ -344,6 +344,18 @@ class InspectionTask(BaseModel):
         ]
 
 
+class DashboardReminderDismissal(models.Model):
+    """A user's acknowledgement of a dashboard reminder."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="dashboard_reminder_dismissals", on_delete=models.CASCADE)
+    reminder_key = models.CharField(max_length=160)
+    dismissed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "reminder_key"], name="uniq_user_dashboard_reminder_dismissal")]
+        indexes = [models.Index(fields=["user", "reminder_key"], name="projects_da_user_id_6620ee_idx")]
+
+
 class DeviceOperationRecord(BaseModel):
     TYPE_INSPECTION = "inspection"
     TYPE_SYSTEM_UPGRADE = "system_upgrade"

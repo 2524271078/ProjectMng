@@ -1,3 +1,4 @@
+from datetime import timedelta
 from math import ceil
 
 from django.db import transaction
@@ -11,8 +12,9 @@ from rest_framework import status, viewsets
 
 from accounts.services import filter_queryset_by_sales_scope, get_user_sales_scope
 from accounts.permissions import MenuActionPermission
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, DashboardReminderDismissal, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
 from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceOperationRecordSerializer, DeviceSerializer, DeviceServicePlanSerializer, DeviceServiceScheduleSerializer, InspectionTaskSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer, ServiceStandardTemplateSerializer
+from projects.services import refresh_inspection_task_statuses
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
@@ -188,6 +190,67 @@ def generate_project_no():
         if suffix.isdigit():
             sequence_numbers.append(int(suffix))
     return f"{prefix}{max(sequence_numbers, default=0) + 1:04d}"
+
+
+def dashboard_reminder_items(user):
+    today = timezone.localdate()
+    dismissed_keys = set(DashboardReminderDismissal.objects.filter(user=user).values_list("reminder_key", flat=True))
+    reminder_items = []
+    visible_device_ids = filter_device_queryset_for_user(Device.objects.filter(is_deleted=False), user).values("id")
+
+    expiring_bindings = ProjectDevice.objects.select_related("project__customer_org", "device__device_model").filter(
+        is_deleted=False,
+        project__is_deleted=False,
+        device__is_deleted=False,
+        device_id__in=visible_device_ids,
+        service_end_date__gte=today,
+        service_end_date__lte=today + timedelta(days=180),
+    )
+    for binding in expiring_bindings:
+        reminder_key = f"service-expiring:{binding.id}:{binding.service_end_date.isoformat()}"
+        if reminder_key in dismissed_keys:
+            continue
+        days_left = (binding.service_end_date - today).days
+        customer_name = binding.project.customer_org.name if binding.project.customer_org else "未关联客户"
+        device_name = binding.device.device_model.model_name if binding.device.device_model else binding.device.name
+        reminder_items.append({
+            "key": reminder_key,
+            "type": "service_expiring",
+            "title": "设备服务即将到期",
+            "content": f"客户：{customer_name}；设备：{device_name}（{binding.device.serial_number}）；服务将于 {binding.service_end_date.isoformat()} 到期",
+            "target_date": binding.service_end_date.isoformat(),
+            "days_left": days_left,
+            "priority": 0 if days_left <= 30 else 1,
+        })
+
+    due_tasks = refresh_inspection_task_statuses(today).select_related(
+        "service_plan__project_device__project__customer_org",
+        "service_plan__project_device__device__device_model",
+        "assignee",
+    )
+    bound_person = getattr(user, "person_profile", None)
+    task_visibility = Q(service_plan__project_device__device_id__in=visible_device_ids)
+    if bound_person:
+        task_visibility |= Q(assignee=bound_person)
+    due_tasks = due_tasks.filter(task_visibility)
+    for task in due_tasks:
+        reminder_key = f"service-task:{task.id}"
+        if reminder_key in dismissed_keys:
+            continue
+        binding = task.service_plan.project_device
+        customer_name = binding.project.customer_org.name if binding.project.customer_org else "未关联客户"
+        device_name = binding.device.device_model.model_name if binding.device.device_model else binding.device.name
+        assignee_name = task.assignee.name if task.assignee else "未指派"
+        reminder_items.append({
+            "key": reminder_key,
+            "type": "service_task",
+            "title": "服务任务待处理" if task.status == InspectionTask.STATUS_PENDING else "服务任务已逾期",
+            "content": f"客户：{customer_name}；设备：{device_name}（{binding.device.serial_number}）；{task.get_task_type_display()}，计划日期 {task.planned_date.isoformat()}；负责人：{assignee_name}",
+            "target_date": task.planned_date.isoformat(),
+            "days_left": (task.planned_date - today).days,
+            "priority": 0 if task.status == InspectionTask.STATUS_OVERDUE else 1,
+        })
+    return sorted(reminder_items, key=lambda item: (item["priority"], item["target_date"], item["key"]))
 
 
 class OrganizationViewSet(SoftDeleteModelViewSet):
@@ -611,6 +674,24 @@ def attachment_upload(request):
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
+
+
+@api_view(["GET"])
+def dashboard_reminders(request):
+    items = dashboard_reminder_items(request.user)
+    return Response({"count": len(items), "results": items})
+
+
+@api_view(["POST"])
+def confirm_dashboard_reminder(request):
+    reminder_key = str(request.data.get("reminder_key", "")).strip()
+    if not reminder_key:
+        return Response({"detail": "缺少待办标识。"}, status=status.HTTP_400_BAD_REQUEST)
+    available_keys = {item["key"] for item in dashboard_reminder_items(request.user)}
+    if reminder_key not in available_keys:
+        return Response({"detail": "待办不存在或已失效。"}, status=status.HTTP_404_NOT_FOUND)
+    DashboardReminderDismissal.objects.get_or_create(user=request.user, reminder_key=reminder_key)
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def organization_summary(org):

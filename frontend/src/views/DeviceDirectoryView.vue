@@ -12,46 +12,50 @@
 
     <section class="device-toolbar">
       <div class="toolbar-main">
-        <el-input
-          v-model="deviceNameKeyword"
-          class="search-input"
-          placeholder="设备名称"
-          clearable
-          @keyup.enter="handleSearch"
-        />
-        <el-input
-          v-model="customerNameKeyword"
-          class="search-input"
-          placeholder="客户公司"
-          clearable
-          @keyup.enter="handleSearch"
-        />
-        <el-input
-          v-model="salesNameKeyword"
-          class="search-input"
-          placeholder="销售"
-          clearable
-          @keyup.enter="handleSearch"
-        />
-        <el-input
-          v-model="softwareVersionKeyword"
-          class="search-input"
-          placeholder="系统版本"
-          clearable
-          @keyup.enter="handleSearch"
-        />
-        <el-select v-model="serviceTypeFilter" class="service-type-select" placeholder="设备状态" @change="handleServiceTypeFilterChange">
-          <el-option label="全部状态" value="all" />
-          <el-option v-for="option in serviceTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
-        </el-select>
-        <el-select v-model="signingSubjectFilter" class="service-type-select" placeholder="签约主体" @change="handleSigningSubjectFilterChange">
-          <el-option label="全部签约主体" value="all" />
-          <el-option label="直签" value="direct" />
-          <el-option label="代理" value="agent" />
-        </el-select>
-        <div class="action-row">
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="resetSearch">重置</el-button>
+        <div class="toolbar-search-fields">
+          <el-input
+            v-model="deviceNameKeyword"
+            class="search-input"
+            placeholder="设备名称"
+            clearable
+            @keyup.enter="handleSearch"
+          />
+          <el-input
+            v-model="customerNameKeyword"
+            class="search-input"
+            placeholder="客户公司"
+            clearable
+            @keyup.enter="handleSearch"
+          />
+          <el-input
+            v-model="salesNameKeyword"
+            class="search-input"
+            placeholder="销售"
+            clearable
+            @keyup.enter="handleSearch"
+          />
+          <el-input
+            v-model="softwareVersionKeyword"
+            class="search-input"
+            placeholder="系统版本"
+            clearable
+            @keyup.enter="handleSearch"
+          />
+        </div>
+        <div class="toolbar-filter-actions">
+          <el-select v-model="serviceTypeFilter" class="service-type-select" placeholder="设备状态" @change="handleServiceTypeFilterChange">
+            <el-option label="全部状态" value="all" />
+            <el-option v-for="option in serviceTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+          <el-select v-model="signingSubjectFilter" class="service-type-select" placeholder="签约主体" @change="handleSigningSubjectFilterChange">
+            <el-option label="全部签约主体" value="all" />
+            <el-option label="直签" value="direct" />
+            <el-option label="代理" value="agent" />
+          </el-select>
+          <div class="action-row">
+            <el-button type="primary" @click="handleSearch">搜索</el-button>
+            <el-button @click="resetSearch">重置</el-button>
+          </div>
         </div>
       </div>
       <div class="toolbar-stats">
@@ -624,10 +628,21 @@ onMounted(loadDevices)
 }
 
 .toolbar-main {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(160px, 1fr)) 160px 160px auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+}
+
+.toolbar-search-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.toolbar-filter-actions {
+  display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .search-input {
@@ -635,7 +650,7 @@ onMounted(loadDevices)
   min-width: 0;
 }
 
-.toolbar-main .action-row {
+.toolbar-filter-actions .action-row {
   flex-wrap: nowrap;
 }
 
@@ -710,9 +725,4 @@ onMounted(loadDevices)
   color: #606266;
 }
 
-@media (max-width: 1400px) {
-  .toolbar-main {
-    grid-template-columns: repeat(3, minmax(180px, 1fr));
-  }
-}
 </style>

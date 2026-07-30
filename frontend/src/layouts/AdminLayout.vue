@@ -42,7 +42,7 @@ const menuItems = [
   { index: '/device-center', label: '设备中心', code: 'device-center' },
   { index: '/sales', label: '销售中心', code: 'sales' },
   { index: '/contracts', label: '合同中心', code: 'contracts' },
-  { index: '/products', label: '产品型号', code: 'products' },
+  { index: '/products', label: '设备型号', code: 'products' },
   { index: '/people', label: '人员管理', code: 'people' },
   { index: '/system', label: '系统管理', code: 'system' },
 ]
