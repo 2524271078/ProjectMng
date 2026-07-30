@@ -13,6 +13,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
 
 class PersonSerializer(serializers.ModelSerializer):
+    organization_detail = OrganizationSerializer(source="organization", read_only=True)
+
     class Meta:
         model = Person
         fields = "__all__"

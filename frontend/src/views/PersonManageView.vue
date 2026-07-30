@@ -17,8 +17,9 @@
         <el-table-column prop="position" label="职位" min-width="120" />
         <el-table-column prop="phone" label="电话" min-width="140" />
         <el-table-column prop="email" label="邮箱" min-width="220" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="210" fixed="right">
           <template #default="scope">
+            <el-button v-can="['people', 'view']" link type="primary" @click="openDetailDialog(scope.row)">详情</el-button>
             <el-button v-can="['people', 'edit']" link type="primary" @click="openEditDialog(scope.row)">编辑</el-button>
             <el-button v-can="['people', 'delete']" link type="danger" @click="removePerson(scope.row)">删除</el-button>
           </template>
@@ -60,24 +61,85 @@
         <el-button type="primary" :loading="saving" @click="savePerson">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="detailVisible" :title="`人员详情 · ${personDetail?.name || ''}`" width="780px" destroy-on-close>
+      <div v-loading="detailLoading" class="person-detail">
+        <el-descriptions v-if="personDetail" :column="3" border>
+          <el-descriptions-item label="人员类型">{{ personTypeLabel(personDetail.person_type) }}</el-descriptions-item>
+          <el-descriptions-item label="职位">{{ personDetail.position || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="所属组织">{{ personDetail.organization_detail?.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="电话">{{ personDetail.phone || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="邮箱">{{ personDetail.email || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="微信">{{ personDetail.wechat || '-' }}</el-descriptions-item>
+        </el-descriptions>
+
+        <template v-if="personDetail?.person_type === 'sales'">
+          <div class="person-detail-section">
+            <div class="person-detail-title">负责客户</div>
+            <div class="person-detail-summary">
+              <el-tag effect="plain">客户 {{ salesCustomers.length }}</el-tag>
+              <el-tag effect="plain" type="success">关联设备 {{ relatedDeviceCount }}</el-tag>
+              <el-tag effect="plain" type="warning">关联合同 {{ relatedContractCount }}</el-tag>
+            </div>
+          </div>
+          <el-table :data="pagedSalesCustomers" stripe max-height="360">
+            <el-table-column prop="name" label="客户公司" min-width="210" />
+            <el-table-column prop="region" label="区域" min-width="110">
+              <template #default="scope">{{ scope.row.region || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="设备" min-width="100" align="center">
+              <template #default="scope">{{ scope.row.devices?.length || 0 }}</template>
+            </el-table-column>
+            <el-table-column label="合同" min-width="100" align="center">
+              <template #default="scope">{{ scope.row.contracts?.length || 0 }}</template>
+            </el-table-column>
+          </el-table>
+          <div v-if="salesCustomers.length > detailCustomerPageSize" class="detail-customer-pagination">
+            <el-pagination
+              background
+              layout="total, prev, pager, next"
+              :current-page="detailCustomerPage"
+              :page-size="detailCustomerPageSize"
+              :total="salesCustomers.length"
+              @current-change="detailCustomerPage = $event"
+            />
+          </div>
+          <el-empty v-if="!detailLoading && !salesCustomers.length" description="暂未分配负责客户" :image-size="72" />
+        </template>
+        <el-empty v-else-if="!detailLoading" description="该人员不是销售，无负责客户数据" :image-size="72" />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OrganizationTreeSelect from '../components/OrganizationTreeSelect.vue'
-import { createResource, deleteResource, fetchSalesCustomerRelations, listResource, saveSalesCustomerRelations, updateResource } from '../api/resources'
+import { createResource, deleteResource, fetchSalesCustomerRelations, fetchSalesCustomers, listResource, saveSalesCustomerRelations, updateResource } from '../api/resources'
 import { buildPersonPayload } from '../utils/personPayload'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 import { personTypeLabel, personTypeOptions } from '../utils/personTypes'
 
 const dialogVisible = ref(false)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
 const customerIds = ref([])
+const personDetail = ref(null)
+const salesCustomers = ref([])
+const detailCustomerPage = ref(1)
+const detailCustomerPageSize = 5
 const peoplePagination = buildPaginationState()
 const form = reactive({ name: '', person_type: 'sales', organization: null, position: '', phone: '', email: '', wechat: '' })
+
+const relatedDeviceCount = computed(() => salesCustomers.value.reduce((total, customer) => total + (customer.devices?.length || 0), 0))
+const relatedContractCount = computed(() => salesCustomers.value.reduce((total, customer) => total + (customer.contracts?.length || 0), 0))
+const pagedSalesCustomers = computed(() => {
+  const start = (detailCustomerPage.value - 1) * detailCustomerPageSize
+  return salesCustomers.value.slice(start, start + detailCustomerPageSize)
+})
 
 async function loadPeople() {
   peoplePagination.loading = true
@@ -136,6 +198,24 @@ async function openEditDialog(row) {
   dialogVisible.value = true
 }
 
+async function openDetailDialog(row) {
+  personDetail.value = row
+  salesCustomers.value = []
+  detailCustomerPage.value = 1
+  detailVisible.value = true
+  if (row.person_type !== 'sales') return
+
+  detailLoading.value = true
+  try {
+    const { data } = await fetchSalesCustomers(row.id)
+    salesCustomers.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载负责客户失败'))
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 function buildPayload() {
   return buildPersonPayload(form, Boolean(editingId.value))
 }
@@ -185,3 +265,11 @@ async function removePerson(row) {
 
 onMounted(loadPeople)
 </script>
+
+<style scoped>
+.person-detail { min-height: 150px; }
+.person-detail-section { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 12px; }
+.person-detail-title { color: #1c2b3f; font-size: 16px; font-weight: 700; }
+.person-detail-summary { display: flex; gap: 8px; }
+.detail-customer-pagination { display: flex; justify-content: flex-end; margin-top: 16px; }
+</style>

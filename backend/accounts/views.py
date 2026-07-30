@@ -1,11 +1,12 @@
 ﻿from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from accounts.models import Menu, Permission, Role, UserRole
+from accounts.models import Menu, Permission, Role, TokenActivity, UserRole
 from accounts.serializers import MenuSerializer, PermissionSerializer, RoleSerializer, UserRoleSerializer, UserSerializer
 from accounts.services import ensure_default_menus, get_user_menus, get_user_permissions, get_user_role_ids
 from accounts.permissions import MenuActionPermission
@@ -25,6 +26,7 @@ def login_view(request):
     if not user:
         return Response({"detail": "用户名或密码错误"}, status=status.HTTP_400_BAD_REQUEST)
     token, _ = Token.objects.get_or_create(user=user)
+    TokenActivity.objects.update_or_create(token=token, defaults={"last_active_at": timezone.now()})
     return Response({"token": token.key, "user": UserSerializer(user).data})
 
 

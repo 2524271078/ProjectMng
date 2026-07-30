@@ -126,6 +126,45 @@ class AccountApiTests(APITestCase):
         )
 
 
+    def test_token_activity_is_refreshed_by_authenticated_request(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+        from rest_framework.authtoken.models import Token
+
+        from accounts.models import TokenActivity
+
+        user = User.objects.create_user(username="active-token-user", password="pass123456")
+        token = Token.objects.create(user=user)
+        previous_activity = timezone.now() - timedelta(minutes=5)
+        activity = TokenActivity.objects.create(token=token, last_active_at=previous_activity)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+
+        response = self.client.get("/api/auth/me/")
+
+        self.assertEqual(response.status_code, 200)
+        activity.refresh_from_db()
+        self.assertGreater(activity.last_active_at, previous_activity)
+
+    def test_idle_token_is_rejected_after_thirty_minutes(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+        from rest_framework.authtoken.models import Token
+
+        from accounts.models import TokenActivity
+
+        user = User.objects.create_user(username="expired-token-user", password="pass123456")
+        token = Token.objects.create(user=user)
+        TokenActivity.objects.create(token=token, last_active_at=timezone.now() - timedelta(minutes=31))
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+
+        response = self.client.get("/api/auth/me/")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertFalse(Token.objects.filter(key=token.key).exists())
+
+
 class BusinessApiTests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="api", password="pass123456")

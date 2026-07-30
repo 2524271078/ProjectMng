@@ -1,5 +1,6 @@
 ﻿from django.conf import settings
 from django.db import models
+from rest_framework.authtoken.models import Token
 
 
 class Role(models.Model):
@@ -83,3 +84,10 @@ class UserSalesScope(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["profile", "sales_person"], name="uniq_profile_sales_scope")]
+
+
+class TokenActivity(models.Model):
+    """Tracks API activity so Token authentication can expire idle sessions."""
+
+    token = models.OneToOneField(Token, related_name="activity", on_delete=models.CASCADE)
+    last_active_at = models.DateTimeField()

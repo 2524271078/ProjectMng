@@ -12,6 +12,18 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isLoginRequest = error.config?.url?.includes('/auth/login/')
+    if (error.response?.status === 401 && !isLoginRequest && typeof window !== 'undefined') {
+      localStorage.removeItem('pm_token')
+      if (!window.location.pathname.startsWith('/login')) window.location.assign('/login?reason=timeout')
+    }
+    return Promise.reject(error)
+  },
+)
+
 export function login(payload) {
   return apiClient.post('/auth/login/', payload)
 }
