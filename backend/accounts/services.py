@@ -7,17 +7,22 @@ DEFAULT_SYSTEM_MENUS = [
     {"name": "设备中心", "code": "device-center", "path": "/device-center", "order_index": 30},
     {"name": "销售中心", "code": "sales", "path": "/sales", "order_index": 40},
     {"name": "合同中心", "code": "contracts", "path": "/contracts", "order_index": 50},
-    {"name": "产品型号", "code": "products", "path": "/products", "order_index": 60},
+    {"name": "设备型号", "code": "products", "path": "/products", "order_index": 60},
     {"name": "人员管理", "code": "people", "path": "/people", "order_index": 70},
     {"name": "系统管理", "code": "system", "path": "/system", "order_index": 80},
 ]
 
 
 def ensure_default_menus():
-    existing_codes = set(Menu.objects.values_list("code", flat=True))
-    missing_items = [item for item in DEFAULT_SYSTEM_MENUS if item["code"] not in existing_codes]
-    if missing_items:
-        Menu.objects.bulk_create([Menu(**item) for item in missing_items])
+    for item in DEFAULT_SYSTEM_MENUS:
+        Menu.objects.update_or_create(
+            code=item["code"],
+            defaults={
+                "name": item["name"],
+                "path": item["path"],
+                "order_index": item["order_index"],
+            },
+        )
     return Menu.objects.all()
 
 
