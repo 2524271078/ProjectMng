@@ -18,7 +18,14 @@
           <h1>{{ $route.meta.title || '工作台' }}</h1>
           <p>客户、项目、设备、合同统一协同</p>
         </div>
-        <el-button @click="handleLogout">退出</el-button>
+        <div class="topbar-actions">
+          <div class="current-user" title="当前登录账号">
+            <span>当前账号</span>
+            <strong>{{ currentUserLabel }}</strong>
+            <el-tag v-if="auth.isSuperuser" size="small" type="danger" effect="plain">超管</el-tag>
+          </div>
+          <el-button @click="handleLogout">退出</el-button>
+        </div>
       </header>
       <section class="content-card">
         <router-view />
@@ -48,9 +55,40 @@ const menuItems = [
 ]
 
 const visibleMenuItems = computed(() => menuItems.filter((item) => auth.hasMenu(item.code)))
+const currentUserLabel = computed(() => {
+  const username = auth.user?.username || '未知账号'
+  const personName = auth.user?.access_profile?.bound_person?.name
+  return personName ? `${username}（${personName}）` : username
+})
 
 function handleLogout() {
   auth.logout()
   router.push('/login')
 }
 </script>
+
+<style scoped>
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.current-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  color: #60758a;
+  background: #fff;
+  border: 1px solid #dfe8ef;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.current-user strong {
+  color: #243a52;
+  font-size: 14px;
+}
+</style>
