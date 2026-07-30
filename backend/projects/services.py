@@ -47,7 +47,7 @@ def generate_service_tasks(schedule):
             defaults={
                 "service_plan": plan,
                 "task_type": schedule.service_type,
-                "assignee": plan.ops_person,
+                "assignee": schedule.assignee or plan.ops_person,
                 "reminder_date": reminder_date,
                 "status": InspectionTask.STATUS_PENDING,
             },

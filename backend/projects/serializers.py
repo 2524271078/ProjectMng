@@ -267,7 +267,13 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
             DeviceServiceSchedule.TYPE_RULE_LIBRARY_UPGRADE,
         }
         old_contents = set(instance.service_contents or [])
+        sync_assignee = "ops_person" in validated_data
         plan = super().update(instance, validated_data)
+        if sync_assignee:
+            plan.inspection_tasks.filter(
+                is_deleted=False,
+                status__in=[InspectionTask.STATUS_PENDING, InspectionTask.STATUS_OVERDUE],
+            ).update(assignee=plan.ops_person)
         new_contents = set(plan.service_contents or [])
         if old_contents == new_contents:
             return plan
@@ -296,6 +302,8 @@ class DeviceServicePlanSerializer(serializers.ModelSerializer):
 
 
 class DeviceServiceScheduleSerializer(serializers.ModelSerializer):
+    assignee_detail = PersonSerializer(source="assignee", read_only=True)
+
     class Meta:
         model = DeviceServiceSchedule
         fields = "__all__"
@@ -323,11 +331,17 @@ class DeviceServiceScheduleSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        sync_assignee = "assignee" in validated_data
         task_rule_fields = {"service_type", "frequency", "interval_days", "first_service_date", "reminder_days", "auto_generate_tasks"}
         should_regenerate = any(field in validated_data for field in task_rule_fields)
         if should_regenerate:
             instance.tasks.filter(status__in=[InspectionTask.STATUS_PENDING, InspectionTask.STATUS_OVERDUE]).update(is_deleted=True)
         schedule = super().update(instance, validated_data)
+        if sync_assignee:
+            schedule.tasks.filter(
+                is_deleted=False,
+                status__in=[InspectionTask.STATUS_PENDING, InspectionTask.STATUS_OVERDUE],
+            ).update(assignee=schedule.assignee or schedule.service_plan.ops_person)
         if should_regenerate:
             from projects.services import generate_service_tasks
             generate_service_tasks(schedule)

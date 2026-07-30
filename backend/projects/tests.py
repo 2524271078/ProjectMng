@@ -1677,6 +1677,27 @@ class DeviceServicePlanTests(TestCase):
         upgrade_schedule = DeviceServiceSchedule.objects.get(service_plan=plan, service_type=DeviceServiceSchedule.TYPE_SYSTEM_UPGRADE)
         self.assertTrue(upgrade_schedule.tasks.exists())
 
+    def test_edit_service_plan_syncs_pending_task_assignees(self):
+        original_assignee = Person.objects.create(name="原负责人", person_type="ops")
+        new_assignee = Person.objects.create(name="新负责人", person_type="ops")
+        plan = DeviceServicePlan.objects.create(project_device=self.project_device, ops_person=original_assignee)
+        pending_task = InspectionTask.objects.create(service_plan=plan, planned_date=date(2026, 8, 1), assignee=original_assignee)
+        completed_task = InspectionTask.objects.create(
+            service_plan=plan,
+            planned_date=date(2026, 8, 2),
+            assignee=original_assignee,
+            status=InspectionTask.STATUS_COMPLETED,
+        )
+
+        serializer = DeviceServicePlanSerializer(plan, data={"ops_person": new_assignee.id}, partial=True)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        pending_task.refresh_from_db()
+        completed_task.refresh_from_db()
+        self.assertEqual(pending_task.assignee, new_assignee)
+        self.assertEqual(completed_task.assignee, original_assignee)
+
     def test_edit_service_schedule_regenerates_pending_tasks(self):
         plan = DeviceServicePlan.objects.create(project_device=self.project_device)
         schedule = DeviceServiceSchedule.objects.create(
@@ -1699,6 +1720,31 @@ class DeviceServicePlanTests(TestCase):
         self.assertEqual(InspectionTask.objects.filter(id__in=old_task_ids).count(), 0)
         self.assertEqual(schedule.tasks.count(), 2)
 
+    def test_edit_service_schedule_syncs_pending_task_assignee(self):
+        assignee = Person.objects.create(name="服务项负责人", person_type="ops")
+        plan = DeviceServicePlan.objects.create(project_device=self.project_device)
+        schedule = DeviceServiceSchedule.objects.create(
+            service_plan=plan,
+            service_type=DeviceServiceSchedule.TYPE_INSPECTION,
+            frequency=ServiceStandardTemplate.INSPECTION_QUARTERLY,
+        )
+        pending_task = InspectionTask.objects.create(service_plan=plan, service_schedule=schedule, planned_date=date(2026, 8, 1))
+        completed_task = InspectionTask.objects.create(
+            service_plan=plan,
+            service_schedule=schedule,
+            planned_date=date(2026, 8, 2),
+            status=InspectionTask.STATUS_COMPLETED,
+        )
+
+        serializer = DeviceServiceScheduleSerializer(schedule, data={"assignee": assignee.id}, partial=True)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        pending_task.refresh_from_db()
+        completed_task.refresh_from_db()
+        self.assertEqual(pending_task.assignee, assignee)
+        self.assertIsNone(completed_task.assignee)
+
 
 class DashboardReminderApiTests(APITestCase):
     def setUp(self):
@@ -1706,6 +1752,7 @@ class DashboardReminderApiTests(APITestCase):
 
         self.user = User.objects.create_user(username="reminder-user", password="pass123456")
         self.client.force_authenticate(self.user)
+        self.ops_person = Person.objects.create(name="提醒负责人", person_type="ops", user=self.user)
         today = timezone.localdate()
         customer = Organization.objects.create(name="提醒客户", org_type="customer")
         self.sales = Person.objects.create(name="提醒销售", person_type="sales")
@@ -1719,11 +1766,12 @@ class DashboardReminderApiTests(APITestCase):
             service_start_date=today - timedelta(days=30),
             service_end_date=today + timedelta(days=60),
         )
-        plan = DeviceServicePlan.objects.create(project_device=self.project_device)
+        plan = DeviceServicePlan.objects.create(project_device=self.project_device, ops_person=self.ops_person)
         self.task = InspectionTask.objects.create(
             service_plan=plan,
             planned_date=today + timedelta(days=3),
             reminder_date=today,
+            assignee=self.ops_person,
         )
 
     def test_dashboard_lists_expiring_service_and_due_service_task_and_hides_confirmed_item(self):
@@ -1761,6 +1809,7 @@ class DashboardReminderApiTests(APITestCase):
             service_start_date=timezone.localdate(),
             service_end_date=timezone.localdate() + timedelta(days=60),
         )
+        DeviceServicePlan.objects.create(project_device=out_of_scope_binding, ops_person=self.ops_person)
         profile = UserAccessProfile.objects.create(user=self.user, data_scope_type=UserAccessProfile.DATA_SCOPE_CUSTOM)
         UserSalesScope.objects.create(profile=profile, sales_person=self.sales)
 
@@ -1769,3 +1818,15 @@ class DashboardReminderApiTests(APITestCase):
         keys = {item["key"] for item in response.data["results"]}
         self.assertIn(f"service-expiring:{self.project_device.id}:{self.project_device.service_end_date.isoformat()}", keys)
         self.assertNotIn(f"service-expiring:{out_of_scope_binding.id}:{out_of_scope_binding.service_end_date.isoformat()}", keys)
+
+    def test_dashboard_only_shows_service_reminders_to_the_assigned_person(self):
+        from django.contrib.auth.models import User
+
+        other_user = User.objects.create_user(username="other-ops-user", password="pass123456")
+        Person.objects.create(name="其他负责人", person_type="ops", user=other_user)
+        self.client.force_authenticate(other_user)
+
+        response = self.client.get("/api/dashboard-reminders/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)

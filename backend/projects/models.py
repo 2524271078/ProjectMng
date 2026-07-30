@@ -299,6 +299,7 @@ class DeviceServiceSchedule(BaseModel):
     first_service_date = models.DateField(null=True, blank=True)
     reminder_days = models.PositiveIntegerField(default=7)
     auto_generate_tasks = models.BooleanField(default=True)
+    assignee = models.ForeignKey(Person, null=True, blank=True, related_name="device_service_schedules", on_delete=models.SET_NULL)
 
     class Meta(BaseModel.Meta):
         constraints = [

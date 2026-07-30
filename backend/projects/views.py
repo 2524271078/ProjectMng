@@ -197,12 +197,20 @@ def dashboard_reminder_items(user):
     dismissed_keys = set(DashboardReminderDismissal.objects.filter(user=user).values_list("reminder_key", flat=True))
     reminder_items = []
     visible_device_ids = filter_device_queryset_for_user(Device.objects.filter(is_deleted=False), user).values("id")
+    bound_person = getattr(user, "person_profile", None)
+    assigned_binding_ids = DeviceServicePlan.objects.filter(
+        is_deleted=False,
+    ).filter(
+        Q(ops_person=bound_person, service_schedules__assignee__isnull=True)
+        | Q(service_schedules__assignee=bound_person),
+    ).values("project_device_id") if bound_person else DeviceServicePlan.objects.none().values("project_device_id")
 
     expiring_bindings = ProjectDevice.objects.select_related("project__customer_org", "device__device_model").filter(
         is_deleted=False,
         project__is_deleted=False,
         device__is_deleted=False,
         device_id__in=visible_device_ids,
+        id__in=assigned_binding_ids,
         service_end_date__gte=today,
         service_end_date__lte=today + timedelta(days=180),
     )
@@ -228,11 +236,10 @@ def dashboard_reminder_items(user):
         "service_plan__project_device__device__device_model",
         "assignee",
     )
-    bound_person = getattr(user, "person_profile", None)
-    task_visibility = Q(service_plan__project_device__device_id__in=visible_device_ids)
-    if bound_person:
-        task_visibility |= Q(assignee=bound_person)
-    due_tasks = due_tasks.filter(task_visibility)
+    due_tasks = due_tasks.filter(
+        assignee=bound_person,
+        service_plan__project_device__device_id__in=visible_device_ids,
+    ) if bound_person else due_tasks.none()
     for task in due_tasks:
         reminder_key = f"service-task:{task.id}"
         if reminder_key in dismissed_keys:
