@@ -59,7 +59,7 @@
         <el-form-item label="项目编号"><el-input v-model="form.project_no" placeholder="留空自动生成" /></el-form-item>
         <el-form-item label="项目名称"><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="客户公司"><OrganizationTreeSelect v-model="form.customer_org" placeholder="请选择客户公司" /></el-form-item>
-        <el-form-item label="客户联系人" required>
+        <el-form-item label="客户联系人">
           <el-select v-model="form.customer_contact" placeholder="请选择客户联系人" filterable clearable :disabled="!customerContacts.length">
             <el-option v-for="person in customerContacts" :key="person.id" :label="person.position ? `${person.name} / ${person.position}` : person.name" :value="person.id" />
           </el-select>
@@ -643,10 +643,6 @@ async function openEditDialog(row) {
 
 async function createProject() {
   try {
-    if (form.customer_org && !form.customer_contact) {
-      ElMessage.warning('请选择客户公司下的联系人')
-      return
-    }
     if (editingProjectId.value) {
       await updateResource('projects', editingProjectId.value, form)
       ElMessage.success('项目已更新')
