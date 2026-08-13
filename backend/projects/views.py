@@ -54,7 +54,7 @@ def apply_search(queryset, search_value, search_fields):
 
 
 def parse_query_int(raw_value):
-    value = (raw_value or "").strip()
+    value = str(raw_value or "").strip()
     if not value:
         return None
     try:
@@ -363,6 +363,21 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
     @transaction.atomic
     def create_sales(self, request, pk=None):
         customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
+        existing_sales_id = parse_query_int(request.data.get("sales_person"))
+        if existing_sales_id is not None:
+            sales = get_object_or_404(Person.objects.filter(person_type="sales", is_deleted=False), pk=existing_sales_id)
+            relation, _ = SalesCustomerRelation.all_objects.update_or_create(
+                sales_person=sales,
+                customer_org=customer,
+                relation_type="owner",
+                defaults={
+                    "is_deleted": False,
+                    "status": "active",
+                    "updated_by": request.user if request.user.is_authenticated else None,
+                },
+            )
+            return Response(PersonSerializer(relation.sales_person).data, status=status.HTTP_201_CREATED)
+
         serializer = PersonSerializer(data={
             **request.data,
             "person_type": "sales",

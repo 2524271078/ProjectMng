@@ -74,7 +74,10 @@
           <section class="customer-info-section">
             <div class="customer-info-section__head">
               <h3>负责销售</h3>
-              <el-button v-can="['customers', 'create']" type="primary" link @click="openCustomerPersonDialog('sales')">新增销售</el-button>
+              <div>
+                <el-button v-can="['customers', 'create']" type="primary" link @click="openExistingSalesDialog">关联已有销售</el-button>
+                <el-button v-can="['customers', 'create']" type="primary" link @click="openCustomerPersonDialog('sales')">新增销售</el-button>
+              </div>
             </div>
             <el-table v-loading="salesPagination.loading" :data="salesPagination.rows">
               <el-table-column prop="name" label="销售" />
@@ -280,6 +283,20 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="existingSalesDialogVisible" title="关联已有销售" width="520px" destroy-on-close>
+      <el-form label-width="100px">
+        <el-form-item label="选择销售" required>
+          <el-select v-model="selectedExistingSalesId" filterable clearable placeholder="请选择已有销售" style="width: 100%">
+            <el-option v-for="person in availableSalesPeople" :key="person.id" :label="person.position ? `${person.name} / ${person.position}` : person.name" :value="person.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="existingSalesDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="existingSalesSaving" @click="linkExistingSales">确认关联</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="deviceServiceVisible" title="设备服务" width="min(920px, calc(100vw - 32px))" top="4vh" destroy-on-close>
       <DeviceServiceWorkspace v-if="selectedDevice?.id" :device-id="selectedDevice.id" :project-devices="selectedDevice.project_devices || []" />
     </el-dialog>
@@ -380,6 +397,10 @@ const uploadedScreenshots = ref([])
 const dialogVisible = ref(false)
 const customerPersonDialogVisible = ref(false)
 const customerPersonSaving = ref(false)
+const existingSalesDialogVisible = ref(false)
+const existingSalesSaving = ref(false)
+const selectedExistingSalesId = ref(null)
+const availableSalesPeople = ref([])
 const searchKeyword = ref('')
 const deviceSearchKeyword = ref('')
 const deviceSigningSubjectFilter = ref('all')
@@ -630,6 +651,38 @@ function openCustomerPersonDialog(personType) {
   if (!selected.value) return
   Object.assign(customerPersonForm, { name: '', person_type: personType, position: '', phone: '', email: '', wechat: '' })
   customerPersonDialogVisible.value = true
+}
+
+async function openExistingSalesDialog() {
+  if (!selected.value) return
+  try {
+    const response = await listAllResource('people', { person_type: 'sales' })
+    const linkedIds = new Set(salesPagination.rows.map((person) => person.id))
+    availableSalesPeople.value = unwrapList(response.data).filter((person) => !linkedIds.has(person.id))
+    selectedExistingSalesId.value = null
+    existingSalesDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载销售人员失败'))
+  }
+}
+
+async function linkExistingSales() {
+  if (!selected.value || !selectedExistingSalesId.value) {
+    ElMessage.warning('请选择销售')
+    return
+  }
+  existingSalesSaving.value = true
+  try {
+    await createCustomerSales(selected.value.id, { sales_person: selectedExistingSalesId.value })
+    ElMessage.success('负责销售已关联')
+    existingSalesDialogVisible.value = false
+    salesPagination.page = 1
+    await loadCustomerSalesTab()
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '关联负责销售失败'))
+  } finally {
+    existingSalesSaving.value = false
+  }
 }
 
 async function saveCustomerPerson() {

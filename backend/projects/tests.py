@@ -193,6 +193,21 @@ class CustomerPersonManagementApiTests(APITestCase):
         self.assertFalse(SalesCustomerRelation.objects.filter(sales_person=sales, customer_org=self.customer).exists())
         self.assertTrue(SalesCustomerRelation.all_objects.get(sales_person=sales, customer_org=self.customer).is_deleted)
 
+    def test_customer_center_can_link_existing_sales_and_reactivate_removed_relation(self):
+        sales = Person.objects.create(name="已有销售", person_type="sales")
+        SalesCustomerRelation.objects.create(sales_person=sales, customer_org=self.customer, relation_type="owner", is_deleted=True)
+
+        response = self.client.post(
+            f"/api/organizations/{self.customer.id}/sales/",
+            {"sales_person": sales.id},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["id"], sales.id)
+        relation = SalesCustomerRelation.objects.get(sales_person=sales, customer_org=self.customer, relation_type="owner")
+        self.assertFalse(relation.is_deleted)
+
 
 class StateGridImportCommandTests(TestCase):
     def test_command_resets_and_imports_state_grid_organization_tree(self):
