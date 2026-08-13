@@ -325,6 +325,31 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
         queryset = customer.people.filter(person_type="customer_contact", is_deleted=False)
         return build_paginated_response(request, queryset, lambda page_items: [person_summary(item) for item in page_items])
 
+    @contacts.mapping.post
+    def create_contact(self, request, pk=None):
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
+        serializer = PersonSerializer(data={
+            **request.data,
+            "organization": customer.id,
+            "person_type": "customer_contact",
+        })
+        serializer.is_valid(raise_exception=True)
+        serializer.save(created_by=request.user if request.user.is_authenticated else None, updated_by=request.user if request.user.is_authenticated else None)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path=r"contacts/(?P<person_id>[^/.]+)")
+    def remove_contact(self, request, pk=None, person_id=None):
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
+        contact = get_object_or_404(
+            Person.objects.filter(organization=customer, person_type="customer_contact", is_deleted=False),
+            pk=person_id,
+        )
+        contact.is_deleted = True
+        if request.user.is_authenticated:
+            contact.updated_by = request.user
+        contact.save(update_fields=["is_deleted", "updated_at", "updated_by"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["get"], url_path="sales")
     def sales(self, request, pk=None):
         customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
@@ -333,6 +358,37 @@ class OrganizationViewSet(SoftDeleteModelViewSet):
         if sales_ids is not None:
             queryset = queryset.filter(sales_person_id__in=sales_ids) if sales_ids else queryset.none()
         return build_paginated_response(request, queryset, lambda page_items: [person_summary(item.sales_person) for item in page_items])
+
+    @sales.mapping.post
+    @transaction.atomic
+    def create_sales(self, request, pk=None):
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
+        serializer = PersonSerializer(data={
+            **request.data,
+            "person_type": "sales",
+        })
+        serializer.is_valid(raise_exception=True)
+        sales = serializer.save(created_by=request.user if request.user.is_authenticated else None, updated_by=request.user if request.user.is_authenticated else None)
+        SalesCustomerRelation.objects.create(
+            sales_person=sales,
+            customer_org=customer,
+            relation_type="owner",
+            created_by=request.user if request.user.is_authenticated else None,
+            updated_by=request.user if request.user.is_authenticated else None,
+        )
+        return Response(PersonSerializer(sales).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["delete"], url_path=r"sales/(?P<person_id>[^/.]+)")
+    def remove_sales(self, request, pk=None, person_id=None):
+        customer = get_object_or_404(filter_customer_queryset_for_user(self.get_queryset(), request.user), pk=pk)
+        relation = get_object_or_404(
+            SalesCustomerRelation.objects.filter(customer_org=customer, sales_person_id=person_id, is_deleted=False),
+        )
+        relation.is_deleted = True
+        if request.user.is_authenticated:
+            relation.updated_by = request.user
+        relation.save(update_fields=["is_deleted", "updated_at", "updated_by"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PersonViewSet(SoftDeleteModelViewSet):

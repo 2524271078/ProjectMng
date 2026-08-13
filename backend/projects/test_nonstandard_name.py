@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from projects.models import Device, DeviceModel, Organization, Product, Project, ProjectDevice
@@ -61,12 +62,13 @@ class ProjectOverviewDeviceNonstandardNameTests(APITestCase):
             customer_org=customer,
         )
         project = Project.objects.create(project_no='WARRANTY-PRJ-001', name='Warranty Project', customer_org=customer)
+        today = timezone.localdate()
         ProjectDevice.objects.create(
             project=project,
             device=device,
             service_type='renewal',
-            service_start_date='2026-07-01',
-            service_end_date='2026-07-31',
+            service_start_date=today,
+            service_end_date=today,
         )
 
         response = self.client.get(f'/api/projects/{project.id}/overview/')

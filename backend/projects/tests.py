@@ -142,6 +142,58 @@ class PersonApiValidationTests(APITestCase):
         self.assertIsNone(response.data["organization"])
 
 
+class CustomerPersonManagementApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.user = User.objects.create_user(username="customer-person-api", password="pass123456")
+        self.client.force_authenticate(self.user)
+        self.customer = Organization.objects.create(name="客户人员维护客户", org_type="customer")
+
+    def test_customer_center_can_create_and_delete_contact_synced_with_people(self):
+        response = self.client.post(
+            f"/api/organizations/{self.customer.id}/contacts/",
+            {"name": "客户联系人甲", "position": "信息主管", "phone": "13800000001", "email": "contact@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        contact_id = response.data["id"]
+        contact = Person.objects.get(pk=contact_id)
+        self.assertEqual(contact.person_type, "customer_contact")
+        self.assertEqual(contact.organization, self.customer)
+
+        list_response = self.client.get(f"/api/organizations/{self.customer.id}/contacts/")
+        self.assertEqual(api_results(list_response)[0]["id"], contact_id)
+
+        delete_response = self.client.delete(f"/api/organizations/{self.customer.id}/contacts/{contact_id}/")
+        self.assertEqual(delete_response.status_code, 204)
+        self.assertFalse(Person.objects.filter(pk=contact_id).exists())
+        self.assertTrue(Person.all_objects.get(pk=contact_id).is_deleted)
+
+    def test_customer_center_can_create_and_remove_sales_relationship_without_deleting_person(self):
+        response = self.client.post(
+            f"/api/organizations/{self.customer.id}/sales/",
+            {"name": "负责销售甲", "phone": "13800000002", "email": "sales@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        sales_id = response.data["id"]
+        sales = Person.objects.get(pk=sales_id)
+        self.assertEqual(sales.person_type, "sales")
+        self.assertTrue(SalesCustomerRelation.objects.filter(sales_person=sales, customer_org=self.customer).exists())
+
+        list_response = self.client.get(f"/api/organizations/{self.customer.id}/sales/")
+        self.assertEqual(api_results(list_response)[0]["id"], sales_id)
+
+        delete_response = self.client.delete(f"/api/organizations/{self.customer.id}/sales/{sales_id}/")
+        self.assertEqual(delete_response.status_code, 204)
+        self.assertTrue(Person.objects.filter(pk=sales_id).exists())
+        self.assertFalse(SalesCustomerRelation.objects.filter(sales_person=sales, customer_org=self.customer).exists())
+        self.assertTrue(SalesCustomerRelation.all_objects.get(sales_person=sales, customer_org=self.customer).is_deleted)
+
+
 class StateGridImportCommandTests(TestCase):
     def test_command_resets_and_imports_state_grid_organization_tree(self):
         from django.core.management import call_command

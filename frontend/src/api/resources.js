@@ -108,6 +108,22 @@ export function fetchCustomerSales(id, params = {}) {
   return fetchDetailList('organizations', id, 'sales', params)
 }
 
+export function createCustomerContact(id, payload) {
+  return apiClient.post(`/organizations/${id}/contacts/`, payload)
+}
+
+export function deleteCustomerContact(id, personId) {
+  return apiClient.delete(`/organizations/${id}/contacts/${personId}/`)
+}
+
+export function createCustomerSales(id, payload) {
+  return apiClient.post(`/organizations/${id}/sales/`, payload)
+}
+
+export function deleteCustomerSales(id, personId) {
+  return apiClient.delete(`/organizations/${id}/sales/${personId}/`)
+}
+
 export function fetchProjectDevices(id, params = {}) {
   return fetchDetailList('projects', id, 'devices', params)
 }

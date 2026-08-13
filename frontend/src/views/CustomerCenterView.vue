@@ -53,12 +53,18 @@
           <section class="customer-info-section">
             <div class="customer-info-section__head">
               <h3>联系人</h3>
+              <el-button v-can="['customers', 'create']" type="primary" link @click="openCustomerPersonDialog('customer_contact')">新增联系人</el-button>
             </div>
             <el-table v-loading="contactPagination.loading" :data="contactPagination.rows">
               <el-table-column prop="name" label="姓名" />
               <el-table-column prop="position" label="职位" />
               <el-table-column prop="phone" label="电话" />
               <el-table-column prop="email" label="邮箱" />
+              <el-table-column label="操作" width="90" fixed="right">
+                <template #default="scope">
+                  <el-button v-can="['customers', 'delete']" link type="danger" @click="removeCustomerContact(scope.row)">删除</el-button>
+                </template>
+              </el-table-column>
             </el-table>
             <div class="mt-16">
               <el-pagination background layout="total, sizes, prev, pager, next" :current-page="contactPagination.page" :page-size="contactPagination.pageSize" :page-sizes="[10, 20, 50]" :total="contactPagination.total" @current-change="handleContactPageChange" @size-change="handleContactPageSizeChange" />
@@ -68,10 +74,16 @@
           <section class="customer-info-section">
             <div class="customer-info-section__head">
               <h3>负责销售</h3>
+              <el-button v-can="['customers', 'create']" type="primary" link @click="openCustomerPersonDialog('sales')">新增销售</el-button>
             </div>
             <el-table v-loading="salesPagination.loading" :data="salesPagination.rows">
               <el-table-column prop="name" label="销售" />
               <el-table-column prop="phone" label="电话" />
+              <el-table-column label="操作" width="90" fixed="right">
+                <template #default="scope">
+                  <el-button v-can="['customers', 'delete']" link type="danger" @click="removeCustomerSales(scope.row)">移除</el-button>
+                </template>
+              </el-table-column>
             </el-table>
             <div class="mt-16">
               <el-pagination background layout="total, sizes, prev, pager, next" :current-page="salesPagination.page" :page-size="salesPagination.pageSize" :page-sizes="[10, 20, 50]" :total="salesPagination.total" @current-change="handleSalesPageChange" @size-change="handleSalesPageSizeChange" />
@@ -254,6 +266,20 @@
       <DeviceDetailDescriptions :device="selectedDevice" />
     </el-dialog>
 
+    <el-dialog v-model="customerPersonDialogVisible" :title="customerPersonForm.person_type === 'sales' ? '新增负责销售' : '新增联系人'" width="520px" destroy-on-close>
+      <el-form :model="customerPersonForm" label-width="80px">
+        <el-form-item label="姓名" required><el-input v-model="customerPersonForm.name" /></el-form-item>
+        <el-form-item label="职位"><el-input v-model="customerPersonForm.position" /></el-form-item>
+        <el-form-item label="电话"><el-input v-model="customerPersonForm.phone" /></el-form-item>
+        <el-form-item label="邮箱"><el-input v-model="customerPersonForm.email" /></el-form-item>
+        <el-form-item label="微信"><el-input v-model="customerPersonForm.wechat" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="customerPersonDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="customerPersonSaving" @click="saveCustomerPerson">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="deviceServiceVisible" title="设备服务" width="min(920px, calc(100vw - 32px))" top="4vh" destroy-on-close>
       <DeviceServiceWorkspace v-if="selectedDevice?.id" :device-id="selectedDevice.id" :project-devices="selectedDevice.project_devices || []" />
     </el-dialog>
@@ -303,6 +329,10 @@ import DeviceServiceWorkspace from '../components/DeviceServiceWorkspace.vue'
 import ProductModelTreeSelect from '../components/ProductModelTreeSelect.vue'
 import {
   createResource,
+  createCustomerContact,
+  createCustomerSales,
+  deleteCustomerContact,
+  deleteCustomerSales,
   deleteResource,
   fetchCustomerContacts,
   fetchCustomerContracts,
@@ -348,12 +378,15 @@ const deviceSaving = ref(false)
 const opsPeople = ref([])
 const uploadedScreenshots = ref([])
 const dialogVisible = ref(false)
+const customerPersonDialogVisible = ref(false)
+const customerPersonSaving = ref(false)
 const searchKeyword = ref('')
 const deviceSearchKeyword = ref('')
 const deviceSigningSubjectFilter = ref('all')
 const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({ parent: null, name: '', org_type: 'customer', short_name: '', region: '', address: '' })
+const customerPersonForm = reactive({ name: '', person_type: 'customer_contact', position: '', phone: '', email: '', wechat: '' })
 const deviceForm = reactive(createDefaultDeviceForm())
 const treeProps = { label: 'name', children: 'children' }
 const treeData = computed(() => buildOrganizationTree(organizations.value))
@@ -591,6 +624,73 @@ async function selectCustomer(node) {
   const { data } = await fetchCustomerOverview(node.id)
   overview.value = data
   await loadCustomerInfoTab()
+}
+
+function openCustomerPersonDialog(personType) {
+  if (!selected.value) return
+  Object.assign(customerPersonForm, { name: '', person_type: personType, position: '', phone: '', email: '', wechat: '' })
+  customerPersonDialogVisible.value = true
+}
+
+async function saveCustomerPerson() {
+  if (!customerPersonForm.name.trim() || !selected.value) {
+    ElMessage.warning('请填写姓名')
+    return
+  }
+  customerPersonSaving.value = true
+  try {
+    const payload = {
+      name: customerPersonForm.name.trim(),
+      position: customerPersonForm.position.trim(),
+      phone: customerPersonForm.phone.trim(),
+      email: customerPersonForm.email.trim(),
+      wechat: customerPersonForm.wechat.trim(),
+    }
+    if (customerPersonForm.person_type === 'sales') {
+      await createCustomerSales(selected.value.id, payload)
+    } else {
+      await createCustomerContact(selected.value.id, payload)
+    }
+    ElMessage.success(customerPersonForm.person_type === 'sales' ? '负责销售已新增' : '联系人已新增')
+    customerPersonDialogVisible.value = false
+    if (customerPersonForm.person_type === 'sales') {
+      salesPagination.page = 1
+      await loadCustomerSalesTab()
+    } else {
+      contactPagination.page = 1
+      await loadCustomerContactsTab()
+    }
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '保存人员失败'))
+  } finally {
+    customerPersonSaving.value = false
+  }
+}
+
+async function removeCustomerContact(row) {
+  if (!selected.value) return
+  await ElMessageBox.confirm(`确认删除联系人“${row.name}”？`, '删除确认', { type: 'warning' })
+  try {
+    await deleteCustomerContact(selected.value.id, row.id)
+    ElMessage.success('联系人已删除')
+    if (contactPagination.rows.length === 1 && contactPagination.page > 1) contactPagination.page -= 1
+    await loadCustomerContactsTab()
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '删除联系人失败'))
+  }
+}
+
+async function removeCustomerSales(row) {
+  if (!selected.value) return
+  await ElMessageBox.confirm(`确认将销售“${row.name}”从当前客户移除？该销售本人及其其他客户关系不会受影响。`, '移除确认', { type: 'warning' })
+  try {
+    await deleteCustomerSales(selected.value.id, row.id)
+    ElMessage.success('负责销售已移除')
+    if (salesPagination.rows.length === 1 && salesPagination.page > 1) salesPagination.page -= 1
+    await loadCustomerSalesTab()
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '移除负责销售失败'))
+  }
 }
 
 async function openProjectDetail(row) {
