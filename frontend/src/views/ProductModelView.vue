@@ -23,7 +23,7 @@
       </div>
       <el-alert v-if="!lines.length" title="请先新增产线，再在产线下新增产品、版本和型号。" type="info" show-icon :closable="false" class="mb-16" />
       <div class="page-table-scroll">
-        <el-table v-loading="modelPagination.loading" :data="modelPagination.rows" stripe>
+        <el-table v-loading="modelPagination.loading" :data="modelPagination.rows" stripe height="100%">
           <el-table-column prop="model_name" label="设备名称" min-width="180" />
           <el-table-column label="型号编码" min-width="160"><template #default="scope">{{ scope.row.model_code || '-' }}</template></el-table-column>
           <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />

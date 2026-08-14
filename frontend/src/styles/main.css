@@ -53,8 +53,8 @@ body { margin: 0; min-width: 320px; }
 .upload-preview { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
 
 .page-scroll-layout { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.page-table-scroll { flex: 1; min-height: 0; overflow: auto; }
-.page-table-scroll .el-table { width: 100%; }
+.page-table-scroll { flex: 1; min-height: 0; overflow: hidden; }
+.page-table-scroll .el-table { width: 100%; height: 100%; }
 .page-tabs-scroll { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .page-tabs-scroll > .el-tabs__content { flex: 1; min-height: 0; overflow: auto; }
 .tree-panel .el-tree { flex: 1; min-height: 0; overflow: auto; margin-top: 10px; }

@@ -6,7 +6,7 @@
     </div>
 
     <div class="page-table-scroll">
-      <el-table :data="contracts" stripe @row-click="openDetail">
+      <el-table :data="contracts" stripe height="100%" @row-click="openDetail">
         <el-table-column prop="contract_no" label="合同编号" />
         <el-table-column prop="contract_name" label="合同名称" min-width="220" />
         <el-table-column prop="amount" label="金额" />

@@ -18,7 +18,7 @@
     </div>
 
     <div class="page-table-scroll">
-      <el-table v-loading="projectPagination.loading" :data="projects" stripe @row-click="openDetail">
+      <el-table v-loading="projectPagination.loading" :data="projects" stripe height="100%" @row-click="openDetail">
       <el-table-column prop="name" label="项目名称" min-width="220" />
       <el-table-column label="客户公司" min-width="220">
         <template #default="scope">{{ scope.row.customer_org_detail?.name || '-' }}</template>

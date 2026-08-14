@@ -15,7 +15,7 @@
           <el-button v-can="['system', 'create']" type="primary" @click="openCreateUserDialog">新增用户</el-button>
         </div>
         <div class="page-table-scroll embedded-table-scroll">
-          <el-table v-loading="loading.users" :data="users" stripe>
+          <el-table v-loading="loading.users" :data="users" stripe height="100%">
             <el-table-column prop="username" label="账号" min-width="140" />
             <el-table-column prop="email" label="邮箱" min-width="220" />
             <el-table-column label="启用" width="90">
@@ -61,7 +61,7 @@
           <el-button v-can="['system', 'create']" type="primary" @click="openCreateRoleDialog">新增角色</el-button>
         </div>
         <div class="page-table-scroll embedded-table-scroll">
-          <el-table v-loading="loading.roles" :data="roles" stripe>
+          <el-table v-loading="loading.roles" :data="roles" stripe height="100%">
             <el-table-column prop="name" label="角色名称" min-width="160" />
             <el-table-column prop="code" label="角色编码" min-width="160" />
             <el-table-column prop="remark" label="说明" min-width="220" show-overflow-tooltip />
@@ -85,7 +85,7 @@
 
       <el-tab-pane label="菜单权限" name="menus">
         <div class="page-table-scroll embedded-table-scroll">
-          <el-table :data="menus" stripe>
+          <el-table :data="menus" stripe height="100%">
             <el-table-column prop="name" label="菜单名称" min-width="180" />
             <el-table-column prop="code" label="菜单编码" min-width="160" />
             <el-table-column prop="path" label="路由" min-width="180" />
@@ -100,7 +100,7 @@
 
       <el-tab-pane label="操作日志" name="logs">
         <div class="page-table-scroll embedded-table-scroll">
-          <el-table v-loading="loading.logs" :data="logs" stripe>
+          <el-table v-loading="loading.logs" :data="logs" stripe height="100%">
             <el-table-column prop="action" label="动作" min-width="120" />
             <el-table-column prop="object_type" label="对象类型" min-width="140" />
             <el-table-column prop="object_id" label="对象 ID" min-width="100" />

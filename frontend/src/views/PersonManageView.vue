@@ -9,7 +9,7 @@
     </div>
 
     <div class="page-table-scroll">
-      <el-table v-loading="peoplePagination.loading" :data="peoplePagination.rows" stripe>
+      <el-table v-loading="peoplePagination.loading" :data="peoplePagination.rows" stripe height="100%">
         <el-table-column prop="name" label="姓名" min-width="140" />
         <el-table-column label="人员类型" min-width="130">
           <template #default="scope">{{ personTypeLabel(scope.row.person_type) }}</template>

@@ -11,7 +11,7 @@
     </div>
 
     <div class="page-table-scroll">
-      <el-table v-loading="salesPagination.loading" :data="salesPagination.rows" @row-click="openSales">
+      <el-table v-loading="salesPagination.loading" :data="salesPagination.rows" height="100%" @row-click="openSales">
         <el-table-column prop="name" label="销售" />
         <el-table-column prop="phone" label="电话" />
         <el-table-column prop="email" label="邮箱" />
@@ -33,7 +33,7 @@
 
     <el-drawer v-model="drawerVisible" size="56%" title="负责客户、设备和合同">
       <div class="page-table-scroll">
-        <el-table :data="customers">
+        <el-table :data="customers" height="100%">
           <el-table-column prop="name" label="客户" />
           <el-table-column label="设备">
             <template #default="scope"><el-tag v-for="d in scope.row.devices" :key="d.id" class="tag-gap">{{ d.name }}</el-tag></template>
