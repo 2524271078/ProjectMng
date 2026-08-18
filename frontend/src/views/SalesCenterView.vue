@@ -31,24 +31,60 @@
       />
     </div>
 
-    <el-drawer v-model="drawerVisible" size="56%" title="负责客户、设备和合同">
-      <div class="page-table-scroll">
-        <el-table :data="customers" height="100%">
-          <el-table-column prop="name" label="客户" />
-          <el-table-column label="设备">
-            <template #default="scope"><el-tag v-for="d in scope.row.devices" :key="d.id" class="tag-gap">{{ d.name }}</el-tag></template>
-          </el-table-column>
-          <el-table-column label="合同">
-            <template #default="scope"><el-tag v-for="c in scope.row.contracts" :key="c.id" type="success" class="tag-gap">{{ c.contract_no }}</el-tag></template>
-          </el-table-column>
-        </el-table>
+    <el-drawer v-model="drawerVisible" class="sales-responsibility-drawer" size="56%" :title="`${selectedSalesName || '销售'}负责的客户、设备和合同`">
+      <div v-loading="drawerLoading" class="sales-responsibility-layout">
+        <div class="sales-responsibility-summary">
+          <span>共 {{ responsibilitySummary.customerCount }} 个客户</span>
+          <span>{{ responsibilitySummary.deviceCount }} 台设备</span>
+          <span>{{ responsibilitySummary.contractCount }} 份合同</span>
+        </div>
+
+        <el-scrollbar class="sales-responsibility-scroll" always>
+          <div v-if="customers.length" class="sales-responsibility-list">
+            <article v-for="customer in customers" :key="customer.id" class="sales-responsibility-card">
+              <header class="sales-responsibility-card__header">
+                <div>
+                  <span class="sales-responsibility-card__label">客户</span>
+                  <strong>{{ customer.name }}</strong>
+                </div>
+                <div class="sales-responsibility-card__counts">
+                  <span>设备 {{ customer.devices?.length || 0 }}</span>
+                  <span>合同 {{ customer.contracts?.length || 0 }}</span>
+                </div>
+              </header>
+
+              <div class="sales-responsibility-groups">
+                <section class="sales-responsibility-group">
+                  <h3>设备</h3>
+                  <div v-if="customer.devices?.length" class="sales-responsibility-tags">
+                    <el-tag v-for="device in customer.devices" :key="device.id" effect="plain">
+                      {{ device.name || device.serial_number }}
+                    </el-tag>
+                  </div>
+                  <span v-else class="sales-responsibility-empty">暂无设备</span>
+                </section>
+
+                <section class="sales-responsibility-group">
+                  <h3>合同</h3>
+                  <div v-if="customer.contracts?.length" class="sales-responsibility-tags">
+                    <el-tag v-for="contract in customer.contracts" :key="contract.id" type="success" effect="plain">
+                      {{ contract.contract_no || contract.contract_name }}
+                    </el-tag>
+                  </div>
+                  <span v-else class="sales-responsibility-empty">暂无合同</span>
+                </section>
+              </div>
+            </article>
+          </div>
+          <el-empty v-else-if="!drawerLoading" description="该销售暂未负责客户" />
+        </el-scrollbar>
       </div>
     </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { fetchSalesCustomers, listResource } from '../api/resources'
 import { formatApiError } from '../utils/apiData'
@@ -56,8 +92,16 @@ import { applyPaginationResponse, buildPaginationState } from '../utils/paginati
 
 const customers = ref([])
 const drawerVisible = ref(false)
+const drawerLoading = ref(false)
+const selectedSalesName = ref('')
 const searchKeyword = ref('')
 const salesPagination = buildPaginationState()
+
+const responsibilitySummary = computed(() => customers.value.reduce((summary, customer) => ({
+  customerCount: summary.customerCount + 1,
+  deviceCount: summary.deviceCount + (customer.devices?.length || 0),
+  contractCount: summary.contractCount + (customer.contracts?.length || 0),
+}), { customerCount: 0, deviceCount: 0, contractCount: 0 }))
 
 async function loadSales() {
   salesPagination.loading = true
@@ -101,9 +145,18 @@ function handlePageSizeChange(pageSize) {
 }
 
 async function openSales(row) {
-  const { data } = await fetchSalesCustomers(row.id)
-  customers.value = data
+  selectedSalesName.value = row.name
   drawerVisible.value = true
+  drawerLoading.value = true
+  customers.value = []
+  try {
+    const { data } = await fetchSalesCustomers(row.id)
+    customers.value = data
+  } catch (error) {
+    ElMessage.error(formatApiError(error, '加载销售负责关系失败'))
+  } finally {
+    drawerLoading.value = false
+  }
 }
 
 onMounted(loadSales)
