@@ -13,6 +13,8 @@ test('销售负责关系抽屉使用独立滚动容器并展示汇总信息', ()
     'const responsibilitySummary = computed(',
     '加载销售负责关系失败',
   ].forEach((snippet) => assert.equal(source.includes(snippet), true, snippet))
+  assert.equal(source.includes('customer.contracts'), false)
+  assert.equal(source.includes('contractCount'), false)
 })
 
 test('销售负责关系抽屉具备固定可滚动高度', () => {

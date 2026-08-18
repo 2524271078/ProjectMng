@@ -86,7 +86,7 @@ body { margin: 0; min-width: 320px; }
 .sales-responsibility-card__header strong { display: block; margin-top: 3px; font-size: 15px; }
 .sales-responsibility-card__label { color: #1e8a83; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .sales-responsibility-card__counts { display: flex; gap: 12px; color: #687789; font-size: 12px; white-space: nowrap; }
-.sales-responsibility-groups { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 14px; }
+.sales-responsibility-group { padding: 14px; }
 .sales-responsibility-group h3 { margin: 0 0 8px; color: #687789; font-size: 12px; font-weight: 700; }
 .sales-responsibility-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .sales-responsibility-tags .el-tag { max-width: 100%; height: auto; min-height: 28px; white-space: normal; line-height: 18px; text-align: left; }
@@ -108,5 +108,4 @@ body { margin: 0; min-width: 320px; }
   .content-card { max-height: none; min-height: auto; padding: 14px; border-radius: 14px; }
   .page-scroll-layout, .split-page, .tree-panel, .detail-panel { overflow: visible; }
   .page-table-scroll, .page-tabs-scroll, .drawer-tabs-scroll { overflow: visible; }
-  .sales-responsibility-groups { grid-template-columns: 1fr; gap: 14px; }
 }

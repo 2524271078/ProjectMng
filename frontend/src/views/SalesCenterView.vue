@@ -31,12 +31,11 @@
       />
     </div>
 
-    <el-drawer v-model="drawerVisible" class="sales-responsibility-drawer" size="56%" :title="`${selectedSalesName || '销售'}负责的客户、设备和合同`">
+    <el-drawer v-model="drawerVisible" class="sales-responsibility-drawer" size="56%" :title="`${selectedSalesName || '销售'}负责的客户和设备`">
       <div v-loading="drawerLoading" class="sales-responsibility-layout">
         <div class="sales-responsibility-summary">
           <span>共 {{ responsibilitySummary.customerCount }} 个客户</span>
           <span>{{ responsibilitySummary.deviceCount }} 台设备</span>
-          <span>{{ responsibilitySummary.contractCount }} 份合同</span>
         </div>
 
         <el-scrollbar class="sales-responsibility-scroll" always>
@@ -49,31 +48,18 @@
                 </div>
                 <div class="sales-responsibility-card__counts">
                   <span>设备 {{ customer.devices?.length || 0 }}</span>
-                  <span>合同 {{ customer.contracts?.length || 0 }}</span>
                 </div>
               </header>
 
-              <div class="sales-responsibility-groups">
-                <section class="sales-responsibility-group">
-                  <h3>设备</h3>
-                  <div v-if="customer.devices?.length" class="sales-responsibility-tags">
-                    <el-tag v-for="device in customer.devices" :key="device.id" effect="plain">
-                      {{ device.name || device.serial_number }}
-                    </el-tag>
-                  </div>
-                  <span v-else class="sales-responsibility-empty">暂无设备</span>
-                </section>
-
-                <section class="sales-responsibility-group">
-                  <h3>合同</h3>
-                  <div v-if="customer.contracts?.length" class="sales-responsibility-tags">
-                    <el-tag v-for="contract in customer.contracts" :key="contract.id" type="success" effect="plain">
-                      {{ contract.contract_no || contract.contract_name }}
-                    </el-tag>
-                  </div>
-                  <span v-else class="sales-responsibility-empty">暂无合同</span>
-                </section>
-              </div>
+              <section class="sales-responsibility-group">
+                <h3>设备</h3>
+                <div v-if="customer.devices?.length" class="sales-responsibility-tags">
+                  <el-tag v-for="device in customer.devices" :key="device.id" effect="plain">
+                    {{ device.name || device.serial_number }}
+                  </el-tag>
+                </div>
+                <span v-else class="sales-responsibility-empty">暂无设备</span>
+              </section>
             </article>
           </div>
           <el-empty v-else-if="!drawerLoading" description="该销售暂未负责客户" />
@@ -100,8 +86,7 @@ const salesPagination = buildPaginationState()
 const responsibilitySummary = computed(() => customers.value.reduce((summary, customer) => ({
   customerCount: summary.customerCount + 1,
   deviceCount: summary.deviceCount + (customer.devices?.length || 0),
-  contractCount: summary.contractCount + (customer.contracts?.length || 0),
-}), { customerCount: 0, deviceCount: 0, contractCount: 0 }))
+}), { customerCount: 0, deviceCount: 0 }))
 
 async function loadSales() {
   salesPagination.loading = true
