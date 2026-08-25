@@ -9,11 +9,11 @@
         <span class="section-title__hint">统计范围与当前账号的数据权限一致</span>
       </div>
       <div class="metric-grid">
-        <div v-for="item in metricCards" :key="item.key" class="metric-card" :class="`metric-card--${item.key}`">
+        <button v-for="item in metricCards" :key="item.key" type="button" class="metric-card" :class="`metric-card--${item.key}`" @click="handleMetricClick(item)">
           <span>{{ item.label }}</span>
           <strong>{{ item.value }}</strong>
           <p>{{ item.desc }}</p>
-        </div>
+        </button>
       </div>
     </section>
 
@@ -70,11 +70,11 @@
               <div class="donut-chart__center"><strong>{{ overview.metrics.devices_total }}</strong><span>台设备</span></div>
             </div>
             <div class="status-legend">
-              <div v-for="item in overview.service_status" :key="item.key" class="status-legend__item">
+              <button v-for="item in overview.service_status" :key="item.key" type="button" class="status-legend__item" @click="goToDevices({ overview_filter: item.key })">
                 <i :style="{ backgroundColor: item.color }" />
                 <span>{{ item.label }}</span>
                 <strong>{{ item.count }}</strong>
-              </div>
+              </button>
             </div>
           </div>
         </el-card>
@@ -89,11 +89,11 @@
           </template>
           <el-empty v-if="!hasTrendData" description="未来六个月暂无到期设备" :image-size="58" />
           <div v-else class="bar-chart" aria-label="未来六个月到期设备数量柱状图">
-            <div v-for="item in overview.expiry_trend" :key="item.month" class="bar-chart__item">
+            <button v-for="item in overview.expiry_trend" :key="item.month" type="button" class="bar-chart__item" @click="goToExpiryMonth(item.month)">
               <span class="bar-chart__value">{{ item.count }}</span>
               <div class="bar-chart__track"><div class="bar-chart__bar" :style="{ height: trendBarHeight(item.count) }" /></div>
               <span class="bar-chart__label">{{ item.label }}</span>
-            </div>
+            </button>
           </div>
         </el-card>
       </el-col>
@@ -104,7 +104,7 @@
             <div class="card-title"><span>重点客户关注</span><small>按过保和 30 天内到期排序</small></div>
           </template>
           <el-empty v-if="!overview.attention_customers.length" description="暂无客户设备数据" :image-size="58" />
-          <el-table v-else :data="overview.attention_customers" size="small" max-height="260">
+          <el-table v-else :data="overview.attention_customers" size="small" max-height="260" class="attention-customer-table" @row-click="goToCustomerDevices">
             <el-table-column prop="customer_name" label="客户" min-width="150" show-overflow-tooltip />
             <el-table-column prop="device_count" label="设备" width="65" align="center" />
             <el-table-column prop="in_warranty" label="在保" width="65" align="center" />
@@ -124,6 +124,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
 import { confirmDashboardReminder, fetchDashboardOverview, fetchDashboardReminders } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 
@@ -137,6 +138,7 @@ function emptyOverview() {
 }
 
 const overview = ref(emptyOverview())
+const router = useRouter()
 const overviewLoading = ref(false)
 const reminders = ref([])
 const loading = ref(false)
@@ -145,11 +147,11 @@ const reminderPageSize = 5
 const reminderTypeFilter = ref('all')
 
 const metricCards = computed(() => [
-  { key: 'devices', label: '设备总数', value: overview.value.metrics.devices_total, desc: '当前可见设备资产' },
-  { key: 'warranty', label: '在保设备', value: overview.value.metrics.in_warranty, desc: '服务周期仍有效' },
-  { key: 'expiring', label: '30 天内到期', value: overview.value.metrics.expiring_30, desc: '优先跟进续保' },
-  { key: 'expired', label: '已过保设备', value: overview.value.metrics.expired, desc: '需要评估服务状态' },
-  { key: 'customers', label: '覆盖客户', value: overview.value.metrics.customers_total, desc: '已关联设备客户' },
+  { key: 'devices', label: '设备总数', value: overview.value.metrics.devices_total, desc: '当前可见设备资产', deviceQuery: {} },
+  { key: 'warranty', label: '在保设备', value: overview.value.metrics.in_warranty, desc: '服务周期仍有效', deviceQuery: { overview_filter: 'in_warranty' } },
+  { key: 'expiring', label: '30 天内到期', value: overview.value.metrics.expiring_30, desc: '优先跟进续保', deviceQuery: { overview_filter: 'expiring_30' } },
+  { key: 'expired', label: '已过保设备', value: overview.value.metrics.expired, desc: '需要评估服务状态', deviceQuery: { overview_filter: 'expired' } },
+  { key: 'customers', label: '覆盖客户', value: overview.value.metrics.customers_total, desc: '已关联设备客户', route: '/customers' },
 ])
 const filteredReminders = computed(() => reminders.value.filter((item) => (
   reminderTypeFilter.value === 'all' || item.type === reminderTypeFilter.value
@@ -214,6 +216,33 @@ function trendBarHeight(count) {
   return `${Math.max(8, Math.round(count / maxTrendCount.value * 100))}%`
 }
 
+function handleMetricClick(item) {
+  if (item.deviceQuery) {
+    goToDevices(item.deviceQuery)
+    return
+  }
+  router.push(item.route)
+}
+
+function goToDevices(query = {}) {
+  router.push({ path: '/device-center', query })
+}
+
+function goToExpiryMonth(month) {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1
+  const nextYear = monthNumber === 12 ? year + 1 : year
+  goToDevices({
+    overview_filter: 'in_warranty',
+    service_end_from: `${month}-01`,
+    service_end_to: `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`,
+  })
+}
+
+function goToCustomerDevices(row) {
+  goToDevices({ customer_id: row.customer_id })
+}
+
 function reminderTypeLabel(type) {
   return type === 'service_expiring' ? '服务即将到期' : '服务任务'
 }
@@ -276,12 +305,21 @@ onMounted(() => {
 }
 
 .metric-card {
+  width: 100%;
   min-height: 126px;
   padding: 20px;
   border: 1px solid #e5edf6;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 4px 16px rgb(24 52 82 / 4%);
+  cursor: pointer;
+  }
+
+.metric-card:hover,
+.status-legend__item:hover,
+.bar-chart__item:hover {
+  border-color: #9fc2ef;
+  box-shadow: 0 4px 16px rgb(24 52 82 / 8%);
 }
 
 .metric-card span,
@@ -383,10 +421,16 @@ onMounted(() => {
 
 .status-legend__item {
   align-items: center;
+  width: 100%;
   gap: 8px;
   padding: 6px 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
   color: #65758b;
+  cursor: pointer;
   font-size: 13px;
+  text-align: left;
 }
 
 .status-legend__item i {
@@ -422,6 +466,11 @@ onMounted(() => {
   flex: 1;
   flex-direction: column;
   align-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
 }
 
 .bar-chart__value {
@@ -455,6 +504,10 @@ onMounted(() => {
 
 .attention-card :deep(.el-card__body) {
   padding-top: 2px;
+}
+
+.attention-customer-table :deep(.el-table__row) {
+  cursor: pointer;
 }
 
 .warning-number { color: #d68b00; }

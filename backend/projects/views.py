@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework.decorators import action, api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
@@ -349,7 +350,7 @@ def dashboard_overview_data(user):
 
     active_warranty_count = status_counts["in_warranty"] + status_counts["expiring_30"] + status_counts["expiring_180"]
     status_items = [
-        {"key": "in_warranty", "label": "在保（180天后到期）", "count": status_counts["in_warranty"], "color": "#35b7a8"},
+        {"key": "in_warranty_long", "label": "在保（180天后到期）", "count": status_counts["in_warranty"], "color": "#35b7a8"},
         {"key": "expiring_30", "label": "30天内到期", "count": status_counts["expiring_30"], "color": "#f2a93b"},
         {"key": "expiring_180", "label": "31-180天到期", "count": status_counts["expiring_180"], "color": "#5b9cf6"},
         {"key": "expired", "label": "已过保", "count": status_counts["expired"], "color": "#eb6b6b"},
@@ -628,6 +629,51 @@ class DeviceViewSet(SoftDeleteModelViewSet):
         )
         queryset = filter_device_queryset_for_user(queryset, self.request.user)
         queryset = filter_devices_by_current_signing_subject(queryset, self.request.query_params.get("signing_subject", ""))
+        current_binding = ProjectDevice.objects.filter(
+            device_id=OuterRef("pk"),
+            is_deleted=False,
+            project__is_deleted=False,
+        ).order_by("-service_end_date", "-updated_at", "-id")
+        queryset = queryset.annotate(
+            dashboard_service_start=Subquery(current_binding.values("service_start_date")[:1]),
+            dashboard_service_end=Subquery(current_binding.values("service_end_date")[:1]),
+            dashboard_service_customer_id=Subquery(current_binding.values("project__customer_org_id")[:1]),
+        )
+        today = timezone.localdate()
+        overview_filter = self.request.query_params.get("overview_filter", "").strip()
+        active_service = Q(dashboard_service_start__lte=today, dashboard_service_end__gte=today)
+        if overview_filter == "in_warranty":
+            queryset = queryset.filter(active_service)
+        elif overview_filter == "in_warranty_long":
+            queryset = queryset.filter(active_service, dashboard_service_end__gt=today + timedelta(days=180))
+        elif overview_filter == "expiring_30":
+            queryset = queryset.filter(active_service, dashboard_service_end__lte=today + timedelta(days=30))
+        elif overview_filter == "expiring_180":
+            queryset = queryset.filter(
+                active_service,
+                dashboard_service_end__gte=today + timedelta(days=31),
+                dashboard_service_end__lte=today + timedelta(days=180),
+            )
+        elif overview_filter == "expired":
+            queryset = queryset.filter(dashboard_service_end__lt=today)
+        elif overview_filter == "unmaintained":
+            queryset = queryset.filter(
+                Q(dashboard_service_start__isnull=True)
+                | Q(dashboard_service_end__isnull=True)
+                | Q(dashboard_service_start__gt=today)
+            )
+        service_end_from = parse_date(self.request.query_params.get("service_end_from", ""))
+        service_end_to = parse_date(self.request.query_params.get("service_end_to", ""))
+        if service_end_from:
+            queryset = queryset.filter(dashboard_service_end__gte=service_end_from)
+        if service_end_to:
+            queryset = queryset.filter(dashboard_service_end__lt=service_end_to)
+        customer_id = parse_query_int(self.request.query_params.get("customer_id"))
+        if customer_id is not None:
+            queryset = queryset.filter(
+                Q(dashboard_service_customer_id=customer_id)
+                | Q(dashboard_service_customer_id__isnull=True, customer_org_id=customer_id)
+            )
         return queryset.distinct()
 
 

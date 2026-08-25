@@ -11,6 +11,10 @@
     </div>
 
     <section class="device-toolbar">
+      <div v-if="dashboardFilterLabel" class="dashboard-filter-banner">
+        <span>当前工作台筛选：<strong>{{ dashboardFilterLabel }}</strong></span>
+        <el-button link type="primary" @click="clearDashboardFilter">清除筛选</el-button>
+      </div>
       <div class="toolbar-main">
         <div class="toolbar-search-fields">
           <el-input
@@ -261,8 +265,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
 import DeviceServiceWorkspace from '../components/DeviceServiceWorkspace.vue'
 import { createResource, fetchDeviceOverview, listAllResource } from '../api/resources'
@@ -297,7 +302,13 @@ const softwareVersionKeyword = ref('')
 const statusFilter = ref('all')
 const serviceTypeFilter = ref('all')
 const signingSubjectFilter = ref('all')
+const dashboardFilter = ref('')
+const serviceEndFrom = ref('')
+const serviceEndTo = ref('')
+const dashboardCustomerId = ref('')
 const devicePagination = buildPaginationState()
+const route = useRoute()
+const router = useRouter()
 
 const serviceTypeOptions = Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => ({ value, label }))
 const inspectionFrequencyLabels = { monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' }
@@ -316,6 +327,19 @@ const availableInspectionTasks = computed(() => deviceInspectionTasks.value.filt
   && item.status !== 'completed'
   && item.status !== 'cancelled'
 )))
+const dashboardFilterLabel = computed(() => {
+  const labels = {
+    in_warranty: '在保设备',
+    in_warranty_long: '在保（180天后到期）',
+    expiring_30: '30天内到期',
+    expiring_180: '31-180天到期',
+    expired: '已过保',
+    unmaintained: '未维护服务期',
+  }
+  if (dashboardCustomerId.value) return '指定客户设备'
+  if (serviceEndFrom.value || serviceEndTo.value) return '指定月份到期设备'
+  return labels[dashboardFilter.value] || ''
+})
 
 const filteredDevices = computed(() => filterDevices(devices.value, {
   warrantyStatus: statusFilter.value,
@@ -333,7 +357,31 @@ function buildSearchParams() {
     ...(customerName ? { customer_name: customerName } : {}),
     ...(salesName ? { sales_name: salesName } : {}),
     ...(softwareVersion ? { software_version: softwareVersion } : {}),
+    ...(dashboardFilter.value && dashboardFilter.value !== 'all' ? { overview_filter: dashboardFilter.value } : {}),
+    ...(serviceEndFrom.value ? { service_end_from: serviceEndFrom.value } : {}),
+    ...(serviceEndTo.value ? { service_end_to: serviceEndTo.value } : {}),
+    ...(dashboardCustomerId.value ? { customer_id: dashboardCustomerId.value } : {}),
   }
+}
+
+function syncDashboardFiltersFromRoute() {
+  dashboardFilter.value = String(route.query.overview_filter || '').trim()
+  serviceEndFrom.value = String(route.query.service_end_from || '').trim()
+  serviceEndTo.value = String(route.query.service_end_to || '').trim()
+  dashboardCustomerId.value = String(route.query.customer_id || '').trim()
+  const warrantyFilterMap = {
+    in_warranty: 'in',
+    in_warranty_long: 'in',
+    expiring_30: 'in',
+    expiring_180: 'in',
+    expired: 'out',
+    unmaintained: 'out',
+  }
+  statusFilter.value = warrantyFilterMap[dashboardFilter.value] || 'all'
+}
+
+function clearDashboardFilter() {
+  router.replace({ path: route.path })
 }
 
 function syncDevicePagination() {
@@ -396,7 +444,11 @@ function resetSearch() {
   serviceTypeFilter.value = 'all'
   signingSubjectFilter.value = 'all'
   devicePagination.page = 1
-  loadDevices()
+  if (Object.keys(route.query).length) {
+    clearDashboardFilter()
+  } else {
+    loadDevices()
+  }
 }
 
 function handlePageChange(page) {
@@ -610,7 +662,15 @@ function operationRecordTypeLabel(value) {
   return OPERATION_RECORD_TYPE_LABELS[value] || value || '-'
 }
 
-onMounted(loadDevices)
+watch(
+  () => route.query,
+  () => {
+    syncDashboardFiltersFromRoute()
+    devicePagination.page = 1
+    loadDevices()
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped>
@@ -629,6 +689,22 @@ onMounted(loadDevices)
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.dashboard-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border: 1px solid #b8d6ff;
+  border-radius: 6px;
+  background: #f1f7ff;
+  color: #41627f;
+  font-size: 13px;
+}
+
+.dashboard-filter-banner strong {
+  color: #2667bd;
 }
 
 .toolbar-search-fields {

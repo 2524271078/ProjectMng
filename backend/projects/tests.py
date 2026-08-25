@@ -1965,7 +1965,7 @@ class DashboardOverviewApiTests(APITestCase):
         })
         status_counts = {item["key"]: item["count"] for item in response.data["service_status"]}
         self.assertEqual(status_counts, {
-            "in_warranty": 1,
+            "in_warranty_long": 1,
             "expiring_30": 1,
             "expiring_180": 1,
             "expired": 1,
@@ -1973,3 +1973,24 @@ class DashboardOverviewApiTests(APITestCase):
         })
         self.assertEqual(sum(item["count"] for item in response.data["expiry_trend"]), 2)
         self.assertEqual({item["customer_name"] for item in response.data["attention_customers"]}, {"总览客户甲", "总览客户乙"})
+
+    def test_device_center_accepts_dashboard_service_and_customer_filters(self):
+        long_warranty = self.create_device("long", self.customer_a, self.today - timedelta(days=1), self.today + timedelta(days=200))
+        expiring = self.create_device("near", self.customer_a, self.today - timedelta(days=1), self.today + timedelta(days=15))
+        self.create_device("expired", self.customer_b, self.today - timedelta(days=90), self.today - timedelta(days=1))
+        self.create_device("unmaintained", self.customer_a)
+
+        expiring_response = self.client.get("/api/devices/?overview_filter=expiring_30")
+        self.assertEqual(expiring_response.status_code, 200)
+        self.assertEqual(expiring_response.data["count"], 1)
+        self.assertEqual(expiring_response.data["results"][0]["id"], expiring.id)
+
+        month_response = self.client.get(
+            f"/api/devices/?overview_filter=in_warranty&service_end_from={self.today.isoformat()}&service_end_to={(self.today + timedelta(days=30)).isoformat()}"
+        )
+        self.assertEqual(month_response.data["count"], 1)
+        self.assertEqual(month_response.data["results"][0]["id"], expiring.id)
+
+        customer_response = self.client.get(f"/api/devices/?customer_id={self.customer_a.id}")
+        self.assertEqual(customer_response.data["count"], 3)
+        self.assertIn(long_warranty.id, {item["id"] for item in customer_response.data["results"]})
