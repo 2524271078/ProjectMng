@@ -91,8 +91,6 @@
 
     <div class="page-table-scroll">
       <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe height="100%">
-        <el-table-column prop="name" label="产品型号" min-width="180" />
-        <el-table-column prop="serial_number" label="序列号" min-width="160" />
         <el-table-column label="设备名称" min-width="180" show-overflow-tooltip>
           <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
         </el-table-column>
