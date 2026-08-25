@@ -1908,3 +1908,68 @@ class DashboardReminderApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 2)
+
+
+class DashboardOverviewApiTests(APITestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+
+        self.client.force_authenticate(User.objects.create_superuser(
+            username="overview-superuser",
+            password="pass123456",
+            email="overview@example.com",
+        ))
+        self.today = timezone.localdate()
+        self.customer_a = Organization.objects.create(name="总览客户甲", org_type="customer")
+        self.customer_b = Organization.objects.create(name="总览客户乙", org_type="customer")
+        self.product = Product.objects.create(name="总览产品", product_code="OVERVIEW-P")
+        self.model = DeviceModel.objects.create(product=self.product, model_name="总览型号", model_code="OVERVIEW-M")
+
+    def create_device(self, suffix, customer, start_date=None, end_date=None):
+        device = Device.objects.create(
+            name=f"总览设备{suffix}",
+            serial_number=f"OVERVIEW-SN-{suffix}",
+            device_model=self.model,
+            customer_org=customer,
+        )
+        if start_date or end_date:
+            project = Project.objects.create(
+                project_no=f"OVERVIEW-PRJ-{suffix}",
+                name=f"总览项目{suffix}",
+                customer_org=customer,
+            )
+            ProjectDevice.objects.create(
+                project=project,
+                device=device,
+                service_start_date=start_date,
+                service_end_date=end_date,
+            )
+        return device
+
+    def test_dashboard_overview_groups_current_device_service_statuses_and_customers(self):
+        self.create_device("long", self.customer_a, self.today - timedelta(days=1), self.today + timedelta(days=200))
+        self.create_device("near", self.customer_a, self.today - timedelta(days=1), self.today + timedelta(days=15))
+        self.create_device("later", self.customer_b, self.today - timedelta(days=1), self.today + timedelta(days=100))
+        self.create_device("expired", self.customer_b, self.today - timedelta(days=90), self.today - timedelta(days=1))
+        self.create_device("unmaintained", self.customer_a)
+
+        response = self.client.get("/api/dashboard-overview/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["metrics"], {
+            "devices_total": 5,
+            "in_warranty": 3,
+            "expiring_30": 1,
+            "expired": 1,
+            "customers_total": 2,
+        })
+        status_counts = {item["key"]: item["count"] for item in response.data["service_status"]}
+        self.assertEqual(status_counts, {
+            "in_warranty": 1,
+            "expiring_30": 1,
+            "expiring_180": 1,
+            "expired": 1,
+            "unmaintained": 1,
+        })
+        self.assertEqual(sum(item["count"] for item in response.data["expiry_trend"]), 2)
+        self.assertEqual({item["customer_name"] for item in response.data["attention_customers"]}, {"总览客户甲", "总览客户乙"})

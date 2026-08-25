@@ -48,6 +48,10 @@ export function fetchDashboardReminders() {
   return apiClient.get('/dashboard-reminders/')
 }
 
+export function fetchDashboardOverview() {
+  return apiClient.get('/dashboard-overview/')
+}
+
 export function confirmDashboardReminder(reminderKey) {
   return apiClient.post('/dashboard-reminders/confirm/', { reminder_key: reminderKey })
 }

@@ -263,6 +263,121 @@ def dashboard_reminder_items(user):
     return sorted(reminder_items, key=lambda item: (item["priority"], item["target_date"], item["key"]))
 
 
+def dashboard_overview_data(user):
+    """Build the workbench overview from each visible device's current service period."""
+    today = timezone.localdate()
+    current_binding = ProjectDevice.objects.filter(
+        device_id=OuterRef("pk"),
+        is_deleted=False,
+        project__is_deleted=False,
+    ).order_by("-service_end_date", "-updated_at", "-id")
+    devices = filter_device_queryset_for_user(
+        Device.objects.filter(is_deleted=False),
+        user,
+    ).annotate(
+        current_service_start=Subquery(current_binding.values("service_start_date")[:1]),
+        current_service_end=Subquery(current_binding.values("service_end_date")[:1]),
+        current_project_customer_id=Subquery(current_binding.values("project__customer_org_id")[:1]),
+        current_project_customer_name=Subquery(current_binding.values("project__customer_org__name")[:1]),
+    ).values(
+        "id",
+        "customer_org_id",
+        "customer_org__name",
+        "current_service_start",
+        "current_service_end",
+        "current_project_customer_id",
+        "current_project_customer_name",
+    )
+
+    status_counts = {
+        "in_warranty": 0,
+        "expiring_30": 0,
+        "expiring_180": 0,
+        "expired": 0,
+        "unmaintained": 0,
+    }
+    customer_stats = {}
+    month_start = today.replace(day=1)
+
+    def month_after(start, offset):
+        month_index = start.month - 1 + offset
+        return start.replace(year=start.year + month_index // 12, month=month_index % 12 + 1, day=1)
+
+    trend_months = [month_after(month_start, offset) for offset in range(6)]
+    trend_counts = {item.strftime("%Y-%m"): 0 for item in trend_months}
+
+    for device in devices:
+        start_date = device["current_service_start"]
+        end_date = device["current_service_end"]
+        if start_date and end_date and start_date <= today <= end_date:
+            days_left = (end_date - today).days
+            if days_left <= 30:
+                status_key = "expiring_30"
+            elif days_left <= 180:
+                status_key = "expiring_180"
+            else:
+                status_key = "in_warranty"
+        elif end_date and end_date < today:
+            status_key = "expired"
+        else:
+            status_key = "unmaintained"
+        status_counts[status_key] += 1
+
+        customer_id = device["current_project_customer_id"] or device["customer_org_id"]
+        customer_name = device["current_project_customer_name"] or device["customer_org__name"]
+        if customer_id:
+            stat = customer_stats.setdefault(customer_id, {
+                "customer_id": customer_id,
+                "customer_name": customer_name or "未命名客户",
+                "device_count": 0,
+                "in_warranty": 0,
+                "expiring_30": 0,
+                "expired": 0,
+            })
+            stat["device_count"] += 1
+            if status_key in {"in_warranty", "expiring_30", "expiring_180"}:
+                stat["in_warranty"] += 1
+            if status_key == "expiring_30":
+                stat["expiring_30"] += 1
+            if status_key == "expired":
+                stat["expired"] += 1
+
+        if status_key in {"in_warranty", "expiring_30", "expiring_180"} and end_date:
+            month_key = end_date.strftime("%Y-%m")
+            if month_key in trend_counts:
+                trend_counts[month_key] += 1
+
+    active_warranty_count = status_counts["in_warranty"] + status_counts["expiring_30"] + status_counts["expiring_180"]
+    status_items = [
+        {"key": "in_warranty", "label": "在保（180天后到期）", "count": status_counts["in_warranty"], "color": "#35b7a8"},
+        {"key": "expiring_30", "label": "30天内到期", "count": status_counts["expiring_30"], "color": "#f2a93b"},
+        {"key": "expiring_180", "label": "31-180天到期", "count": status_counts["expiring_180"], "color": "#5b9cf6"},
+        {"key": "expired", "label": "已过保", "count": status_counts["expired"], "color": "#eb6b6b"},
+        {"key": "unmaintained", "label": "未维护服务期", "count": status_counts["unmaintained"], "color": "#a7b1c2"},
+    ]
+    attention_customers = sorted(
+        customer_stats.values(),
+        key=lambda item: (item["expired"] + item["expiring_30"], item["device_count"]),
+        reverse=True,
+    )[:10]
+
+    return {
+        "metrics": {
+            "devices_total": sum(status_counts.values()),
+            "in_warranty": active_warranty_count,
+            "expiring_30": status_counts["expiring_30"],
+            "expired": status_counts["expired"],
+            "customers_total": len(customer_stats),
+        },
+        "service_status": status_items,
+        "expiry_trend": [
+            {"month": item.strftime("%Y-%m"), "label": f"{item.year}年{item.month}月", "count": trend_counts[item.strftime("%Y-%m")]}
+            for item in trend_months
+        ],
+        "attention_customers": attention_customers,
+    }
+
+
 class OrganizationViewSet(SoftDeleteModelViewSet):
     menu_code = "customers"
     queryset = Organization.objects.all().order_by("id")
@@ -761,6 +876,11 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 def dashboard_reminders(request):
     items = dashboard_reminder_items(request.user)
     return Response({"count": len(items), "results": items})
+
+
+@api_view(["GET"])
+def dashboard_overview(request):
+    return Response(dashboard_overview_data(request.user))
 
 
 @api_view(["POST"])
