@@ -32,10 +32,11 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+backend/licensing/public_key.pem
+license-private.pem
 
 # IDE / OS
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
-

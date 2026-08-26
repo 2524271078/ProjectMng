@@ -12,6 +12,7 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     isAuthenticated: (state) => Boolean(state.token),
     isSuperuser: (state) => Boolean(state.user?.is_superuser),
+    isLicenseOperator: (state) => state.user?.username === 'xushaotai',
     menuCodes: (state) => buildMenuCodeSet(state.menus),
   },
   actions: {

@@ -1,4 +1,5 @@
 ﻿from django.contrib.auth import authenticate
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
@@ -46,6 +47,9 @@ class UserViewSet(SystemModelViewSet):
         "access_profile__sales_scopes__sales_person",
     ).all().order_by("id")
     serializer_class = UserSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().exclude(username=settings.LICENSE_OPERATOR_USERNAME)
 
 
 class RoleViewSet(SystemModelViewSet):

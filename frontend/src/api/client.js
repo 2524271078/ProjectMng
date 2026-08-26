@@ -16,9 +16,13 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const isLoginRequest = error.config?.url?.includes('/auth/login/')
+    const isLicenseRequest = error.config?.url?.includes('/license/')
     if (error.response?.status === 401 && !isLoginRequest && typeof window !== 'undefined') {
       localStorage.removeItem('pm_token')
       if (!window.location.pathname.startsWith('/login')) window.location.assign('/login?reason=timeout')
+    }
+    if (error.response?.status === 423 && error.response?.data?.code === 'LICENSE_EXPIRED' && !isLicenseRequest && typeof window !== 'undefined') {
+      if (!window.location.pathname.startsWith('/license-locked')) window.location.assign('/license-locked')
     }
     return Promise.reject(error)
   },

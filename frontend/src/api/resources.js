@@ -56,6 +56,18 @@ export function confirmDashboardReminder(reminderKey) {
   return apiClient.post('/dashboard-reminders/confirm/', { reminder_key: reminderKey })
 }
 
+export function fetchLicenseStatus() {
+  return apiClient.get('/license/')
+}
+
+export function fetchLicenseRequest() {
+  return apiClient.get('/license/request/')
+}
+
+export function activateLicense(license) {
+  return apiClient.post('/license/activate/', { license })
+}
+
 export function fetchCustomerOverview(id) {
   return apiClient.get(`/customers/${id}/overview/`)
 }

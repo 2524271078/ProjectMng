@@ -44,6 +44,7 @@ import {
   FolderOpened,
   HomeFilled,
   Monitor,
+  Key,
   OfficeBuilding,
   Setting,
   TrendCharts,
@@ -66,9 +67,12 @@ const menuItems = [
   { index: '/products', label: '设备型号', code: 'products', icon: Cpu },
   { index: '/people', label: '人员管理', code: 'people', icon: User },
   { index: '/system', label: '系统管理', code: 'system', icon: Setting },
+  { index: '/license', label: '授权管理', licenseOperator: true, icon: Key },
 ]
 
-const visibleMenuItems = computed(() => menuItems.filter((item) => auth.hasMenu(item.code)))
+const visibleMenuItems = computed(() => menuItems.filter((item) => (
+  item.licenseOperator ? auth.isLicenseOperator : auth.hasMenu(item.code)
+)))
 const currentUserLabel = computed(() => {
   const username = auth.user?.username || '未知账号'
   const personName = auth.user?.access_profile?.bound_person?.name

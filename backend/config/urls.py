@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 
 from accounts.views import MenuViewSet, PermissionViewSet, RoleViewSet, UserRoleViewSet, UserViewSet, current_user_view, login_view
+from licensing.views import activate_license_view, license_request_view, license_status_view
 from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, confirm_dashboard_reminder, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, dashboard_overview, dashboard_reminders, DeviceModelViewSet, DeviceOperationRecordViewSet, DeviceServicePlanViewSet, DeviceServiceScheduleViewSet, DeviceViewSet, InspectionTaskViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectContractViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, ServiceStandardTemplateViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
 
 router = DefaultRouter()
@@ -50,6 +51,9 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/login/", login_view),
     path("api/auth/me/", current_user_view),
+    path("api/license/", license_status_view),
+    path("api/license/request/", license_request_view),
+    path("api/license/activate/", activate_license_view),
     path("api/dashboard-overview/", dashboard_overview),
     path("api/dashboard-reminders/", dashboard_reminders),
     path("api/dashboard-reminders/confirm/", confirm_dashboard_reminder),

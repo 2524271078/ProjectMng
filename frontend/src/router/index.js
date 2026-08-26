@@ -11,9 +11,12 @@ import ContractCenterView from '../views/ContractCenterView.vue'
 import ProductModelView from '../views/ProductModelView.vue'
 import PersonManageView from '../views/PersonManageView.vue'
 import SystemManageView from '../views/SystemManageView.vue'
+import LicenseManageView from '../views/LicenseManageView.vue'
+import LicenseLockedView from '../views/LicenseLockedView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
+  { path: '/license-locked', component: LicenseLockedView },
   {
     path: '/',
     component: AdminLayout,
@@ -28,6 +31,7 @@ const routes = [
       { path: 'products', component: ProductModelView, meta: { title: '设备型号管理', menuCode: 'products' } },
       { path: 'people', component: PersonManageView, meta: { title: '人员管理', menuCode: 'people' } },
       { path: 'system', component: SystemManageView, meta: { title: '系统管理', menuCode: 'system' } },
+      { path: 'license', component: LicenseManageView, meta: { title: '授权管理', licenseOperator: true } },
     ],
   },
 ]
@@ -41,6 +45,7 @@ router.beforeEach(async (to) => {
   if (auth.isAuthenticated && !auth.user) {
     await auth.loadCurrentUser()
   }
+  if (to.meta?.licenseOperator && !auth.isLicenseOperator) return '/dashboard'
   const menuCode = to.meta?.menuCode
   if (menuCode && !auth.hasMenu(menuCode)) return '/dashboard'
 })

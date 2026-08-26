@@ -20,8 +20,8 @@ def load_local_env():
 
 load_local_env()
 
-SECRET_KEY = "dev-only-project-management-secret-key"
-DEBUG = True
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-project-management-secret-key")
+DEBUG = os.getenv("DEBUG", "true").strip().lower() in {"1", "true", "yes", "on"}
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "core",
     "accounts",
     "projects",
+    "licensing",
 ]
 
 MIDDLEWARE = [
@@ -48,6 +49,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "licensing.middleware.LicenseEnforcementMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -113,3 +115,10 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = True
 
 TOKEN_IDLE_TIMEOUT_SECONDS = 30 * 60
+
+# 开发环境默认不锁定，正式环境（DEBUG=False）默认启用离线授权校验。
+LICENSE_ENFORCEMENT_ENABLED = os.getenv(
+    "LICENSE_ENFORCEMENT_ENABLED", "false" if DEBUG else "true"
+).strip().lower() in {"1", "true", "yes", "on"}
+LICENSE_OPERATOR_USERNAME = os.getenv("LICENSE_OPERATOR_USERNAME", "xushaotai")
+LICENSE_PUBLIC_KEY_PATH = os.getenv("LICENSE_PUBLIC_KEY_PATH", str(BASE_DIR / "licensing" / "public_key.pem"))
