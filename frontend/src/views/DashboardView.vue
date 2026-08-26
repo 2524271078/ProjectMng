@@ -18,7 +18,7 @@
     </section>
 
     <el-row :gutter="18" class="dashboard-row">
-      <el-col :xs="24" :lg="15">
+      <el-col v-if="false" :xs="24" :lg="15">
         <el-card class="todo-card" shadow="never" v-loading="loading">
           <template #header>
             <div class="todo-card__header">
@@ -57,7 +57,7 @@
         </el-card>
       </el-col>
 
-      <el-col :xs="24" :lg="9">
+      <el-col :xs="24" :lg="24">
         <el-card class="chart-card service-chart-card" shadow="never" v-loading="overviewLoading">
           <template #header>
             <div class="card-title">
@@ -264,7 +264,6 @@ function daysLeftLabel(daysLeft) {
 
 onMounted(() => {
   loadOverview()
-  loadReminders()
 })
 </script>
 

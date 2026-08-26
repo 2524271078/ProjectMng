@@ -14,6 +14,7 @@
           <span>{{ item.label }}</span>
         </el-menu-item>
       </el-menu>
+      <NotificationCenter />
     </aside>
     <main class="main-panel">
       <header class="topbar">
@@ -51,6 +52,7 @@ import {
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import brandLogo from '../assets/brand-warrior.png'
+import NotificationCenter from '../components/NotificationCenter.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
