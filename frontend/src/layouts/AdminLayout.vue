@@ -9,7 +9,10 @@
         </div>
       </div>
       <el-menu router :default-active="$route.path" class="side-menu">
-        <el-menu-item v-for="item in visibleMenuItems" :key="item.index" :index="item.index">{{ item.label }}</el-menu-item>
+        <el-menu-item v-for="item in visibleMenuItems" :key="item.index" :index="item.index">
+          <el-icon><component :is="item.icon" /></el-icon>
+          <span>{{ item.label }}</span>
+        </el-menu-item>
       </el-menu>
     </aside>
     <main class="main-panel">
@@ -36,6 +39,17 @@
 
 <script setup>
 import { computed } from 'vue'
+import {
+  Cpu,
+  Document,
+  FolderOpened,
+  HomeFilled,
+  Monitor,
+  OfficeBuilding,
+  Setting,
+  TrendCharts,
+  User,
+} from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -43,15 +57,15 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const menuItems = [
-  { index: '/dashboard', label: '工作台' },
-  { index: '/customers', label: '客户中心', code: 'customers' },
-  { index: '/devices', label: '项目中心', code: 'devices' },
-  { index: '/device-center', label: '设备中心', code: 'device-center' },
-  { index: '/sales', label: '销售中心', code: 'sales' },
-  { index: '/contracts', label: '合同中心', code: 'contracts' },
-  { index: '/products', label: '设备型号', code: 'products' },
-  { index: '/people', label: '人员管理', code: 'people' },
-  { index: '/system', label: '系统管理', code: 'system' },
+  { index: '/dashboard', label: '工作台', icon: HomeFilled },
+  { index: '/customers', label: '客户中心', code: 'customers', icon: OfficeBuilding },
+  { index: '/devices', label: '项目中心', code: 'devices', icon: FolderOpened },
+  { index: '/device-center', label: '设备中心', code: 'device-center', icon: Monitor },
+  { index: '/sales', label: '销售中心', code: 'sales', icon: TrendCharts },
+  { index: '/contracts', label: '合同中心', code: 'contracts', icon: Document },
+  { index: '/products', label: '设备型号', code: 'products', icon: Cpu },
+  { index: '/people', label: '人员管理', code: 'people', icon: User },
+  { index: '/system', label: '系统管理', code: 'system', icon: Setting },
 ]
 
 const visibleMenuItems = computed(() => menuItems.filter((item) => auth.hasMenu(item.code)))
@@ -71,24 +85,22 @@ function handleLogout() {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .current-user {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 14px;
-  color: #60758a;
-  background: #fff;
-  border: 1px solid #dfe8ef;
-  border-radius: 8px;
-  font-size: 13px;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--app-subtle);
+  font-size: 12px;
 }
 
 .current-user strong {
-  color: #243a52;
-  font-size: 14px;
+  color: var(--app-text);
+  font-size: 13px;
+  font-weight: 620;
 }
 </style>

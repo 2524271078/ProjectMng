@@ -1,18 +1,14 @@
 <template>
   <main class="login-page">
-    <section class="login-hero">
-      <span class="eyebrow">Delivery Hub</span>
-      <h1>交付中台</h1>
-      <p>客户、项目、设备、合同统一协同，支撑交付全过程管理。</p>
-    </section>
-    <el-card class="login-card" shadow="never">
-      <h2>登录交付中台</h2>
+    <div class="login-art" aria-hidden="true"><i /><b /><em /></div>
+    <section class="login-card" aria-labelledby="login-title">
+      <h1 id="login-title">交付中台</h1>
       <el-form :model="form" @submit.prevent="submit">
-        <el-form-item label="用户名"><el-input v-model="form.username" /></el-form-item>
-        <el-form-item label="密码"><el-input v-model="form.password" type="password" show-password /></el-form-item>
+        <el-form-item><el-input v-model="form.username" aria-label="用户名" autocomplete="username" placeholder="用户名" /></el-form-item>
+        <el-form-item><el-input v-model="form.password" aria-label="密码" autocomplete="current-password" placeholder="密码" type="password" show-password /></el-form-item>
         <el-button type="primary" :loading="loading" class="login-button" @click="submit">登录</el-button>
       </el-form>
-    </el-card>
+    </section>
   </main>
 </template>
 
