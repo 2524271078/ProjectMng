@@ -19,7 +19,6 @@
       <header class="topbar">
         <div>
           <h1>{{ $route.meta.title || '工作台' }}</h1>
-          <p>客户、项目、设备、合同统一协同</p>
         </div>
         <div class="topbar-actions">
           <div class="current-user" title="当前登录账号">

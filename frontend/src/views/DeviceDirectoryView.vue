@@ -3,10 +3,10 @@
     <div class="section-head">
       <div>
         <span class="eyebrow-dark">Device Center</span>
-        <h2>设备中心</h2>
+        <h2>设备资产</h2>
       </div>
       <div class="action-row">
-        <el-button type="primary" plain @click="loadDevices">刷新设备</el-button>
+        <el-button @click="loadDevices">刷新设备</el-button>
       </div>
     </div>
 
@@ -47,6 +47,35 @@
           />
         </div>
         <div class="toolbar-filter-actions">
+          <div class="toolbar-stats">
+            <button
+              type="button"
+              class="stat-card"
+              :class="{ 'is-active': statusFilter === 'all' }"
+              @click="setStatusFilter('all')"
+            >
+              <span class="stat-label">设备总数</span>
+              <strong class="stat-value">{{ devices.length }}</strong>
+            </button>
+            <button
+              type="button"
+              class="stat-card"
+              :class="{ 'is-active': statusFilter === 'in' }"
+              @click="setStatusFilter('in')"
+            >
+              <span class="stat-label">保内设备</span>
+              <strong class="stat-value">{{ warrantyStats.inWarranty }}</strong>
+            </button>
+            <button
+              type="button"
+              class="stat-card"
+              :class="{ 'is-active': statusFilter === 'out' }"
+              @click="setStatusFilter('out')"
+            >
+              <span class="stat-label">保外设备</span>
+              <strong class="stat-value">{{ warrantyStats.outOfWarranty }}</strong>
+            </button>
+          </div>
           <el-select v-model="serviceTypeFilter" class="service-type-select" placeholder="设备状态" @change="handleServiceTypeFilterChange">
             <el-option label="全部状态" value="all" />
             <el-option v-for="option in serviceTypeOptions" :key="option.value" :label="option.label" :value="option.value" />
@@ -62,44 +91,15 @@
           </div>
         </div>
       </div>
-      <div class="toolbar-stats">
-        <button
-          type="button"
-          class="stat-card"
-          :class="{ 'is-active': statusFilter === 'all' }"
-          @click="setStatusFilter('all')"
-        >
-          <span class="stat-label">设备总数</span>
-          <strong class="stat-value">{{ devices.length }}</strong>
-        </button>
-        <button
-          type="button"
-          class="stat-card"
-          :class="{ 'is-active': statusFilter === 'in' }"
-          @click="setStatusFilter('in')"
-        >
-          <span class="stat-label">保内设备</span>
-          <strong class="stat-value">{{ warrantyStats.inWarranty }}</strong>
-        </button>
-        <button
-          type="button"
-          class="stat-card"
-          :class="{ 'is-active': statusFilter === 'out' }"
-          @click="setStatusFilter('out')"
-        >
-          <span class="stat-label">保外设备</span>
-          <strong class="stat-value">{{ warrantyStats.outOfWarranty }}</strong>
-        </button>
-      </div>
     </section>
 
     <div class="page-table-scroll">
-      <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" stripe height="100%">
+      <el-table v-loading="devicePagination.loading" :data="devicePagination.rows" height="100%">
         <el-table-column label="设备名称" min-width="180" show-overflow-tooltip>
           <template #default="scope">{{ scope.row.device_model_detail?.model_name || '-' }}</template>
         </el-table-column>
         <el-table-column label="当前保内状态" min-width="120">
-          <template #default="scope">{{ scope.row.current_service_status || '-' }}</template>
+          <template #default="scope"><el-tag :type="serviceStatusTagType(scope.row.current_service_status)" effect="light">{{ scope.row.current_service_status || '-' }}</el-tag></template>
         </el-table-column>
         <el-table-column label="合同开始" min-width="140">
           <template #default="scope">{{ scope.row.current_service_start_date || '-' }}</template>
@@ -654,6 +654,12 @@ function serviceContentsLabel(values) {
   return values.map((value) => serviceContentLabels[value] || value).join('、')
 }
 
+function serviceStatusTagType(status) {
+  if (status === '保内') return 'success'
+  if (status === '已过保' || status === '未维护服务期') return 'danger'
+  return 'warning'
+}
+
 function inspectionTaskStatusLabel(value) {
   return INSPECTION_TASK_STATUS_LABELS[value] || value || '-'
 }
@@ -677,18 +683,18 @@ watch(
 .device-toolbar {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 24px;
-  margin-bottom: 16px;
-  background: #ffffff;
-  border: 1px solid #e8edf5;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
 }
 
 .toolbar-main {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .dashboard-filter-banner {
@@ -696,27 +702,31 @@ watch(
   align-items: center;
   justify-content: space-between;
   padding: 9px 12px;
-  border: 1px solid #b8d6ff;
-  border-radius: 6px;
-  background: #f1f7ff;
-  color: #41627f;
+  border: 1px solid #cce0da;
+  border-radius: var(--app-radius);
+  background: var(--app-primary-soft);
+  color: #4d6660;
   font-size: 13px;
 }
 
 .dashboard-filter-banner strong {
-  color: #2667bd;
+  color: #12645c;
 }
 
 .toolbar-search-fields {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .toolbar-filter-actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid #edf0ed;
 }
 
 .search-input {
@@ -733,44 +743,49 @@ watch(
 }
 
 .toolbar-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 
 .stat-card {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 18px;
-  background: #f7fbff;
-  border: 1px solid #dbe7f5;
-  border-radius: 8px;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  overflow: hidden;
+  background: #fafbf9;
+  border: 1px solid var(--app-border);
+  border-radius: 999px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--app-transition), background-color var(--app-transition), transform var(--app-transition);
 }
 
 .stat-card:hover {
-  border-color: #7ba7d9;
-  background: #f1f7ff;
+  border-color: #c7d9d3;
+  background: #f5f8f6;
+  transform: translateY(-1px);
 }
 
 .stat-card.is-active {
-  border-color: #2f7cf6;
-  background: #eaf2ff;
-  box-shadow: 0 0 0 1px rgba(47, 124, 246, 0.12);
+  border-color: #9cc5ba;
+  background: var(--app-primary-soft);
 }
 
 .stat-label {
-  font-size: 13px;
-  color: #5f6b7a;
+  color: var(--app-subtle);
+  font-size: 12px;
 }
 
 .stat-value {
-  font-size: 24px;
-  color: #183153;
-  line-height: 1;
+  color: var(--app-ink);
+  font-size: 17px;
+  font-weight: 670;
+  letter-spacing: -.035em;
+  line-height: .95;
 }
 
 .table-pagination {
@@ -786,7 +801,7 @@ watch(
 }
 
 .service-schedule-table {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .form-select {
@@ -796,7 +811,33 @@ watch(
 .form-suffix {
   margin-left: 8px;
   white-space: nowrap;
-  color: #606266;
+  color: var(--app-subtle);
+}
+
+@media (max-width: 1100px) {
+  .toolbar-search-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1600px) {
+  .toolbar-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+  .toolbar-filter-actions {
+    justify-content: flex-end;
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .section-head, .toolbar-filter-actions { align-items: flex-start; flex-direction: column; }
+  .toolbar-filter-actions { width: 100%; }
+  .toolbar-filter-actions .action-row { width: 100%; }
+  .toolbar-search-fields { grid-template-columns: 1fr; }
+  .toolbar-stats { width: 100%; flex-wrap: wrap; }
+  .service-type-select { width: 100%; }
 }
 
 </style>
