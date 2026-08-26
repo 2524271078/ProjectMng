@@ -22,7 +22,7 @@ const routes = [
     component: AdminLayout,
     redirect: '/dashboard',
     children: [
-      { path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
+      { path: 'dashboard', component: DashboardView, meta: { title: '仪表盘' } },
       { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心', menuCode: 'customers' } },
       { path: 'devices', component: DeviceCenterView, meta: { title: '项目中心', menuCode: 'devices' } },
       { path: 'device-center', component: DeviceDirectoryView, meta: { title: '设备中心', menuCode: 'device-center' } },

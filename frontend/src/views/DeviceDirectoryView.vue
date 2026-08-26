@@ -12,7 +12,7 @@
 
     <section class="device-toolbar">
       <div v-if="dashboardFilterLabel" class="dashboard-filter-banner">
-        <span>当前工作台筛选：<strong>{{ dashboardFilterLabel }}</strong></span>
+        <span>当前仪表盘筛选：<strong>{{ dashboardFilterLabel }}</strong></span>
         <el-button link type="primary" @click="clearDashboardFilter">清除筛选</el-button>
       </div>
       <div class="toolbar-main">

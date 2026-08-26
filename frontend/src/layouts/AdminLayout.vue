@@ -19,7 +19,7 @@
     <main class="main-panel">
       <header class="topbar">
         <div>
-          <h1>{{ $route.meta.title || '工作台' }}</h1>
+          <h1>{{ $route.meta.title || '仪表盘' }}</h1>
         </div>
         <div class="topbar-actions">
           <div class="current-user" title="当前登录账号">
@@ -59,7 +59,7 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const menuItems = [
-  { index: '/dashboard', label: '工作台', icon: HomeFilled },
+  { index: '/dashboard', label: '仪表盘', icon: HomeFilled },
   { index: '/customers', label: '客户中心', code: 'customers', icon: OfficeBuilding },
   { index: '/devices', label: '项目中心', code: 'devices', icon: FolderOpened },
   { index: '/device-center', label: '设备中心', code: 'device-center', icon: Monitor },
