@@ -702,15 +702,15 @@ watch(
   align-items: center;
   justify-content: space-between;
   padding: 9px 12px;
-  border: 1px solid #cce0da;
+  border: 1px solid #d7e3ff;
   border-radius: var(--app-radius);
   background: var(--app-primary-soft);
-  color: #4d6660;
+  color: #66758c;
   font-size: 13px;
 }
 
 .dashboard-filter-banner strong {
-  color: #12645c;
+  color: var(--app-primary);
 }
 
 .toolbar-search-fields {
@@ -726,7 +726,7 @@ watch(
   gap: 12px;
   flex-wrap: wrap;
   padding-top: 10px;
-  border-top: 1px solid #edf0ed;
+  border-top: 1px solid #e8eef6;
 }
 
 .search-input {
@@ -756,7 +756,7 @@ watch(
   gap: 7px;
   padding: 0 10px;
   overflow: hidden;
-  background: #fafbf9;
+  background: #fff;
   border: 1px solid var(--app-border);
   border-radius: 999px;
   text-align: left;
@@ -765,13 +765,13 @@ watch(
 }
 
 .stat-card:hover {
-  border-color: #c7d9d3;
-  background: #f5f8f6;
+  border-color: #cbd9ff;
+  background: #f5f8ff;
   transform: translateY(-1px);
 }
 
 .stat-card.is-active {
-  border-color: #9cc5ba;
+  border-color: #b9caff;
   background: var(--app-primary-soft);
 }
 

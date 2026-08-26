@@ -2,7 +2,7 @@
   <div class="admin-shell">
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-mark">PM</span>
+        <span class="brand-mark"><img :src="brandLogo" alt="交付中台 Logo" /></span>
         <div>
           <strong>交付中台</strong>
           <small>Delivery Hub</small>
@@ -51,6 +51,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import brandLogo from '../assets/brand-warrior.png'
 
 const router = useRouter()
 const auth = useAuthStore()

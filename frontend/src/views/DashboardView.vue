@@ -71,7 +71,7 @@
             </div>
             <div class="status-legend">
               <button v-for="item in overview.service_status" :key="item.key" type="button" class="status-legend__item" @click="goToDevices({ overview_filter: item.key })">
-                <i :style="{ backgroundColor: item.color }" />
+                <i :style="{ backgroundColor: statusColor(item.key, item.color) }" />
                 <span>{{ item.label }}</span>
                 <strong>{{ item.count }}</strong>
               </button>
@@ -145,6 +145,13 @@ const loading = ref(false)
 const reminderPage = ref(1)
 const reminderPageSize = 5
 const reminderTypeFilter = ref('all')
+const dashboardStatusColors = {
+  in_warranty_long: '#34C38F',
+  expiring_30: '#F5B96A',
+  expiring_180: '#6FA7FF',
+  expired: '#F06A6A',
+  unmaintained: '#98A4B7',
+}
 
 const metricCards = computed(() => [
   { key: 'devices', label: '设备总数', value: overview.value.metrics.devices_total, desc: '当前可见设备资产', deviceQuery: {} },
@@ -162,14 +169,14 @@ const paginatedReminders = computed(() => filteredReminders.value.slice(
 ))
 const statusChartBackground = computed(() => {
   const total = overview.value.metrics.devices_total
-  if (!total) return '#edf2f7'
+  if (!total) return '#eef4fa'
   let current = 0
   const segments = overview.value.service_status
     .filter((item) => item.count > 0)
     .map((item) => {
       const start = current
       current += item.count / total * 100
-      return `${item.color} ${start}% ${current}%`
+      return `${statusColor(item.key, item.color)} ${start}% ${current}%`
     })
   return `conic-gradient(${segments.join(', ')})`
 })
@@ -214,6 +221,10 @@ async function confirmReminder(reminder) {
 
 function trendBarHeight(count) {
   return `${Math.max(8, Math.round(count / maxTrendCount.value * 100))}%`
+}
+
+function statusColor(key, fallback) {
+  return dashboardStatusColors[key] || fallback
 }
 
 function handleMetricClick(item) {
@@ -328,15 +339,15 @@ onMounted(() => {
   bottom: 0;
   width: 46px;
   height: 3px;
-  background: #c5d6d1;
+  background: #c7d7ff;
   content: '';
 }
 
 .metric-card:hover,
 .status-legend__item:hover,
 .bar-chart__item:hover {
-  border-color: #c4d9d3;
-  box-shadow: 0 8px 18px rgb(31 55 48 / 6%);
+  border-color: #cbd9ff;
+  box-shadow: 0 8px 18px rgb(91 124 250 / 8%);
 }
 
 .metric-card:hover { transform: translateY(-2px); }
@@ -361,15 +372,15 @@ onMounted(() => {
   margin: 15px 0 0;
 }
 
-.metric-card--devices { background: #f2f7f5; border-color: #dceae5; }
+.metric-card--devices { background: #e8f0ff; border-color: #d7e3ff; }
 .metric-card--devices::after, .metric-card--warranty::after { background: var(--app-primary); }
-.metric-card--warranty strong { color: #176d54; }
-.metric-card--expiring { background: #fffcf6; border-color: #f0e6cf; }
-.metric-card--expiring::after { background: #c9933d; }
-.metric-card--expiring strong { color: #9b6719; }
-.metric-card--expired { background: #fffafa; border-color: #efdddd; }
-.metric-card--expired::after { background: #be5a5a; }
-.metric-card--expired strong { color: #a24646; }
+.metric-card--warranty strong { color: #24966e; }
+.metric-card--expiring { background: #fff9f0; border-color: #fae3c3; }
+.metric-card--expiring::after { background: var(--app-warning); }
+.metric-card--expiring strong { color: #c98b36; }
+.metric-card--expired { background: #fff6f6; border-color: #f8d5d5; }
+.metric-card--expired::after { background: var(--app-danger); }
+.metric-card--expired strong { color: #d95b5b; }
 
 .dashboard-row + .dashboard-row {
   margin-top: 14px;
@@ -548,8 +559,8 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.warning-number { color: #a36e18; font-weight: 650; }
-.danger-number { color: #ad4a4a; font-weight: 650; }
+.warning-number { color: #c98b36; font-weight: 650; }
+.danger-number { color: #d95b5b; font-weight: 650; }
 
 @media (max-width: 1200px) {
   .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
