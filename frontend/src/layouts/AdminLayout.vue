@@ -40,7 +40,6 @@
 import { computed } from 'vue'
 import {
   Cpu,
-  Document,
   FolderOpened,
   HomeFilled,
   Monitor,
@@ -62,7 +61,6 @@ const menuItems = [
   { index: '/devices', label: '项目中心', code: 'devices', icon: FolderOpened },
   { index: '/device-center', label: '设备中心', code: 'device-center', icon: Monitor },
   { index: '/sales', label: '销售中心', code: 'sales', icon: TrendCharts },
-  { index: '/contracts', label: '合同中心', code: 'contracts', icon: Document },
   { index: '/products', label: '设备型号', code: 'products', icon: Cpu },
   { index: '/people', label: '人员管理', code: 'people', icon: User },
   { index: '/system', label: '系统管理', code: 'system', icon: Setting },

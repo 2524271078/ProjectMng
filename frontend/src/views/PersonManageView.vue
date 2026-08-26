@@ -8,12 +8,13 @@
       <el-button v-can="['people', 'create']" type="primary" @click="openCreateDialog">新增人员</el-button>
     </div>
 
+    <el-tabs v-model="activePersonType" class="people-type-tabs" @tab-change="handlePersonTypeChange">
+      <el-tab-pane v-for="item in personTypeOptions" :key="item.value" :label="item.label" :name="item.value" />
+    </el-tabs>
+
     <div class="page-table-scroll">
-      <el-table v-loading="peoplePagination.loading" :data="peoplePagination.rows" stripe height="100%">
+      <el-table v-loading="peoplePagination.loading" :data="peoplePagination.rows" height="100%">
         <el-table-column prop="name" label="姓名" min-width="140" />
-        <el-table-column label="人员类型" min-width="130">
-          <template #default="scope">{{ personTypeLabel(scope.row.person_type) }}</template>
-        </el-table-column>
         <el-table-column prop="position" label="职位" min-width="120" />
         <el-table-column prop="phone" label="电话" min-width="140" />
         <el-table-column prop="email" label="邮箱" min-width="220" />
@@ -132,6 +133,7 @@ const salesCustomers = ref([])
 const detailCustomerPage = ref(1)
 const detailCustomerPageSize = 5
 const peoplePagination = buildPaginationState()
+const activePersonType = ref('sales')
 const form = reactive({ name: '', person_type: 'sales', organization: null, position: '', phone: '', email: '', wechat: '' })
 
 const relatedDeviceCount = computed(() => salesCustomers.value.reduce((total, customer) => total + (customer.devices?.length || 0), 0))
@@ -147,6 +149,7 @@ async function loadPeople() {
     const { data } = await listResource('people', {
       page: peoplePagination.page,
       page_size: peoplePagination.pageSize,
+      person_type: activePersonType.value,
     })
     applyPaginationResponse(peoplePagination, data)
   } catch (error) {
@@ -164,6 +167,11 @@ function handlePageChange(page) {
 function handlePageSizeChange(pageSize) {
   peoplePagination.page = 1
   peoplePagination.pageSize = pageSize
+  loadPeople()
+}
+
+function handlePersonTypeChange() {
+  peoplePagination.page = 1
   loadPeople()
 }
 
@@ -231,6 +239,7 @@ async function savePerson() {
     ElMessage.warning('请填写姓名')
     return
   }
+  const savedPersonType = form.person_type
   saving.value = true
   try {
     let personId = editingId.value
@@ -248,6 +257,7 @@ async function savePerson() {
     resetForm()
     editingId.value = null
     customerIds.value = []
+    activePersonType.value = savedPersonType
     await loadPeople()
   } catch (error) {
     ElMessage.error(formatApiError(error))
@@ -267,6 +277,7 @@ onMounted(loadPeople)
 </script>
 
 <style scoped>
+.people-type-tabs { flex-shrink: 0; margin-bottom: 6px; }
 .person-detail { min-height: 150px; }
 .person-detail-section { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 12px; }
 .person-detail-title { color: #1c2b3f; font-size: 16px; font-weight: 700; }
