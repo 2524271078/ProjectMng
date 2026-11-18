@@ -55,7 +55,7 @@
               @click="setStatusFilter('all')"
             >
               <span class="stat-label">设备总数</span>
-              <strong class="stat-value">{{ devices.length }}</strong>
+              <strong class="stat-value">{{ warrantyStats.all }}</strong>
             </button>
             <button
               type="button"
@@ -270,14 +270,12 @@ import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import DeviceDetailDescriptions from '../components/DeviceDetailDescriptions.vue'
 import DeviceServiceWorkspace from '../components/DeviceServiceWorkspace.vue'
-import { createResource, fetchDeviceOverview, listAllResource } from '../api/resources'
+import { createResource, fetchDeviceOverview, listAllResource, listResource } from '../api/resources'
 import { formatApiError, unwrapList } from '../utils/apiData'
 import { INSPECTION_TASK_STATUS_LABELS, OPERATION_RECORD_TYPE_LABELS, SERVICE_TYPE_LABELS, signingSubjectLabel } from '../utils/displayMaps'
-import { filterDevices } from '../utils/deviceFilters'
 import { formatLocalDateTime } from '../utils/localDateTime'
 import { applyPaginationResponse, buildPaginationState } from '../utils/pagination'
 
-const devices = ref([])
 const deviceDetailVisible = ref(false)
 const selectedDevice = ref(null)
 const deviceDetailTab = ref('basic')
@@ -314,13 +312,7 @@ const serviceTypeOptions = Object.entries(SERVICE_TYPE_LABELS).map(([value, labe
 const inspectionFrequencyLabels = { monthly: '每月', quarterly: '每季度', semiannual: '每半年', annual: '每年', custom: '自定义天数' }
 const serviceContentLabels = { inspection: '巡检', system_upgrade: '系统升级', rule_library_upgrade: '规则库升级', technical_support: '技术支持', fault_handling: '故障处理' }
 
-const warrantyStats = computed(() => {
-  const inWarranty = devices.value.filter((item) => item.current_service_status === '保内').length
-  return {
-    inWarranty,
-    outOfWarranty: devices.value.length - inWarranty,
-  }
-})
+const warrantyStats = reactive({ all: 0, inWarranty: 0, outOfWarranty: 0 })
 const availableInspectionTasks = computed(() => deviceInspectionTasks.value.filter((item) => (
   item.service_plan === operationRecordForm.servicePlanId
   && item.task_type === operationRecordForm.recordType
@@ -341,12 +333,6 @@ const dashboardFilterLabel = computed(() => {
   return labels[dashboardFilter.value] || ''
 })
 
-const filteredDevices = computed(() => filterDevices(devices.value, {
-  warrantyStatus: statusFilter.value,
-  serviceType: serviceTypeFilter.value,
-  signingSubject: signingSubjectFilter.value,
-}))
-
 function buildSearchParams() {
   const deviceName = deviceNameKeyword.value.trim()
   const customerName = customerNameKeyword.value.trim()
@@ -361,6 +347,11 @@ function buildSearchParams() {
     ...(serviceEndFrom.value ? { service_end_from: serviceEndFrom.value } : {}),
     ...(serviceEndTo.value ? { service_end_to: serviceEndTo.value } : {}),
     ...(dashboardCustomerId.value ? { customer_id: dashboardCustomerId.value } : {}),
+    ...(statusFilter.value !== 'all' ? { warranty_status: statusFilter.value } : {}),
+    ...(serviceTypeFilter.value !== 'all' ? { service_type: serviceTypeFilter.value } : {}),
+    ...(signingSubjectFilter.value !== 'all' ? { signing_subject: signingSubjectFilter.value } : {}),
+    page: devicePagination.page,
+    page_size: devicePagination.pageSize,
   }
 }
 
@@ -384,49 +375,41 @@ function clearDashboardFilter() {
   router.replace({ path: route.path })
 }
 
-function syncDevicePagination() {
-  const total = filteredDevices.value.length
-  const totalPages = total ? Math.ceil(total / devicePagination.pageSize) : 1
-  if (devicePagination.page > totalPages) {
-    devicePagination.page = totalPages
-  }
-  const start = (devicePagination.page - 1) * devicePagination.pageSize
-  const end = start + devicePagination.pageSize
-  applyPaginationResponse(devicePagination, {
-    count: total,
-    page: devicePagination.page,
-    page_size: devicePagination.pageSize,
-    total_pages: totalPages,
-    results: filteredDevices.value.slice(start, end),
-  })
-}
-
 function setStatusFilter(nextFilter) {
   statusFilter.value = nextFilter
   devicePagination.page = 1
-  syncDevicePagination()
+  loadDevices()
 }
 
 function handleServiceTypeFilterChange() {
   devicePagination.page = 1
-  syncDevicePagination()
+  loadDevices()
 }
 
 function handleSigningSubjectFilterChange() {
   devicePagination.page = 1
-  syncDevicePagination()
+  loadDevices()
 }
 
+let deviceRequestSequence = 0
+
 async function loadDevices() {
+  const requestSequence = ++deviceRequestSequence
   devicePagination.loading = true
   try {
-    const { data } = await listAllResource('devices', buildSearchParams())
-    devices.value = unwrapList(data)
-    syncDevicePagination()
+    const { data } = await listResource('devices', buildSearchParams())
+    if (requestSequence !== deviceRequestSequence) return
+    applyPaginationResponse(devicePagination, data)
+    Object.assign(warrantyStats, {
+      all: Number(data.statistics?.all || 0),
+      inWarranty: Number(data.statistics?.in_warranty || 0),
+      outOfWarranty: Number(data.statistics?.out_of_warranty || 0),
+    })
   } catch (error) {
+    if (requestSequence !== deviceRequestSequence) return
     ElMessage.error(formatApiError(error, '加载设备列表失败'))
   } finally {
-    devicePagination.loading = false
+    if (requestSequence === deviceRequestSequence) devicePagination.loading = false
   }
 }
 
@@ -453,13 +436,13 @@ function resetSearch() {
 
 function handlePageChange(page) {
   devicePagination.page = page
-  syncDevicePagination()
+  loadDevices()
 }
 
 function handlePageSizeChange(pageSize) {
   devicePagination.page = 1
   devicePagination.pageSize = pageSize
-  syncDevicePagination()
+  loadDevices()
 }
 
 async function openDeviceDetail(row) {

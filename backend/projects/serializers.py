@@ -70,6 +70,10 @@ class DeviceSerializer(serializers.ModelSerializer):
     def _latest_binding(self, obj):
         if hasattr(obj, '_latest_active_project_binding_cached'):
             return obj._latest_active_project_binding_cached
+        prefetched_bindings = getattr(obj, '_prefetched_active_project_bindings', None)
+        if prefetched_bindings is not None:
+            obj._latest_active_project_binding_cached = prefetched_bindings[0] if prefetched_bindings else None
+            return obj._latest_active_project_binding_cached
         obj._latest_active_project_binding_cached = (
             obj.project_devices.select_related('project__customer_org', 'project__customer_contact', 'project__sales_person')
             .filter(is_deleted=False)

@@ -5,7 +5,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
-from django.db.models import OuterRef, Q, Subquery
+from django.db.models import OuterRef, Prefetch, Q, Subquery
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -586,9 +586,15 @@ class DeviceModelViewSet(SoftDeleteModelViewSet):
 class DeviceViewSet(SoftDeleteModelViewSet):
     menu_code = ["device-center", "customers", "devices"]
     queryset = Device.objects.select_related("device_model", "customer_org", "sales_person", "ops_person").prefetch_related(
-        "project_devices__project__customer_org",
-        "project_devices__project__customer_contact",
-        "project_devices__project__sales_person",
+        Prefetch(
+            "project_devices",
+            queryset=ProjectDevice.objects.filter(is_deleted=False, project__is_deleted=False).select_related(
+                "project__customer_org",
+                "project__customer_contact",
+                "project__sales_person",
+            ).order_by("-service_end_date", "-updated_at", "-id"),
+            to_attr="_prefetched_active_project_bindings",
+        ),
     ).all()
     serializer_class = DeviceSerializer
 
@@ -641,6 +647,7 @@ class DeviceViewSet(SoftDeleteModelViewSet):
             dashboard_service_start=Subquery(current_binding.values("service_start_date")[:1]),
             dashboard_service_end=Subquery(current_binding.values("service_end_date")[:1]),
             dashboard_service_customer_id=Subquery(current_binding.values("project__customer_org_id")[:1]),
+            dashboard_service_type=Subquery(current_binding.values("service_type")[:1]),
         )
         today = timezone.localdate()
         overview_filter = self.request.query_params.get("overview_filter", "").strip()
@@ -677,7 +684,39 @@ class DeviceViewSet(SoftDeleteModelViewSet):
                 Q(dashboard_service_customer_id=customer_id)
                 | Q(dashboard_service_customer_id__isnull=True, customer_org_id=customer_id)
             )
+
+        service_type = self.request.query_params.get("service_type", "").strip()
+        if service_type in {
+            ProjectDevice.SERVICE_NEW_INSTALL,
+            ProjectDevice.SERVICE_RENEWAL,
+            ProjectDevice.SERVICE_OFFLINE,
+        }:
+            queryset = queryset.filter(dashboard_service_type=service_type)
+
+        if getattr(self, "action", "") == "list":
+            total_count = queryset.values("pk").distinct().count()
+            in_warranty_count = queryset.filter(active_service).values("pk").distinct().count()
+            self.device_warranty_statistics = {
+                "all": total_count,
+                "in_warranty": in_warranty_count,
+                "out_of_warranty": total_count - in_warranty_count,
+            }
+
+        warranty_status = self.request.query_params.get("warranty_status", "").strip()
+        if warranty_status == "in":
+            queryset = queryset.filter(active_service)
+        elif warranty_status == "out":
+            queryset = queryset.exclude(active_service)
         return queryset.distinct()
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        response.data["statistics"] = getattr(self, "device_warranty_statistics", {
+            "all": response.data.get("count", 0),
+            "in_warranty": 0,
+            "out_of_warranty": response.data.get("count", 0),
+        })
+        return response
 
 
 class ProjectViewSet(SoftDeleteModelViewSet):

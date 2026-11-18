@@ -376,12 +376,13 @@ class PaginationApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             set(response.data.keys()),
-            {"count", "page", "page_size", "total_pages", "results"},
+            {"count", "page", "page_size", "total_pages", "results", "statistics"},
         )
         self.assertEqual(response.data["page"], 1)
         self.assertEqual(response.data["page_size"], 10)
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["statistics"], {"all": 1, "in_warranty": 0, "out_of_warranty": 1})
 
     def test_people_list_supports_search_and_safe_invalid_pagination_params(self):
         Person.objects.create(name="Target Name", organization=self.org, person_type="sales")
@@ -1264,6 +1265,55 @@ class DeviceDirectoryApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(device.id, [item["id"] for item in api_results(response)])
+
+    def test_device_list_uses_server_pagination_and_server_side_status_filters(self):
+        customer = Organization.objects.create(name="分页设备客户", org_type="customer")
+        product = Product.objects.create(name="分页设备产品", product_code="DEVICE-PAGE-P")
+        model = DeviceModel.objects.create(product=product, model_name="DEVICE-PAGE-1000", model_code="DEVICE-PAGE-1000")
+        project = Project.objects.create(project_no="DEVICE-PAGE-PRJ-001", name="分页设备项目", customer_org=customer)
+        today = timezone.localdate()
+        fixtures = [
+            ("ACTIVE", "new_install", today - timedelta(days=1), today + timedelta(days=30)),
+            ("EXPIRED", "renewal", today - timedelta(days=60), today - timedelta(days=1)),
+            ("UNDATED", "renewal", None, None),
+        ]
+        for suffix, service_type, start_date, end_date in fixtures:
+            device = Device.objects.create(
+                name=f"分页设备-{suffix}",
+                serial_number=f"DEVICE-PAGE-{suffix}",
+                device_model=model,
+                customer_org=customer,
+            )
+            ProjectDevice.objects.create(
+                project=project,
+                device=device,
+                service_type=service_type,
+                service_start_date=start_date,
+                service_end_date=end_date,
+            )
+
+        first_page = self.client.get("/api/devices/?page=1&page_size=1")
+        self.assertEqual(first_page.status_code, 200)
+        self.assertEqual(first_page.data["count"], 3)
+        self.assertEqual(len(first_page.data["results"]), 1)
+        self.assertEqual(first_page.data["statistics"], {
+            "all": 3,
+            "in_warranty": 1,
+            "out_of_warranty": 2,
+        })
+
+        in_warranty = self.client.get("/api/devices/?page=1&page_size=10&warranty_status=in")
+        self.assertEqual(in_warranty.data["count"], 1)
+        self.assertEqual(in_warranty.data["results"][0]["current_service_status"], "保内")
+        self.assertEqual(in_warranty.data["statistics"]["all"], 3)
+
+        renewals = self.client.get("/api/devices/?page=1&page_size=10&service_type=renewal")
+        self.assertEqual(renewals.data["count"], 2)
+        self.assertEqual(renewals.data["statistics"], {
+            "all": 2,
+            "in_warranty": 0,
+            "out_of_warranty": 2,
+        })
 
     def test_device_list_includes_customer_contact_customer_org_and_sales_details(self):
         customer = Organization.objects.create(name="设备中心客户", org_type="customer")
