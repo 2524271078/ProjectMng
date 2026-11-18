@@ -56,6 +56,25 @@ export function confirmDashboardReminder(reminderKey) {
   return apiClient.post('/dashboard-reminders/confirm/', { reminder_key: reminderKey })
 }
 
+export function fetchExpiryEmailReminders(params = {}) {
+  return apiClient.get('/expiry-email-reminders/', { params })
+}
+
+export function sendExpiryEmailReminders(projectDeviceIds = null, forceResend = false, resendSentOnly = false) {
+  const payload = projectDeviceIds === null ? {} : { project_device_ids: projectDeviceIds }
+  if (forceResend) payload.force_resend = true
+  if (resendSentOnly) payload.resend_sent_only = true
+  return apiClient.post('/expiry-email-reminders/', payload)
+}
+
+export function fetchExpiryEmailSettings() {
+  return apiClient.get('/expiry-email-settings/')
+}
+
+export function saveExpiryEmailSettings(ccEmails) {
+  return apiClient.put('/expiry-email-settings/', { cc_emails: ccEmails })
+}
+
 export function fetchLicenseStatus() {
   return apiClient.get('/license/')
 }

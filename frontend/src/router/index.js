@@ -13,6 +13,7 @@ import PersonManageView from '../views/PersonManageView.vue'
 import SystemManageView from '../views/SystemManageView.vue'
 import LicenseManageView from '../views/LicenseManageView.vue'
 import LicenseLockedView from '../views/LicenseLockedView.vue'
+import ExpiryEmailView from '../views/ExpiryEmailView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -26,6 +27,7 @@ const routes = [
       { path: 'customers', component: CustomerCenterView, meta: { title: '客户中心', menuCode: 'customers' } },
       { path: 'devices', component: DeviceCenterView, meta: { title: '项目中心', menuCode: 'devices' } },
       { path: 'device-center', component: DeviceDirectoryView, meta: { title: '设备中心', menuCode: 'device-center' } },
+      { path: 'expiry-emails', component: ExpiryEmailView, meta: { title: '维保邮件提醒', menuCode: 'devices' } },
       { path: 'sales', component: SalesCenterView, meta: { title: '销售中心', menuCode: 'sales' } },
       { path: 'contracts', component: ContractCenterView, meta: { title: '合同中心', menuCode: 'contracts' } },
       { path: 'products', component: ProductModelView, meta: { title: '设备型号管理', menuCode: 'products' } },

@@ -1,6 +1,9 @@
 from datetime import timedelta
 from math import ceil
 
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import OuterRef, Q, Subquery
 from django.shortcuts import get_object_or_404
@@ -13,9 +16,9 @@ from rest_framework import status, viewsets
 
 from accounts.services import filter_queryset_by_sales_scope, get_user_sales_scope
 from accounts.permissions import MenuActionPermission
-from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, DashboardReminderDismissal, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceStandardTemplate
+from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, DashboardReminderDismissal, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceExpiryEmailRecord, ServiceExpiryEmailSetting, ServiceStandardTemplate
 from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceOperationRecordSerializer, DeviceSerializer, DeviceServicePlanSerializer, DeviceServiceScheduleSerializer, InspectionTaskSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer, ServiceStandardTemplateSerializer
-from projects.services import refresh_inspection_task_statuses
+from projects.services import email_delivery_configured, refresh_inspection_task_statuses, send_service_expiry_email, send_service_expiry_email_group, service_expiry_bindings
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
@@ -939,6 +942,189 @@ def confirm_dashboard_reminder(request):
         return Response({"detail": "待办不存在或已失效。"}, status=status.HTTP_404_NOT_FOUND)
     DashboardReminderDismissal.objects.get_or_create(user=request.user, reminder_key=reminder_key)
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def expiry_email_item(binding):
+    record = next(
+        (item for item in binding.expiry_email_records.all() if item.service_end_date == binding.service_end_date),
+        None,
+    )
+    sales = binding.project.sales_person
+    customer = binding.project.customer_org
+    model = binding.device.device_model
+    delivery_status = record.status if record else ServiceExpiryEmailRecord.STATUS_PENDING
+    return {
+        "project_device_id": binding.id,
+        "device_id": binding.device_id,
+        "device_name": binding.device.name,
+        "device_model": model.model_name if model else "",
+        "serial_number": binding.device.serial_number,
+        "project_id": binding.project_id,
+        "project_no": binding.project.project_no,
+        "project_name": binding.project.name,
+        "customer_name": customer.name if customer else "",
+        "sales_name": sales.name if sales else "",
+        "sales_email": (record.recipient_email if record and record.recipient_email else (sales.email if sales else "")),
+        "service_end_date": binding.service_end_date.isoformat(),
+        "days_left": (binding.service_end_date - timezone.localdate()).days,
+        "delivery_status": delivery_status,
+        "sent_at": record.sent_at.isoformat() if record and record.sent_at else None,
+        "attempt_count": record.attempt_count if record else 0,
+        "last_error": record.last_error if record else "",
+        "trigger_source": record.trigger_source if record else "",
+        "can_send": bool(sales and sales.email),
+    }
+
+
+@api_view(["GET", "POST"])
+def expiry_email_reminders(request):
+    queryset = service_expiry_bindings().prefetch_related("expiry_email_records")
+    queryset = filter_queryset_by_sales_scope(queryset, request.user, "project__sales_person_id")
+
+    if request.method == "POST":
+        raw_ids = request.data.get("project_device_ids", None)
+        if raw_ids is not None and not isinstance(raw_ids, list):
+            return Response({"detail": "project_device_ids 必须是数组。"}, status=status.HTTP_400_BAD_REQUEST)
+        binding_ids = set()
+        for raw_id in raw_ids or []:
+            try:
+                binding_ids.add(int(raw_id))
+            except (TypeError, ValueError):
+                return Response({"detail": "存在无效的项目设备编号。"}, status=status.HTTP_400_BAD_REQUEST)
+        if raw_ids is not None:
+            queryset = queryset.filter(id__in=binding_ids)
+
+        force_resend = request.data.get("force_resend", False) is True
+        resend_sent_only = request.data.get("resend_sent_only", False) is True
+        if force_resend and raw_ids is None and not resend_sent_only:
+            return Response({"detail": "批量重新发送必须明确指定仅重发已发送记录。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        source = ServiceExpiryEmailRecord.SOURCE_MANUAL if raw_ids is not None and len(binding_ids) == 1 else ServiceExpiryEmailRecord.SOURCE_BATCH
+        results = []
+        counts = {"sent": 0, "failed": 0, "skipped": 0}
+        emails_sent = 0
+        bindings = list(queryset)
+        if resend_sent_only:
+            bindings = [
+                binding for binding in bindings
+                if any(
+                    record.service_end_date == binding.service_end_date
+                    and record.status == ServiceExpiryEmailRecord.STATUS_SENT
+                    for record in binding.expiry_email_records.all()
+                )
+            ]
+        if source == ServiceExpiryEmailRecord.SOURCE_MANUAL:
+            delivery_results = []
+            for binding in bindings:
+                record, outcome = send_service_expiry_email(
+                    binding,
+                    source=source,
+                    user=request.user,
+                    force_resend=force_resend,
+                )
+                delivery_results.append((binding, record, outcome))
+                emails_sent += int(outcome == "sent")
+        else:
+            grouped_bindings = {}
+            for binding in bindings:
+                grouped_bindings.setdefault(binding.project.sales_person_id, []).append(binding)
+            delivery_results = []
+            for sales_bindings in grouped_bindings.values():
+                group_results = send_service_expiry_email_group(
+                    sales_bindings,
+                    source=source,
+                    user=request.user,
+                    force_resend=force_resend,
+                )
+                delivery_results.extend(group_results)
+                emails_sent += int(any(outcome == "sent" for _, _, outcome in group_results))
+
+        for binding, record, outcome in delivery_results:
+            counts[outcome] += 1
+            results.append({
+                "project_device_id": binding.id,
+                "outcome": outcome,
+                "error": record.last_error,
+            })
+        return Response({**counts, "emails_sent": emails_sent, "results": results, "email_configured": email_delivery_configured()})
+
+    items = [expiry_email_item(binding) for binding in queryset]
+    search_value = request.query_params.get("search", "").strip().lower()
+    if search_value:
+        search_fields = ("device_name", "device_model", "serial_number", "project_no", "project_name", "customer_name", "sales_name", "sales_email")
+        items = [item for item in items if any(search_value in str(item[field]).lower() for field in search_fields)]
+
+    statistics = {
+        "all": len(items),
+        "pending": sum(item["delivery_status"] == ServiceExpiryEmailRecord.STATUS_PENDING for item in items),
+        "failed": sum(item["delivery_status"] == ServiceExpiryEmailRecord.STATUS_FAILED for item in items),
+        "sent": sum(item["delivery_status"] == ServiceExpiryEmailRecord.STATUS_SENT for item in items),
+    }
+    status_filter = request.query_params.get("status", "").strip()
+    if status_filter:
+        items = [item for item in items if item["delivery_status"] == status_filter]
+
+    page = parse_query_int(request.query_params.get("page")) or 1
+    page_size = min(parse_query_int(request.query_params.get("page_size")) or 10, 100)
+    page = max(page, 1)
+    page_size = max(page_size, 1)
+    count = len(items)
+    total_pages = max(ceil(count / page_size), 1) if count else 1
+    start = (page - 1) * page_size
+    return Response({
+        "count": count,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "results": items[start:start + page_size],
+        "statistics": statistics,
+        "email_configured": email_delivery_configured(),
+        "sender": settings.DEFAULT_FROM_EMAIL if email_delivery_configured() else "",
+    })
+
+
+@api_view(["GET", "PUT"])
+def expiry_email_settings(request):
+    setting = ServiceExpiryEmailSetting.objects.filter(key="default").first()
+    if request.method == "GET":
+        return Response({
+            "cc_emails": setting.cc_emails if setting else [],
+            "can_update": bool(request.user.is_superuser),
+        })
+
+    if not request.user.is_superuser:
+        return Response({"detail": "仅超级管理员可以修改统一抄送配置。"}, status=status.HTTP_403_FORBIDDEN)
+    raw_emails = request.data.get("cc_emails", [])
+    if not isinstance(raw_emails, list):
+        return Response({"detail": "cc_emails 必须是数组。"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(raw_emails) > 50:
+        return Response({"detail": "统一抄送邮箱不能超过 50 个。"}, status=status.HTTP_400_BAD_REQUEST)
+
+    normalized = []
+    seen = set()
+    for raw_email in raw_emails:
+        email = str(raw_email).strip()
+        if not email:
+            continue
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({"detail": f"邮箱格式不正确：{email}"}, status=status.HTTP_400_BAD_REQUEST)
+        key = email.lower()
+        if key not in seen:
+            seen.add(key)
+            normalized.append(email)
+
+    setting, _ = ServiceExpiryEmailSetting.all_objects.update_or_create(
+        key="default",
+        defaults={
+            "cc_emails": normalized,
+            "is_deleted": False,
+            "status": "active",
+            "updated_by": request.user,
+        },
+    )
+    return Response({"cc_emails": setting.cc_emails, "can_update": True})
 
 
 def organization_summary(org):

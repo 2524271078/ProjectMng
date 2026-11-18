@@ -7,7 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 from accounts.views import MenuViewSet, PermissionViewSet, RoleViewSet, UserRoleViewSet, UserViewSet, current_user_view, login_view
 from licensing.views import activate_license_view, license_request_view, license_status_view
-from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, confirm_dashboard_reminder, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, dashboard_overview, dashboard_reminders, DeviceModelViewSet, DeviceOperationRecordViewSet, DeviceServicePlanViewSet, DeviceServiceScheduleViewSet, DeviceViewSet, InspectionTaskViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectContractViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, ServiceStandardTemplateViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
+from projects.views import AttachmentViewSet, attachment_upload, AuditLogViewSet, confirm_dashboard_reminder, ContractDeviceViewSet, ContractPartyViewSet, ContractViewSet, dashboard_overview, dashboard_reminders, DeviceModelViewSet, DeviceOperationRecordViewSet, DeviceServicePlanViewSet, DeviceServiceScheduleViewSet, DeviceViewSet, expiry_email_reminders, expiry_email_settings, InspectionTaskViewSet, OrganizationViewSet, PersonViewSet, ProductLineViewSet, ProductVersionViewSet, ProductViewSet, ProjectContractViewSet, ProjectDeviceViewSet, ProjectViewSet, SalesCustomerRelationViewSet, ServiceStandardTemplateViewSet, contract_overview, customer_overview, device_overview, project_overview, sales_customer_relations, sales_customers
 
 router = DefaultRouter()
 router.register("users", UserViewSet)
@@ -43,7 +43,7 @@ def root_view(request):
         "service": "项目设备管理系统 API",
         "api_base": "/api/",
         "admin": "/admin/",
-        "frontend_dev": "http://127.0.0.1:5173/",
+        "frontend_dev": "http://127.0.0.1:5273/",
     })
 
 urlpatterns = [
@@ -57,6 +57,8 @@ urlpatterns = [
     path("api/dashboard-overview/", dashboard_overview),
     path("api/dashboard-reminders/", dashboard_reminders),
     path("api/dashboard-reminders/confirm/", confirm_dashboard_reminder),
+    path("api/expiry-email-reminders/", expiry_email_reminders),
+    path("api/expiry-email-settings/", expiry_email_settings),
     path("api/sales/<int:pk>/customers/", sales_customers),
     path("api/sales/<int:pk>/customer-relations/", sales_customer_relations),
     path("api/customers/<int:pk>/overview/", customer_overview),

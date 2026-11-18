@@ -357,6 +357,53 @@ class DashboardReminderDismissal(models.Model):
         indexes = [models.Index(fields=["user", "reminder_key"], name="projects_da_user_id_6620ee_idx")]
 
 
+class ServiceExpiryEmailRecord(BaseModel):
+    STATUS_PENDING = "pending"
+    STATUS_SENDING = "sending"
+    STATUS_SENT = "sent"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "待发送"),
+        (STATUS_SENDING, "发送中"),
+        (STATUS_SENT, "已发送"),
+        (STATUS_FAILED, "发送失败"),
+    ]
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+
+    SOURCE_MANUAL = "manual"
+    SOURCE_BATCH = "batch"
+    SOURCE_SCHEDULED = "scheduled"
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, "单条发送"),
+        (SOURCE_BATCH, "一键发送"),
+        (SOURCE_SCHEDULED, "自动发送"),
+    ]
+
+    project_device = models.ForeignKey(ProjectDevice, related_name="expiry_email_records", on_delete=models.PROTECT)
+    service_end_date = models.DateField(db_index=True)
+    recipient_name = models.CharField(max_length=100, blank=True, default="")
+    recipient_email = models.EmailField(blank=True, default="")
+    message_subject = models.CharField(max_length=255, blank=True, default="")
+    sent_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error = models.TextField(blank=True, default="")
+    attempt_count = models.PositiveIntegerField(default=0)
+    trigger_source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
+
+    class Meta(BaseModel.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project_device", "service_end_date"],
+                name="uniq_project_device_service_expiry_email",
+            )
+        ]
+        indexes = [models.Index(fields=["status", "service_end_date"])]
+
+
+class ServiceExpiryEmailSetting(BaseModel):
+    key = models.CharField(max_length=32, unique=True, default="default")
+    cc_emails = models.JSONField(default=list, blank=True)
+
+
 class DeviceOperationRecord(BaseModel):
     TYPE_INSPECTION = "inspection"
     TYPE_SYSTEM_UPGRADE = "system_upgrade"
