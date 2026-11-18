@@ -21,3 +21,11 @@ test('resolveApiBaseUrl 在生产环境默认使用当前来源', () => {
   const result = resolveApiBaseUrl({ DEV: false }, 'http://192.168.1.20:8080')
   assert.equal(result, 'http://192.168.1.20:8080/api')
 })
+
+test('resolveApiBaseUrl 在内网生产环境忽略误带入的本机地址', () => {
+  const result = resolveApiBaseUrl(
+    { DEV: false, VITE_API_BASE_URL: 'http://127.0.0.1:8000/api' },
+    'http://172.18.105.14',
+  )
+  assert.equal(result, 'http://172.18.105.14/api')
+})
