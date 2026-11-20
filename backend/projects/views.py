@@ -18,7 +18,7 @@ from accounts.services import filter_queryset_by_sales_scope, get_user_sales_sco
 from accounts.permissions import MenuActionPermission
 from projects.models import Attachment, AuditLog, Contract, ContractDevice, ContractParty, DashboardReminderDismissal, Device, DeviceModel, DeviceOperationRecord, DeviceServicePlan, DeviceServiceSchedule, InspectionTask, Organization, Person, Product, ProductLine, ProductVersion, Project, ProjectContract, ProjectDevice, SalesCustomerRelation, ServiceExpiryEmailRecord, ServiceExpiryEmailSetting, ServiceStandardTemplate
 from projects.serializers import AttachmentSerializer, AuditLogSerializer, ContractDeviceSerializer, ContractPartySerializer, ContractSerializer, DeviceModelSerializer, DeviceOperationRecordSerializer, DeviceSerializer, DeviceServicePlanSerializer, DeviceServiceScheduleSerializer, InspectionTaskSerializer, OrganizationSerializer, PersonSerializer, ProductSerializer, ProductLineSerializer, ProductVersionSerializer, ProjectSerializer, ProjectContractSerializer, ProjectDeviceSerializer, SalesCustomerRelationSerializer, ServiceStandardTemplateSerializer
-from projects.services import email_delivery_configured, refresh_inspection_task_statuses, send_service_expiry_email, send_service_expiry_email_group, service_expiry_bindings
+from projects.services import email_delivery_configured, encrypt_email_password, get_service_expiry_email_config, refresh_inspection_task_statuses, send_service_expiry_email, send_service_expiry_email_group, service_expiry_bindings
 
 
 class SoftDeleteModelViewSet(viewsets.ModelViewSet):
@@ -1118,16 +1118,20 @@ def expiry_email_reminders(request):
         "results": items[start:start + page_size],
         "statistics": statistics,
         "email_configured": email_delivery_configured(),
-        "sender": settings.DEFAULT_FROM_EMAIL if email_delivery_configured() else "",
+        "sender": get_service_expiry_email_config()["default_from_email"] if email_delivery_configured() else "",
     })
 
 
 @api_view(["GET", "PUT"])
 def expiry_email_settings(request):
     setting = ServiceExpiryEmailSetting.objects.filter(key="default").first()
+    email_config = get_service_expiry_email_config()
     if request.method == "GET":
         return Response({
             "cc_emails": setting.cc_emails if setting else [],
+            "email_host_user": email_config["email_host_user"],
+            "default_from_email": email_config["default_from_email"],
+            "email_host_password_set": bool(email_config["email_host_password"]),
             "can_update": bool(request.user.is_superuser),
         })
 
@@ -1154,16 +1158,39 @@ def expiry_email_settings(request):
             seen.add(key)
             normalized.append(email)
 
+    email_host_user = str(request.data.get("email_host_user", "")).strip()
+    default_from_email = str(request.data.get("default_from_email", "")).strip()
+    for field_label, email in (("SMTP 登录账号", email_host_user), ("默认发件邮箱", default_from_email)):
+        if not email:
+            continue
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({"detail": f"{field_label}格式不正确：{email}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    defaults = {
+        "cc_emails": normalized,
+        "email_host_user": email_host_user,
+        "default_from_email": default_from_email or email_host_user,
+        "is_deleted": False,
+        "status": "active",
+        "updated_by": request.user,
+    }
+    email_host_password = request.data.get("email_host_password")
+    if email_host_password is not None and str(email_host_password):
+        defaults["email_host_password"] = encrypt_email_password(str(email_host_password))
+
     setting, _ = ServiceExpiryEmailSetting.all_objects.update_or_create(
         key="default",
-        defaults={
-            "cc_emails": normalized,
-            "is_deleted": False,
-            "status": "active",
-            "updated_by": request.user,
-        },
+        defaults=defaults,
     )
-    return Response({"cc_emails": setting.cc_emails, "can_update": True})
+    return Response({
+        "cc_emails": setting.cc_emails,
+        "email_host_user": setting.email_host_user,
+        "default_from_email": setting.default_from_email,
+        "email_host_password_set": bool(setting.email_host_password or getattr(settings, "EMAIL_HOST_PASSWORD", "")),
+        "can_update": True,
+    })
 
 
 def organization_summary(org):

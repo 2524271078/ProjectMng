@@ -71,8 +71,8 @@ export function fetchExpiryEmailSettings() {
   return apiClient.get('/expiry-email-settings/')
 }
 
-export function saveExpiryEmailSettings(ccEmails) {
-  return apiClient.put('/expiry-email-settings/', { cc_emails: ccEmails })
+export function saveExpiryEmailSettings(payload) {
+  return apiClient.put('/expiry-email-settings/', payload)
 }
 
 export function fetchLicenseStatus() {

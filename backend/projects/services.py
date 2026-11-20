@@ -1,10 +1,13 @@
 from calendar import monthrange
+import base64
 from datetime import timedelta
+import hashlib
 from io import BytesIO
 import re
 
+from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, get_connection
 from django.db import transaction
 from django.db.models import OuterRef, Subquery
 from django.utils import timezone
@@ -13,6 +16,27 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from projects.models import DeviceServiceSchedule, InspectionTask, ProjectDevice, ServiceExpiryEmailRecord, ServiceExpiryEmailSetting, ServiceStandardTemplate
+
+
+EMAIL_PASSWORD_PREFIX = "fernet:"
+
+
+def encrypt_email_password(password):
+    if not password:
+        return ""
+    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
+    token = Fernet(key).encrypt(str(password).encode("utf-8")).decode("ascii")
+    return f"{EMAIL_PASSWORD_PREFIX}{token}"
+
+
+def decrypt_email_password(password):
+    if not password or not password.startswith(EMAIL_PASSWORD_PREFIX):
+        return password or ""
+    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
+    try:
+        return Fernet(key).decrypt(password[len(EMAIL_PASSWORD_PREFIX):].encode("ascii")).decode("utf-8")
+    except (InvalidToken, ValueError):
+        return ""
 
 
 def add_months(value, months):
@@ -110,10 +134,20 @@ def service_expiry_bindings(today=None):
     ).exclude(service_type=ProjectDevice.SERVICE_OFFLINE).order_by("service_end_date", "id")
 
 
+def get_service_expiry_email_config():
+    setting = ServiceExpiryEmailSetting.objects.filter(key="default").first()
+    return {
+        "email_host_user": (setting.email_host_user if setting else "") or getattr(settings, "EMAIL_HOST_USER", ""),
+        "email_host_password": decrypt_email_password(setting.email_host_password if setting else "") or getattr(settings, "EMAIL_HOST_PASSWORD", ""),
+        "default_from_email": (setting.default_from_email if setting else "") or getattr(settings, "DEFAULT_FROM_EMAIL", ""),
+    }
+
+
 def email_delivery_configured():
     backend = getattr(settings, "EMAIL_BACKEND", "")
     if backend.endswith("smtp.EmailBackend"):
-        return bool(getattr(settings, "EMAIL_HOST_USER", "") and getattr(settings, "EMAIL_HOST_PASSWORD", ""))
+        config = get_service_expiry_email_config()
+        return bool(config["email_host_user"] and config["email_host_password"])
     return bool(backend)
 
 
@@ -157,7 +191,7 @@ def build_service_expiry_email_content(bindings):
         "",
         "具体设备及维保到期信息请查看邮件附件《维保到期设备清单》。",
         "",
-        "此邮件由交付中台自动发送，请勿直接回复。",
+        "此邮件由交付管理平台发送，如有问题，请联系电力能源交付部杨俊。",
     ])
     return "\n".join(lines)
 
@@ -245,15 +279,26 @@ def build_service_expiry_workbook(bindings):
 
 def send_service_expiry_message(subject, content, recipient_email, bindings):
     bindings = list(bindings)
+    email_config = get_service_expiry_email_config()
     sales = bindings[0].project.sales_person if bindings else None
     safe_sales_name = re.sub(r'[\\/:*?"<>|]+', "_", sales.name if sales else "未绑定销售")
     filename = f"维保到期设备清单-{safe_sales_name}-{timezone.localdate():%Y%m%d}.xlsx"
     message = EmailMessage(
         subject=subject,
         body=content,
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=email_config["default_from_email"] or email_config["email_host_user"],
         to=[recipient_email],
         cc=get_service_expiry_cc_emails(recipient_email),
+        connection=get_connection(
+            backend=getattr(settings, "EMAIL_BACKEND", None),
+            host=getattr(settings, "EMAIL_HOST", None),
+            port=getattr(settings, "EMAIL_PORT", None),
+            username=email_config["email_host_user"],
+            password=email_config["email_host_password"],
+            use_tls=getattr(settings, "EMAIL_USE_TLS", False),
+            use_ssl=getattr(settings, "EMAIL_USE_SSL", False),
+            timeout=getattr(settings, "EMAIL_TIMEOUT", None),
+        ),
     )
     message.attach(
         filename,

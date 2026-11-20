@@ -42,7 +42,7 @@
       <div class="action-row">
         <el-button @click="search">查询</el-button>
         <el-button @click="resetFilters">重置</el-button>
-        <el-button v-if="canUpdateSettings" @click="openCcSettings">统一抄送配置</el-button>
+        <el-button v-if="canUpdateSettings" @click="openCcSettings">邮件配置</el-button>
         <el-button type="primary" :loading="batchSending" :disabled="!emailConfigured || !sendableCount" @click="sendAll">
           一键汇总发送（{{ sendableCount }} 台设备）
         </el-button>
@@ -123,15 +123,30 @@
       />
     </div>
 
-    <el-dialog v-model="ccDialogVisible" title="统一抄送配置" width="560px">
+    <el-dialog v-model="ccDialogVisible" title="邮件配置" width="560px">
       <el-alert
-        title="所有维保提醒邮件都会在发送给负责销售的同时，抄送到以下邮箱。输入邮箱后按回车添加。"
+        title="SMTP 登录账号用于服务器认证；默认发件邮箱是收件人看到的发件地址，通常与登录账号一致。所有提醒邮件会同时抄送到下方邮箱。"
         type="info"
         :closable="false"
         show-icon
         class="mb-16"
       />
       <el-form label-position="top">
+        <el-form-item label="SMTP 登录账号">
+          <el-input v-model="emailHostUser" placeholder="例如：name@example.com" autocomplete="username" />
+        </el-form-item>
+        <el-form-item label="SMTP 授权码/密码">
+          <el-input
+            v-model="emailHostPassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            :placeholder="emailHostPasswordSet ? '已配置；留空则保持不变' : '请输入 SMTP 授权码或密码'"
+          />
+        </el-form-item>
+        <el-form-item label="默认发件邮箱">
+          <el-input v-model="defaultFromEmail" placeholder="留空时与 SMTP 登录账号一致" />
+        </el-form-item>
         <el-form-item label="统一抄送邮箱">
           <el-select
             v-model="ccForm"
@@ -170,6 +185,10 @@ const canUpdateSettings = ref(false)
 const ccDialogVisible = ref(false)
 const ccSaving = ref(false)
 const ccForm = ref([])
+const emailHostUser = ref('')
+const emailHostPassword = ref('')
+const emailHostPasswordSet = ref(false)
+const defaultFromEmail = ref('')
 const statistics = reactive({ all: 0, pending: 0, failed: 0, sent: 0 })
 const filters = reactive({ status: '', search: '' })
 const pagination = reactive({ page: 1, pageSize: 10, total: 0 })
@@ -218,26 +237,40 @@ async function loadSettings() {
   try {
     const { data } = await fetchExpiryEmailSettings()
     ccEmails.value = data.cc_emails || []
+    emailHostUser.value = data.email_host_user || ''
+    emailHostPasswordSet.value = Boolean(data.email_host_password_set)
+    defaultFromEmail.value = data.default_from_email || ''
     canUpdateSettings.value = Boolean(data.can_update)
   } catch (error) {
-    ElMessage.error(formatApiError(error, '加载统一抄送配置失败'))
+    ElMessage.error(formatApiError(error, '加载邮件配置失败'))
   }
 }
 
 function openCcSettings() {
   ccForm.value = [...ccEmails.value]
+  emailHostPassword.value = ''
   ccDialogVisible.value = true
 }
 
 async function saveCcSettings() {
   ccSaving.value = true
   try {
-    const { data } = await saveExpiryEmailSettings(ccForm.value)
+    const payload = {
+      cc_emails: ccForm.value,
+      email_host_user: emailHostUser.value.trim(),
+      default_from_email: defaultFromEmail.value.trim(),
+    }
+    if (emailHostPassword.value) payload.email_host_password = emailHostPassword.value
+    const { data } = await saveExpiryEmailSettings(payload)
     ccEmails.value = data.cc_emails || []
+    emailHostUser.value = data.email_host_user || ''
+    emailHostPasswordSet.value = Boolean(data.email_host_password_set)
+    defaultFromEmail.value = data.default_from_email || ''
+    emailHostPassword.value = ''
     ccDialogVisible.value = false
-    ElMessage.success('统一抄送配置已保存')
+    ElMessage.success('邮件配置已保存')
   } catch (error) {
-    ElMessage.error(formatApiError(error, '保存统一抄送配置失败'))
+    ElMessage.error(formatApiError(error, '保存邮件配置失败'))
   } finally {
     ccSaving.value = false
   }

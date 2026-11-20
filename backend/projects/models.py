@@ -402,6 +402,9 @@ class ServiceExpiryEmailRecord(BaseModel):
 class ServiceExpiryEmailSetting(BaseModel):
     key = models.CharField(max_length=32, unique=True, default="default")
     cc_emails = models.JSONField(default=list, blank=True)
+    email_host_user = models.CharField(max_length=254, blank=True, default="")
+    email_host_password = models.CharField(max_length=512, blank=True, default="")
+    default_from_email = models.CharField(max_length=254, blank=True, default="")
 
 
 class DeviceOperationRecord(BaseModel):
